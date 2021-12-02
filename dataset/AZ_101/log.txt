@@ -1,0 +1,214 @@
+_____________
+Step 1: Reading input data
+_____________
+Step 1.1: Reading section [demand_period] in setting.csv...
+cumulative profile ratio at slot  24 = 0.220244
+cumulative profile ratio at slot  25 = 0.4388
+cumulative profile ratio at slot  26 = 0.697108
+cumulative profile ratio at slot  27 = 1
+final cumulative profile ratio1
+number of demand periods = 1
+Step 1.2: Reading section [link_type] in setting.csv...
+important: traffic_flow_code on link type 1 is 0
+important: traffic_flow_code on link type 3 is 0
+important: traffic_flow_code on link type 4 is 0
+important: traffic_flow_code on link type 5 is 0
+important: traffic_flow_code on link type 6 is 0
+important: traffic_flow_code on link type 11 is 0
+number of link types = 7
+Step 1.3: Reading section [agent_type] in setting.csv...
+number of agent typess = 5
+Step 1.4: Reading node data in node.csv...
+reading 5000 nodes.. 
+reading 10000 nodes.. 
+reading 15000 nodes.. 
+reading 20000 nodes.. 
+reading 25000 nodes.. 
+number of nodes = 28858
+number of zones = 4
+number of info zones = 0
+Step QEM mode for creating node 2 zone mapping
+Step 1.4.2: Grid Resolution 0.005
+Step 1.5: Initializing O-D zone vector...
+adding 0info zones 
+number of zones = 4
+Step 1.6: Reading link data in link.csv... 
+reading 10000 links.. 
+reading 20000 links.. 
+reading 30000 links.. 
+reading 40000 links.. 
+reading 50000 links.. 
+number of links = 59341
+number of links =59479
+Step XX: Reading movement.csv data with 0 prohibited records.
+Step 2.0: Reading scenario data...
+Step 1.8: Reading file section [demand_file_list] in setting.csv...
+reading 1 capacity reduction scenario.. 
+reading 2 capacity reduction scenario.. 
+reading 3 capacity reduction scenario.. 
+reading 4 capacity reduction scenario.. 
+reading 5 capacity reduction scenario.. 
+reading 6 capacity reduction scenario.. 
+reading 7 capacity reduction scenario.. 
+reading 8 capacity reduction scenario.. 
+reading 9 capacity reduction scenario.. 
+reading 10 capacity reduction scenario.. 
+reading 11 capacity reduction scenario.. 
+reading 12 capacity reduction scenario.. 
+reading 13 capacity reduction scenario.. 
+reading 14 capacity reduction scenario.. 
+reading 15 capacity reduction scenario.. 
+reading 16 capacity reduction scenario.. 
+reading 17 capacity reduction scenario.. 
+reading 18 capacity reduction scenario.. 
+reading 19 capacity reduction scenario.. 
+reading 20 capacity reduction scenario.. 
+reading 21 capacity reduction scenario.. 
+reading 22 capacity reduction scenario.. 
+reading 23 capacity reduction scenario.. 
+reading 24 capacity reduction scenario.. 
+reading 25 capacity reduction scenario.. 
+reading 26 capacity reduction scenario.. 
+reading 27 capacity reduction scenario.. 
+reading 28 capacity reduction scenario.. 
+reading 29 capacity reduction scenario.. 
+reading 30 capacity reduction scenario.. 
+reading 31 capacity reduction scenario.. 
+reading 32 capacity reduction scenario.. 
+reading 33 capacity reduction scenario.. 
+reading 34 capacity reduction scenario.. 
+reading 35 capacity reduction scenario.. 
+reading 36 capacity reduction scenario.. 
+reading 37 capacity reduction scenario.. 
+reading 38 capacity reduction scenario.. 
+reading 39 capacity reduction scenario.. 
+reading 40 capacity reduction scenario.. 
+reading 41 capacity reduction scenario.. 
+reading 42 capacity reduction scenario.. 
+reading 43 capacity reduction scenario.. 
+reading 44 capacity reduction scenario.. 
+reading 45 capacity reduction scenario.. 
+reading 46 capacity reduction scenario.. 
+reading 47 capacity reduction scenario.. 
+reading 48 capacity reduction scenario.. 
+reading 49 capacity reduction scenario.. 
+reading 50 capacity reduction scenario.. 
+reading 51 capacity reduction scenario.. 
+reading 52 capacity reduction scenario.. 
+reading 53 capacity reduction scenario.. 
+reading 54 capacity reduction scenario.. 
+reading 55 capacity reduction scenario.. 
+reading 56 capacity reduction scenario.. 
+reading 57 capacity reduction scenario.. 
+reading 58 capacity reduction scenario.. 
+reading 59 capacity reduction scenario.. 
+reading 60 capacity reduction scenario.. 
+reading 61 capacity reduction scenario.. 
+reading 62 capacity reduction scenario.. 
+reading 63 capacity reduction scenario.. 
+number of timing records = 63
+
+allocating 4D memory for 0 zones
+
+Step 1.8: Reading file section [demand_file_list] in setting.csv...
+o_zone_id:1, d_zone_id: 1, value = 0
+o_zone_id:1, d_zone_id: 2, value = 1000
+o_zone_id:1, d_zone_id: 3, value = 1000
+o_zone_id:1, d_zone_id: 4, value = 5000
+o_zone_id:2, d_zone_id: 1, value = 1000
+o_zone_id:2, d_zone_id: 2, value = 0
+total demand volume is 19000
+crtical demand volume has 12 OD pairs in size,19000, , account for 100%%
+crtical OD zones volume has 12 OD pairs in size,19000, , account for 100%%
+o_zone 0, demand=,7000
+o_zone 1, demand=,3000
+o_zone 2, demand=,3000
+o_zone 3, demand=,6000
+There are  4 zones with positive demand
+o_zone_id:1, d_zone_id: 1, value = 0
+o_zone_id:1, d_zone_id: 2, value = 50
+o_zone_id:1, d_zone_id: 3, value = 50
+o_zone_id:1, d_zone_id: 4, value = 250
+o_zone_id:2, d_zone_id: 1, value = 50
+o_zone_id:2, d_zone_id: 2, value = 0
+total demand volume is 19950
+crtical demand volume has 12 OD pairs in size,950, , account for 4.7619%%
+crtical OD zones volume has 12 OD pairs in size,950, , account for 4.7619%%
+o_zone 0, demand=,7350
+o_zone 1, demand=,3150
+o_zone 2, demand=,3150
+o_zone 3, demand=,6300
+There are  4 zones with positive demand
+o_zone_id:1, d_zone_id: 1, value = 0
+o_zone_id:1, d_zone_id: 2, value = 50
+o_zone_id:1, d_zone_id: 3, value = 50
+o_zone_id:1, d_zone_id: 4, value = 250
+o_zone_id:2, d_zone_id: 1, value = 50
+o_zone_id:2, d_zone_id: 2, value = 0
+total demand volume is 20900
+crtical demand volume has 12 OD pairs in size,950, , account for 4.54545%%
+crtical OD zones volume has 12 OD pairs in size,950, , account for 4.54545%%
+o_zone 0, demand=,7700
+o_zone 1, demand=,3300
+o_zone 2, demand=,3300
+o_zone 3, demand=,6600
+There are  4 zones with positive demand
+Step 2: Assigning computing tasks to memory blocks...
+There are 20 SP networks in memory.
+There are 0 RTSP networks in memory.
+There are 20 zones to be computed in CPU.
+
+Step 3: Column Generation for Traffic Assignment...
+Total Column Generation iteration: 4
+
+Current iteration number:0
+Current CPU time: 0.001 s
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+iteration: 0,systemTT: 0, least system TT:111283,gap=-1
+
+Current iteration number:1
+Current CPU time: 0.094 s
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+iteration: 1,systemTT: 0, least system TT:111283,gap=-1
+
+Current iteration number:2
+Current CPU time: 0.13 s
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+iteration: 2,systemTT: 1.27679e+06, least system TT:120682,gap=9.57974
+
+Current iteration number:3
+Current CPU time: 0.309 s
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+iteration: 3,systemTT: 1.27679e+06, least system TT:120682,gap=9.57974
+
+Step 4: Column Pool Updating
+Total Column Pool Updating iteration: 0
+
+Step 5: Simulation for traffic assignment..
+LoadingStartTimeInMin = 360
+g_LoadingStartTimeInMin = 420
+number_of_simulation_intervals = 28802
+number_of_simu intervals in sec = 7200
+allocate 2D dynamic memory LinkOutFlowCapacity...
+allocate 2D dynamic memory m_LinkCumulativeArrivalVector...
+allocate 2D dynamic memory m_LinkCumulativeDepartureVector...
+allocate 2D dynamic memory m_LinkTDWaitingTime...
+initializing time dependent capacity data...
+signal timing data: link: cycle_length = -1,start_green_time = -1,end_green_time = -1
+signal timing data: link: cycle_length = -1,start_green_time = -1,end_green_time = -1
