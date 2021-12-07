@@ -1,0 +1,544 @@
+LoadingStartTimeInMin = 360
+g_LoadingStartTimeInMin = 600
+number_of_simulation_intervals = 57842
+number_of_simu intervals in sec = 14460
+allocate 2D dynamic memory LinkOutFlowCapacity...
+allocate 2D dynamic memory m_LinkCumulativeArrivalVector...
+allocate 2D dynamic memory m_LinkCumulativeDepartureVector...
+allocate 2D dynamic memory m_LinkTDWaitingTime...
+initializing time dependent capacity data...
+signal timing data: link: cycle_length = 100,start_green_time = 40,end_green_time = 45
+signal timing data: link: cycle_length = 100,start_green_time = 0,end_green_time = 40
+signal timing data: link: cycle_length = 100,start_green_time = 0,end_green_time = 40
+signal timing data: link: cycle_length = 100,start_green_time = 45,end_green_time = 50
+signal timing data: link: cycle_length = 100,start_green_time = 0,end_green_time = 40
+signal timing data: link: cycle_length = 100,start_green_time = 0,end_green_time = 40
+signal timing data: link: cycle_length = 100,start_green_time = 90,end_green_time = 95
+signal timing data: link: cycle_length = 100,start_green_time = 50,end_green_time = 90
+signal timing data: link: cycle_length = 100,start_green_time = 50,end_green_time = 90
+signal timing data: link: cycle_length = 100,start_green_time = 95,end_green_time = 100
+signal timing data: link: cycle_length = 100,start_green_time = 50,end_green_time = 90
+signal timing data: link: cycle_length = 100,start_green_time = 50,end_green_time = 90
+End of initializing time dependent capacity data.
+generating 0 K agents for 0  zones 
+number of simulation zones:9
+simu time= 0 min, CA = 0 CD=0, speed=60, travel time = 0
+simu time= 10 min, CA = 494 CD=33, speed=89.3509, travel time = 6.23163
+simu time= 20 min, CA = 962 CD=193, speed=81.2606, travel time = 9.19866
+simu time= 30 min, CA = 1477 CD=353, speed=72.2392, travel time = 10.6436
+simu time= 40 min, CA = 2086 CD=856, speed=31.4335, travel time = 18.7734
+simu time= 50 min, CA = 2737 CD=1468, speed=26.9388, travel time = 19.512
+simu time= 60 min, CA = 3433 CD=2079, speed=27.1232, travel time = 18.3952
+simu time= 70 min, CA = 4224 CD=2696, speed=28.3627, travel time = 17.0778
+simu time= 80 min, CA = 5001 CD=3306, speed=27.7299, travel time = 17.1328
+simu time= 90 min, CA = 5819 CD=3918, speed=27.2069, travel time = 17.2084
+simu time= 100 min, CA = 6679 CD=4531, speed=27.5292, travel time = 16.8435
+simu time= 110 min, CA = 7545 CD=5138, speed=27.7992, travel time = 16.5473
+simu time= 120 min, CA = 8454 CD=5747, speed=27.8552, travel time = 16.4092
+simu time= 130 min, CA = 9374 CD=6319, speed=27.7068, travel time = 16.4251
+simu time= 140 min, CA = 10283 CD=6931, speed=27.3863, travel time = 16.5464
+simu time= 150 min, CA = 11167 CD=7537, speed=26.9365, travel time = 16.7691
+simu time= 160 min, CA = 11959 CD=8134, speed=26.4155, travel time = 17.0507
+simu time= 170 min, CA = 12769 CD=8688, speed=25.7936, travel time = 17.4559
+simu time= 180 min, CA = 13571 CD=9244, speed=25.1375, travel time = 17.9101
+simu time= 190 min, CA = 14286 CD=9801, speed=24.5137, travel time = 18.3542
+simu time= 200 min, CA = 14996 CD=10292, speed=23.7975, travel time = 18.9341
+simu time= 210 min, CA = 15660 CD=10802, speed=23.1726, travel time = 19.4479
+simu time= 220 min, CA = 16362 CD=11282, speed=22.4951, travel time = 20.0634
+simu time= 230 min, CA = 17034 CD=11759, speed=21.8004, travel time = 20.742
+simu time= 240 min, CA = 17700 CD=12214, speed=21.1397, travel time = 21.4351
+ of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22374->22379 has a lr price of 999 for agent type info at demand period AM
+link 22374->22379 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22378->22383 has a lr price of 999 for agent type info at demand period AM
+link 22378->22383 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22382->22387 has a lr price of 999 for agent type info at demand period AM
+link 22382->22387 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22727->22371 has a lr price of 999 for agent type info at demand period AM
+link 22727->22371 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22371->22375 has a lr price of 999 for agent type info at demand period AM
+link 22371->22375 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22375->22379 has a lr price of 999 for agent type info at demand period AM
+link 22375->22379 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22379->22383 has a lr price of 999 for agent type info at demand period AM
+link 22379->22383 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22383->22387 has a lr price of 999 for agent type info at demand period AM
+link 22383->22387 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22359->22728 has a lr price of 999 for agent type info at demand period AM
+link 22359->22728 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22727->22372 has a lr price of 999 for agent type info at demand period AM
+link 22727->22372 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22371->22376 has a lr price of 999 for agent type info at demand period AM
+link 22371->22376 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22375->22380 has a lr price of 999 for agent type info at demand period AM
+link 22375->22380 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22379->22384 has a lr price of 999 for agent type info at demand period AM
+link 22379->22384 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22383->22388 has a lr price of 999 for agent type info at demand period AM
+link 22383->22388 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22727->22370 has a lr price of 999 for agent type info at demand period AM
+link 22727->22370 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22371->22374 has a lr price of 999 for agent type info at demand period AM
+link 22371->22374 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22375->22378 has a lr price of 999 for agent type info at demand period AM
+link 22375->22378 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22379->22382 has a lr price of 999 for agent type info at demand period AM
+link 22379->22382 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22383->22386 has a lr price of 999 for agent type info at demand period AM
+link 22383->22386 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22360->22728 has a lr price of 999 for agent type info at demand period AM
+link 22360->22728 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22728->22372 has a lr price of 999 for agent type info at demand period AM
+link 22728->22372 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22372->22376 has a lr price of 999 for agent type info at demand period AM
+link 22372->22376 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22376->22380 has a lr price of 999 for agent type info at demand period AM
+link 22376->22380 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22380->22384 has a lr price of 999 for agent type info at demand period AM
+link 22380->22384 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22384->22388 has a lr price of 999 for agent type info at demand period AM
+link 22384->22388 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22360->22729 has a lr price of 999 for agent type info at demand period AM
+link 22360->22729 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22728->22373 has a lr price of 999 for agent type info at demand period AM
+link 22728->22373 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22372->22377 has a lr price of 999 for agent type info at demand period AM
+link 22372->22377 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22376->22381 has a lr price of 999 for agent type info at demand period AM
+link 22376->22381 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22380->22385 has a lr price of 999 for agent type info at demand period AM
+link 22380->22385 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22384->22389 has a lr price of 999 for agent type info at demand period AM
+link 22384->22389 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22728->22371 has a lr price of 999 for agent type info at demand period AM
+link 22728->22371 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22372->22375 has a lr price of 999 for agent type info at demand period AM
+link 22372->22375 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22376->22379 has a lr price of 999 for agent type info at demand period AM
+link 22376->22379 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22380->22383 has a lr price of 999 for agent type info at demand period AM
+link 22380->22383 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22384->22387 has a lr price of 999 for agent type info at demand period AM
+link 22384->22387 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22361->22729 has a lr price of 999 for agent type info at demand period AM
+link 22361->22729 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22729->22373 has a lr price of 999 for agent type info at demand period AM
+link 22729->22373 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22373->22377 has a lr price of 999 for agent type info at demand period AM
+link 22373->22377 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22377->22381 has a lr price of 999 for agent type info at demand period AM
+link 22377->22381 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22381->22385 has a lr price of 999 for agent type info at demand period AM
+link 22381->22385 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22385->22389 has a lr price of 999 for agent type info at demand period AM
+link 22385->22389 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22361->22728 has a lr price of 999 for agent type info at demand period AM
+link 22361->22728 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22729->22372 has a lr price of 999 for agent type info at demand period AM
+link 22729->22372 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22373->22376 has a lr price of 999 for agent type info at demand period AM
+link 22373->22376 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22377->22380 has a lr price of 999 for agent type info at demand period AM
+link 22377->22380 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22381->22384 has a lr price of 999 for agent type info at demand period AM
+link 22381->22384 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+link 22385->22388 has a lr price of 999 for agent type info at demand period AM
+link 22385->22388 has a lr RT price of 9999 for agent type vms at demand period AM
+reading 0 capacity reduction scenario.. 
+number of timing records = 0
+
+allocating 4D memory for 0 zones,nX=9,nY=4,nZ=1
+
+Step 1.8: Reading file section [demand_file_list] in setting.csv...
+
+VIODP  o,d,volume,geometry
+o_zone_id:1, d_zone_id: 2, value = 7200
+o_zone_id:1, d_zone_id: 3, value = 100
+o_zone_id:3, d_zone_id: 4, value = 100
+o_zone_id:4, d_zone_id: 2, value = 100
+total demand volume is 7500
+crtical demand volume has 4 OD pairs in size,7500, , account for 100%%
+crtical OD zones volume has 4 OD pairs in size,7500, , account for 100%%
+There are  0 zones with positive demand
+
+VIODP  o,d,volume,geometry
+o_zone_id:1, d_zone_id: 2, value = 1000
+total demand volume is 8500
+crtical demand volume has 1 OD pairs in size,1000, , account for 11.7647%%
+crtical OD zones volume has 1 OD pairs in size,1000, , account for 11.7647%%
+There are  0 zones with positive demand
+
+VIODP  o,d,volume,geometry
+o_zone_id:1, d_zone_id: 2, value = 1000
+total demand volume is 9500
+crtical demand volume has 1 OD pairs in size,1000, , account for 10.5263%%
+crtical OD zones volume has 1 OD pairs in size,1000, , account for 10.5263%%
+There are  0 zones with positive demand
+Step 2: Assigning computing tasks to memory blocks...
+There are 16 SP networks in memory.
+There are 0 RTSP networks in memory.
+There are 36 agent type*zones to be computed in CPU.
+
+Step 3: Column Generation for Traffic Assignment...
+Total Column Generation iteration: 1
+
+Current iteration number:0
+Current CPU time: 0.001 s
+label correcting for zone 0 in processor 0
+label correcting for zone 0 in processor 0
+lliinnkk  441l00i31 0n0hk3  4h10a0s3 a shaa  lsa  ral rl rR TR Tp  pRrriicce eo ofT f9 999999  9pf ofro rairg ecnet  otfyp a9e9 9v9m sg eafto rdnetm a nad gpeetryipode  =v0m
+s naltitn k  dt4y1p004 eheam sv masa nldr   pRearti dTeo dprmi acned=  0o
+f p9l9i9e9r nifoodkr   a=g4e10n0t0 
+ty4p lhea siv masn ka tl  rd e4m1aRnTd  p0rp0e4ir ihcaoesd  o= 0a
+ lfrl i9n kR T4919090 5p  hfaosr iac rl ear  oRfTg  p9reincte  toyf9 9999 9f9o rf oarp eaggee nvtm ntytpse   vtmysp ea tv dmemsa anadtt  pdeermia onddd  =p0e
+maenrldi inpke o4d1r0i 0=60o
+ hda lsi an kl r= 0R
+41T0 lpi0nr5i chea so fk  9a9 94l19r  fRo0r0 5Ta gpern ti cthyepaes  vam sl ra t  odReTm apnrdi cpfe er ioofd  9=909
+9999l ifn9k  o4rf 1o0r0a7  ahgagse ean tlnrt  Rt yTp lpertiyc ev poefm s9 9v9 mas9bate ld ecmo a nrdr epcetaifnrogr  iaogd f=e0ntt  dteympaeo rv nzdm sp eart
+ doeinoemladn d = 0i0n ki n41p0e
+ri0o6d  h aplriso=c0e san 
+lr sRoTr  p0r
+k l4i1nikc 041e2 0o2f  h9a9s0 9a9 6l rf  RohTa sp rai lrrc e  aRogfent  t9T9 9p9r ifyopcre ea gve notm stfy p ea tv9m sd emaatn dd9e9m9a n df ppeeriroodr i=o0d
+ = 0l
+inakl g4en1t2 it0yn3pk eh a s4 1a0 0v7lmrs  Rh Ta apstr iac e  olfr d9e9 9m9a RfTo rp rniadg epnetrci et yopde  ovfm s9 9at= 0d
+em9alnid9  pnerfiko do 4=10r
+00 7l iangkeln t4 1t2y0i4nhkp ea4 1hsa sv m s0 0a3t haas  lar  lar R  TldReTm ra  RpprriiTc ep roincdef  o9c9ef  9o9f 99 99999f9o rf opr  aaggeeenrti  tondfty ptey oprv masg eantt  = 0e
+ty pdee mvvmlsa nmds  paeirnakt  4d1eimoad2 0=2n0t
+ dde mpae rliiohdn n=d0 
+ask pal ilnr  4R1T2e0r5i kh ao4d1s   =par 0l
+r iRcTel i np0r0ik4o fh a4sc ea  1o fl9r9 2R0 29T9 9p9r9i cf9o  fhoarr  aaggeen to ft y9peen 9vsm sa9 9l rf oRtT  apt  tdemraynpd  rpiacegeeri oed v n=t0m
+of  s9l 9t9iy9np ef ovamtk  r4 dasgeem1a nndta t  p2e0d6etmyap nhraisdo dp e= e0 
+vmasr la iliro tR nkd T4d1e2m03  h =anad 0s
+pp riecael ionfr i ol9dk9 r4 19 0R0T5  9p= r0ihce asf oor
+ afgae  llrn 9R9tT9 9i  fpnrko ri4t1y2p 0ea g3ecnve  thmas  toayts f  ap9 d9lerm9aen d9  pvemRrT sfi  aot pdreo dam greant nt=yipde0c v
+ms  ea tp edoelmifarnid  npko d4 1=4e09
+li9n9kr i4910 210o4d  =f0 
+orh haalsi nag lernta kt y4p10s ae  vRmTs  0a t 6dprliceer  omanRT price odff  9 99h9  afpo99s9 9ar  la feorrrg eang eRnt ioTdt t=y0p et y
+ vlpem svi parti cdmesme  aonfa t9 9d9e9m ak n4d1 2f0n4d  hpaesp ear ilrri oRdT o=0d
+ proir  a=g0e
+cnelilnitn kt y pokf  414210450 e2h av s9 9ah9m9  lars  RasTf oar t l pdreimcaern do  pRfe  9a9g9T pernitc et yopfe  9v9m9s9r  f9a ifoodr  oarg =a0t
+glenet  dtnytpeei nmv mtsy kp ea avn4dm st 1a0t0 7d  hpaesmdaen de rpieordi o=d0 m=a0
+
+ndl ap llirn ki e4R1n4r0T3  phraisk iac  l4re oRdT  12 0o=fp r0959i9c9e  fo
+f  9h9aosl iar 9lnr  9RkT  4p1r2i0c ef 6oafg  9e9o9r9n tf oar haggeenn tt ttayyp et pvsmyse  aat  vdm slpre  RaTt  pdreem vimmcse  aaonfdt a pnd e9dme 9rpie9oadr 9i nfdo =d0
+ =p0oelrr iaogde n=t
+0
+ tiylnilnikn pke 441 2v01m24s kh0a sa4t   ha a4s1 2a0 6 llr rhdae m aRsT n Rdpa  Tl rri cReT  opfp perriicrei co9d9 e9o9f  fo=r0 
+ag eonft  99tl99iyn9p99ek  9f ofr o rav m4s1a4gg0e1netn tt  y htapyapsee  vvmmts  sa ta  td edmedmaaann de mpaelnrdiro  Rd dppeer iTord=  0ip
+=o0rd
+liin cl=ik0e
+nk   4lo1if4n21 0k94930 1949 1h4a 0sf5o rh  ahags a  al alsr ra   RelTn trp Rr itTcyRe Tpp epr  vrmiscieoc  ea tf  d9o9f9emoaf  9n9999 999 9f ofro raf odr apgge raegneitoedn  tt=n0 tt y
+pet yvpmley sp ianek  t4 v1dmevs4 m0aa2m th ndda se maa nlsdrp ep eRrrT  aipiotodd   rd=i0=ce0
+
+elilni nokk m4a n4d1f 4p0e r9i29 19o2hd9 0=as  4f 0ohra
+s  aaa lgi nllerkn t 4R1T 5 r9 t9y pRpTreihc a pse  ar ilorfc ve m9s 9o9f9  R9 T9f9a9t foorr  a g epnrti ctey doafp e9 g9enet9 vtmyspmea9n  fvodr m s  aatt  ddpeeargieoedmmnatn d a=n0 
+petrdyipo dlpee  rivimosd  ==0a
+nlitnk k0  44
+1410d23e0mlain5d  nhk a p4hesa1 s4ar  lar  liRo0dr T 3  =ph0a
+riRcTse  a  plorf  l9r9RiiTc epn 9kr o491i6c 0ef  f0oorf  a9999 ghe9a9sn  ta  ftlyrp eR To rp 9r9i vcfeo ro fa m9a9gse 9ngt 9t yfpoee anrtt   taydgevmpmaenedsn t v pme st ryapaeitot  dd edmeamvna n=d0 
+plimnsekdr  paeirotd  4i1o4d0 4 =d=e0m 
+0
+anhdal sl ipai nlke rr4n1k 4 R4i1o0240d6T   h pahs=a0s  ra
+ lirc eRlTi  ao fplr rin kR 9491T6 90c9pe1r  ih offaosr  cae g eoan 9t9l9f9 r9  RfT9o9r9   fpo rtayg peaenr igvcte  toyefntm  stp ea yvpmes  vamts  ta dd9e9me9mta 9n adfdoe rpn mda gapeeenrrnitd  otdyp e=r0i
+odp e= lv0i
+msi nakt  l4i1nokd e4dm14a4n0d1  p0e5=r 0 
+hliinhoadks a sa  al  =4lr104
+ li0nRkrT5  Rh a4sT1 6p0 2p rriiccee  ao  fhloarfs  9a9   R9T9l r9  RpfT9 9p9rrioi rcfco ea rgoef  aeg notfe n9t999 9t ytpyp9e9  9v mffeosr  aotr  daegmeannt da gvempse natr itoty pde  =v 0t
+msd eyalimnpke  4t1a 4n0dd e2m paevrmhinasdso   aa tld  p=err iRoTdd e0= 0p
+ri
+cel molainfd n9i9n9k9  kf o4r  p4116e053a ghe9n9t a st yah apsel rra  RliroTd   pRr=i 0cv
+emsT  aot  lpdirnikefmcaen do f p e9r 9i9o9d  4=105f9o
+r 9a ghle9i9nnkt 9 at4y91s  4ap0e3  vl mhsafsor  aRtT  rad e l apmraincdre gpeenrti  toof d R y=pT0 
+elipn rkvi9c e949 9om sf oafrt  91969d0e m9a4ga ehnats  nad flo r ptre  aRrgyepnieoT  tp rtiycpveme  dvosf m s9 a t=a0t
+ 99 9dd efmoarn de mpaegaenrndt i ltpyeirnpke  4o1i6vmds  =0ao0td  d=e00m
+an d
+lihn aplekirsn ki oad   44116400=4l rh a0s0
+  lihnakR Tl rpar i4s1 7RcT9  ap9  lrhri cReT  oapfr isce  9o9a9 9l ref foorf  a9g9e9n9 tR T  fto r9y9p9ep9r i a vfcogrm se aatg ednentm attn det y opyepp fv m9e9e9s 9  ravtf idmeosmoadr  nad g=ae tp0enr tid 
+tyepoel mida nn=dk vp0m s4
+ eatl idn1kr4 i4o1d6 0=50 e
+mahn0d1la si n ka  p4eh1railor6 0R1sT  adp rl i chre = 0o
+f a9R9Ts9 lai  plnrk9  4 1r8fi0c0eo rR Tohf a sp  r9i9c9ea go9efan  t f9lo9rr  9t9ya gfpo eR Tev nprtr i catgmyepe sn tao fe tvtm y9p9e 9sd e9m  vfmoara sn daatt   ddeemmaagnneddn pte rppi eerritiyopodd e=o  dv= m0s0
+ a
+t= 0
+lindke m4al1nl5ii9n9k  dh4a1s6 0n2 k  hp4a1a6e0 r2l rihsoa sRdT  a = 0la
+ li nrk  Rl4Tp rrp1r8i0i1  che coafs  9ea Rof  999l9r 9f9o 9T  fporri creR T oaf  a9g9ep9g9n rfiotr  tcyee anpte  gveomfsnt  9t9 9a9y ptet fvympseo rv m saatg  ddee naetm td atnedmyap epn mdvamn sd  apteerr iioodd p=edr ieo0m=a0
+
+dlinn kl=id0 
+nk  441lpie6r1in6k0030  4h1ao dhs 6=00 3
+asa   hlailnrs  kaa R4T 1 8ll0rr  2R TR  pphTa rprriicsce  ioecf  o9efa 9 9 l9o9fr 9f 99 9R9To 9r  faoprr igc9eangte nft  toyrp ee  vaotgmefn ts9y  a9ttpy ed9ep9mea  v fnvodr  paemgsm sae raitot dnd  =t0 
+emdaetmyanpleid n kp en4vd1r mp6si eoadtr  d=i0oedm0a1
+ n=d0 
+pe rhlaiisl iaonnkk   d4l1r6 0R441  6h0=40a 
+haTss  l ipanr kla i rcl4e1 ro f8R0 T R939 9h9T   appfrrsi iaoc re larc  RoTf  pgre9ie9c9e9  nfto rtoyf  a9g9p9e9  vemnotf  9f9osr  aa g9tt9ye  fdnetompaen  dr  pteyrapgvemiso  evndma t= 0t
+yptes  vamlt  ddeimnakn sde 4m1apned6r i a0to2d  dp=eerm0
+ioad  h=a0n
+s daliln k  l4r1i pRe7r9i9o nhkd T4 1p9rais9 7c eha  ol ra=s0 
+a fl  9R9rT9 9p  rfioRcTleri  n kaogfe n9ptr itc y4pee  1ov9f7 9999 m9s9h99  ffaos  oarta  rd  algrea geRemTan npdtr ni cpetrtiey  ootdyfppee   v v=909m9sm sa t
+ daet9mlainndk  d4e1m a p6e0nf3do rp  hraaegirsoe inta otddy  = l0=
+0p
+e rvlmls  iRiTannk  pkrt i4c1 4d1e9m9ea8  ohfa8 n9d9 9s90 pfeorr0  aai ogdelnr  =t0  tRhTay s
+ ap pler irvcle  mRoiTf  p9rsi nakct e 9d4e198 0omfa0 9 9h9a9sn da  p9e  flrorfr  RoTr  ipaoadrgigc e=ne eonft  909t
+ tty9yp9pleei  vfno km rs4 1 avgae6n0t4t  mhs  tayatds p dee eam avnmda mnpsdl rea  RpTetr  irpdroeiimcdaeo do f n d=90=9
+ p0e9
+lirn9k  ifoo4dr  1=l0aignek8 0411n9t
+ t9y 9lhpie n kvhmaa ss  sa 4 a1l 8rl0r1a th   daesRmTR  Tpara n lipdcr  pRrTeie  ocpref roi fi9 o9dc 9e= 09
+99o f9f lo9ir9n ka g9feonr9t9   tfy4p1eo  ra7g9v mean9gset   ntth aytaytppese   dvemmsaa   nldr apt  RvdTmese  maparriinct ddo ep eoefdm  a9n9d9 9p efroir= raio0dg
+elnt  =t0oydp i=
+nk0 e
+41 8v0m2s  lalth aidinsn ekm a4n2ad  kp lerr4 i0R01To8 0pd20   hh=aass  a0ar  il
+lrc rRl ei TnR opkf T4r i p1rci9e9 c9890o0f  ef  ohfaosr  aa9g9e n l999t  9ftro rR9Ty9p  eaf  vgpmorre sn ta giaettcy pdee maen do vfpnetmr itsy poadte   d9=909
+9l feo mra vnamgiedn sp eta trt nyikp e4o dvemdm asn 1da8t0 3= 0phea
+s ra  dlelrmi aonidR Tp dpn r=ik0 
+42c0el0 i1oefn  k9 9h4arsi9 oad9   l1f=o0r
+80 3a ghlaienrn st ka   RtlTy4 1p8r0i1c erh pa sR Ta e olpf  vrr iRc9Tm es  porfaitc 9d9eem ao f9n d9999 9p99e rfi9o rfo d fo ra=goe rna gaet0n
+ge ntty pttel yv pteyimps ev mnvkm s  sa 4ta1 td 9eamdt9 7ae mhadnenadds pmearn ipoe rda d pilerr iR T= 0o
+dpli nrki =c40e2o0d  o
+02= f0 
+99h9a9sl lfiinn kka  4l1ro9 9R7rT    p4r1ih8aacge0e 2o nhta sft y9s9 9pae  al r9   lfRrTv om sp rrRiTc  aperaitc  gdee oofmaennft   9d9 9999p efrotry 9aigoed9  pnfe= 0o
+vmts  taytp el irn vamkg deesn 4am1ta tntdy pd e9pmea9rn8d i pheaosd raieo d= 0= 0v
+ms
+ lilnikna t  ldre kmR T44211 8ap9r6in d0 c3pe  hhaaosefsr  9 aai old r9l 9R Tr= 0R
+T 9p  plrifnroiicceke   roo f4 199f9 999999a89  hgaefn ofso tr  tay rl rpaaeg egvnetn  tmtRyTsp   aep tvtm ysdrei cpaet eom vfmas  d aenm9a9tn dd ep9md9 e prfaioeorrd naid og=de0 np e
+ri=otdl i0=
+ tnyk0 
+lpinlkien  k4 v1m94s9 72a4t 11h adse9 ma9a99n7   ldrh a shpReTr  pariiaos  ldar  lRrcT e R p rT=o fi 09p
+cle ro9f9i 9c9ei9 n9f9  ko o4rf1 f9o99r9  a9g9e9n  afto rt haaygpeegnesn ttv mtsy  atty pae  d eplmera  vvRmTs  pnrmdsa iatt  cd epdee meorfa mn9d9 9pi9oade r =fnodr0 
+ pieoadgr e=n0t
+ tiyolpdienl ivkn  k= 044211m9
+8 sh9 a9sl aa8t  h alsr i ndReam aTlnkd  prr  4p2ie0Rr0T0c ei  ohofpdr i=c0 e
+ lof9 i9n99ka 949 929s0 0a0f   hofloarsr  r  aaggaeRnTt  etnly rppret  vimcse  ao tft RyT p dp9r9eiem9acn dvem 9o fs  fao99 9tp9re  f dreomriaoandgd  =a0g
+enetn tp etlriin okd  4=y0p
+e tvympse  avtm s1d leaimn9k9t9  d4 2ha1neda s9m paan elrrd 9RiTo  ph dp ra=e0i
+s rai oldrc lRi e=T no0kf  p r
+42i09clei n0o1fk 9 9 4929h09a0991  fso hr  faaas  gleora  nRtT  tlyrrp  aRrgTp iee pnvtmrsc ei  oafc tey pte9 o9v9m9fs   99d9efmoar  antda g9e nfdo rp eatmg etnyatp eetr inodd ypvp e= m0s
+vm sea raittl idnokde m a4n=d0 
+pe2r0i0o0dl i=n0 
+ dekmlahn di apsenrki oa4 2 2d0 l=400
+ hra2s0  aR T0 2lpirli cnekh a4sr   a2 0l0o2f  Rhr9a sR Ta  p9l9r9r i fToc rR Tep roifc  apeg 9o9e9r9f n t9 fio9c9er9  o f f9a9g9et9n tf ooryrp  et ayvgmaesn gapettn et  ytp dteem ayvpmnes  vdamts  pae rvimoddet m =dsea m0a
+atn dd lpinedemnak  pn4r2e0drii0oodd1  =h  a0s
+p =0l
+inak elrr i oRdT l ipn4k= 024
+2120r1li9c6i n ehh ko a4s2 1a9 f6a l9r sh9a 9R9sT   apfr o alir  lrRcTre  R Ta goef  p9r9p9riic9e  foonfc er9t9  9o9f  atgefnot  9tryypp e9a gve9mn9ste  a v tmts  daetmyafnodrp e pd eamga eevnrmnist  do dp ae=tryipto de  0d
+vmesm= l0aatn
+d  pdielmiennkak n r4i4do2 d3p2e 090r2i 6h= o0a
+hlasd i n=ak0s
+ a  llrl iRn Tr4  pkRr T2 i1c4ep 9o271r 9i7fche   o9h9aafss   a9999 9 a9  fflolrro r Ra grae nRTt  gTtepy rpniptce  teyrpve iv mmocfse   os9a9t  a9tf d e9md e9ma9n9adnf o9pde rp raieor ifdoodr   =a=0g
+0
+entg ltlyepninek  v4m2tsi n attky  pd1e49263e 9 7m ahvnadsm s ap e lrhraa iRsTt op ra dd e=i0 
+lrm caRlnienTk   pordi4 2p1ceefr i9 o9d9989 o  fh=f0o r9 
+aagelnsit  9t9y9n kp eaf 4o rvlmrs  2a1gae tR nTt9 dt y8p ehparesi cv mam alsre  nod  RpTe aptr ifd eo9rdm 9a9n=9i0c
+d ep  offe r9i9l9io9odn  =fro kra g0e 
+42n1a9lgte inntkt y4p273  et9y8p  vheah avssm sa  a  alltr  rdR TRmTs  epa tmprarnidic cp edee roiem fo oda n=90f
+d 9p e9lrii9o99d9  9f =ofnro rka0g
+ 4 2a1g9leen9t  ntthyapse  a vtmysp  elirna t  vdmRsTe ka tm4 a2 np1r9id9c ep eodfermia n9d9 9p9o d fh aosre =a0 rlir
+ RoT  adg p=lrei0n
+t ctiel ionnkk  4y4fp2e3  29199v9m9s98 9a  fhta os  rad el ra gheaRsT  apm nltr iacned  tpyepreiroodf  = 0v 
+msR 9T9 9p9al tifroirnck e   doefm a94na29g9e92d0 npte rt yfpoer0  v miahgaoss e daa  n=tt0l
+ li ndkr  4e2m2a0tnd0  phReyrpieTo da s=p0 
+vm sr iac ea tl ldoefmian nkd9 rp e9R 9r9i ofd4 2=o0Tr  
+agper1n9t9l i hianctes  oakfy  9 lpr9e49 2R Tv 4m9sp r ifcaotr e0d0e  ohmfa  aa9s9 n9a9 dlg  efrop enRrtr Tt yip opadeg entv  trymi=cpese   aotfv md e9m9sa0 
+nd9 apt9  dfeleirnmikaonddo  r4  2=a0p
+er2i0g1eo ndt h=la st ia0n kl r4 yR
+T pp2r2ei0 1v chleamss   oaifant kl r 4 2Rd2Te0  09 9hmaa9snpdr i9a  cpe e froiorfl o9d 9r99a  g RfTe nptr itoy=rpcee0  o v
+msf  a9l9a9t9 i ngkefnodre m4a2n dt 5p9 4atgee nytph rteiyapse  aov dmvsm s   la=a0
+t tdre lmiaRnnkd  4 pTd eemr2i3aon9dp 6=d0r 
+pe riicholdi a=s0 
+a nlkerl i no R4k2f3T9  6p  r94i929h2c091a h asse fa  al r  oRfT o9r  larg epnr9i9tc Rt9y Tfeopre   v mposf raaitc egd e ma9n9edno 9ft  9tp9e9ryipo9d9 e f o rf va=g0om
+enr sal ti gteantyt  dtpenmkya pnee  4v2m5sd  v9mastp e5a  trd heimoaadsn  =d0edm apnad
+ p eellrir nikoR T4 r2p3ri9doi d= c0e7  oh=f
+ 09
+asl ianlki n9k  44929l r3 9R7f 2hTaos3r   a9g6p reincte  at ylorfp h9a9se  aR Tl 9p rri cR9eT  opfvr ifcmes  9 9aotf9  od9 9f9o9err 9 maaa gfgeonre natdg epne tn rttiytpy poed  v=me0st
+ l aytv mpdeeimsn kv  m4a2ta5nsd  ap9t 6  dheamsa dae rnidloer m dapnRe rdiT o dp= r0pie=crei 
+0
+odo lfli n9k9 9=4i0n9k  
+42f3o9r8l 2a gih3ne9a7k n st4  2a3h 9tlarsy p8R  haeT a s pvlm sar rl ra iRcTt   dReTpmra ned p ipocree froif o idc9e99 9= 0o9
+99 9f olrifn  k9 9a9g94ef2n 5foortr 9  ata7ygge enhtpanes  tvytm sp  eaatt y pvem  vdlermmas nRd T s pper raiitoadc  et = d0
+demeamonldainndkf    p4p2e3999e99r9r i ohda si= oafd0  
+=l0ro lr
+in kR lTag4eint23n9k8   t4y pha2s3 9ae9  h lvrp aRsT  ap rlirm srcie  aoctfe  9oRfT 999999 9f o p rri faocrd gaeg eoenemnt ft a9n9y9p9e  tfd  tpveorrimos  ayagpeedn t = ttv 0dyempmeasn da 
+petr  vimlsi naotd edmeka nm4dadn dp e= 02p
+errii5oo9ddl  i=n0=
+8 kh a40s
+li2n3k9 94 2h4a0s0  al hlair  sR aan Tl rl  RpTrr i cpeR Troikf  cper4 2oifc 4909e0   99h99o9a9s   affo r 9f9o9r  laa9gr  RgTfeoenrntt   ttpyryippe  aegcevenm  ovfmt s9s9 9 ta tay 9p edfto  rdvemmsaen m adaatg  dnedp eernpemraintdi oo ddt pyepe= 0rv i=
+0
+odm s= 0a
+t ldienlki mn4lki nak2n549 24d5 9p 9e4 2h4h0r0a sa sa  al hrialsro  d RaT  Rl Tr= 0R
+T  ppprrriiicccel iene  oko f4o2f5 f9 999499   h999f9999  ffoorora  sa aag geenntrtl rt y Ra gtTy ppee nrvtmiscpee  oaft  d em9a9tnyd9 p9  vfmesp ea tv mdsr oieomra naadt d gd=e0n
+t  tpeemyalpnedi nrpie rvomdk  s=4 2ia5t9o 5d  hd=0e0
+
+asm lalinndk  p4ei2an klr i4or7 9235 9hd4  a=s0 
+a RlhrlaTs  ia nRp rlTr  pkriiRcT  4epcre2 5oifc 9959e9 9o  h affoosfr  9a9g9e n a999t9   l9r ffoor  RtTryap g pereiancgeen t  ttv ymtpoesf yv pm s9 e9a tv mdase9mt9a  dfeo mantr  daa ndpde epmeraigoerdn nt=i0do dp e
+rliotdy  =i=p00
+
+nke l4linki  4v2m5n9ks2 57a9t 4h a hs4 2aa5  ld9resm aa6n dR  T  lprhe arRsT p ap rilrord  iRic=e0 
+ofT c9e9  9lopif9  nfroi9c9er9 9akg  e4n2t5 9toyfp e9 9v9m sf 9a ofr6o rta g e adheamgaenndn tp etryiposdt   ta= 0y
+pee lvrm  lvRsm at idneksmTa  p an4td2 5p re9r6ii choedd  a=so fa  9lr0 eRmTa np9d
+ p9e9rriicoeld   fio=ro0 
+agnekfnlt i4n 2k  95492979t995  7f ohhaars yap esa  vl rga eRmT  nlsrp ta rtt yRpTiec ev m sp ro ifa tc ed edmeamna9d9o9f  penr9d9  9p9ifood9r  =f0oe
+ri oarg edanlt  gtey=pi0nn
+e kvt mls  4t2iynakt  5d94epm7a 2e5n hdvam9s 7s  ha tap e rdilora sd e am= RlTarn0 d
+ pRe rpTr iicolpiend k o rfi 492c7=990e
+6  hoafs  9al99  filonrrk 9 a ge4n2t5 RtT9 8p 9h9rays  fap eolir  rRcTev  oaf  g9e99p9rmisc  ante  doetf  m9at9f9n9do r  foyra paegreigopdn te= 0tn
+t et yvlmyipnse pake  t4 vdm 2s5 9aetm 8dv mheaasn mds  aa tl ra pnedrRiTde omda  n=pdrpiecre  0oi
+odp f=l ienrki9o9d  409
+9= 2fl50i9n8 ohra s
+ aa kl r4 2R7l9i7T gheanst  at yp pnek l v4m2s5 9ar9tr  hRaiT  sdp ecmraane  loifd r  cR9eT 9 ppe9r9i roodf i=c0e 
+9 offloi9rn k9  99 492a95g9f 9fe9oo nrhta  tray gpsea antg et  vlemnysr  apRtT  ep rtitcvey pomfs e  a9t9d9e mv9amns d f de maatn dodpe erpm raieaognednrti odd   tp=e=ry0ipo0ed  v
+ms= lai
+nk0 t
+ d4e2m7alni9dn8k   4plei2rhiaons7 da  =l0k
+ r4923l ihna ksR Ta  4l2r  5pR9r97 9Ti c3e  hohfaa s9s p 9a9 9r ifao clel rorf rR  T 9RaTg9 9 ppr9ri iecncte etf  oyoro f a9g9ep9f9n t9 9f oetry  avgmesn9t9p  feot y pravtm sdee m a navagdtm  pdse emaatnndt  de rtpeemiyaopde  =rv0n
+d ipmoedr i=o0d
+ l=s0 
+ati nldienkmk  4a2n7d94 42p 7eh9r4ia ohdass   aa =l0r
+ RlT  lprr iRicTe n porki c4e2 7o9f3  f9h9a 999s  fao9r9  algre 9nR tTf  tpoyrpirec ev masg  aote ndtefm a 9n9dt9y9 ppee rivomds   fa=o0r
+ atg edleimnanntk  d4 2p7e9rtiy5o dhpae s= 0 av mls
+ ratl  idReTnmkan d 4p2r7i 9cp5ee rh ioofa s9 9a9 d9l r  =fRoT0r 
+prli caeg iennokt  ft y9p9492e9  7vfmos9r 4 aat g ednethmaa ntdy sppee rai ov mldr  sR=T  0parti
+ce  dleimnakn do fp e949r2i7o996d  h=9a0s
+ a  llirn kR Tf o4p2r7i9cre  6o fh aa9s9 9ga9  elfro rR Ta ngpernitc ett yt yopfe p ev9m9 sv mas9 9ta  dfto redmea mnadnad gp eernptei rotidy po=d0 
+=0e
+ vlmilniksn  4akt 247 9d2e759 7h mhaaansds   aa p llrr  ReRrTT  ipopdr r=iiccee  0oo
+f f9l 9i9n99k999   ffo4o2rr7 9a ga7e ngtehna st tyap  ltry peRe Tv  mpsrv masitc  edaetm  aodfen m9a9nd dp ep9erriioodd  =90=
+ f0ol
+inrkl i na4g2k7 e9n6t4 2h7 9t8y paesh  vaam sl sa  ra tRl Tr  prdiRcTe  eomfa p9rn9d9 9p iecref ooifo r9 d9a g=e909
+ fnotr lti naykp gee 4v2nmts  tayt7p9e8  dh avsemmas  antd  ad elpmearn rRiTo dp rdi cpe= 0e
+rioolfdi  9=9n09
+9 kf o4r2 7a9g7e nhta st yap el rv mRsT  aptr idceem aonfd  9p9e9r9i ofdo r= 0a
+gent type vms at demand period =0
+link 42798 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41003 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41004 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41005 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41006 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41007 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41202 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41203 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41204 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41205 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41206 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41401 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41402 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41403 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41404 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41405 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41599 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41600 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41601 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41602 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41603 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41604 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41799 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41800 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41801 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41802 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41803 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41997 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41998 has a lr RT price of 9999 for agent type vms at demand period =0
+link 41999 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42000 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42001 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42002 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42196 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42197 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42198 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42199 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42200 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42201 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42396 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42397 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42398 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42399 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42400 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42594 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42595 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42596 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42597 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42598 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42599 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42793 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42794 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42795 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42796 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42797 has a lr RT price of 9999 for agent type vms at demand period =0
+link 42798 has a lr RT price of 9999 for agent type vms at demand period =0
+label correcting for zone 0 in processor 0
+iteration: 0,systemTT: 0, least system TT:50644.9,gap=-1
+
+Step 4: Column Pool Updating
+Total Column Pool Updating iteration: 0
+ updating updating
+Step 5: Simulation for traffic assignment..
+
+Done!
+CPU Running Time for column pool updating: 119.245 s
+Step 1.9: Reading file section [output_file_configuration] in setting.csv...
+td_link_performance_sampling_interval_in_min= 60 min
+td_link_performance_sampling_interval_hd_in_min= 15 min
+writing accessibility.csv..
+writing data for 9  zones 
+writing link_performance.csv..
+writing path.csv..
+writing link_performance.csv..
+writing data for 9  zones 
+writing TD_link_performance.csv..
+writing TD_link_performance.csv..
+writing TD_link_state.csv..
+writing agent.csv..
+writing data for 9  zones 
+writing trajectory.csv..
+writing data for 9  zones 
+writing trace.csv..
+writing data for 9  zones 
+Output for assignment with 1 iterations. Traffic assignment completes!
+CPU Running Time for outputting simulation results: 62.239 s
+free memory..
+done.

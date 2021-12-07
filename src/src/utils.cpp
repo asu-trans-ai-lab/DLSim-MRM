@@ -1,4 +1,4 @@
-/* Portions Copyright 2021 Xuesong Zhou and Peiheng Li
+/* Portions Copyright 2021 Xuesong Zhou, Peiheng Li, Cafer Avci
  *
  * If you help write or modify the code, please also list your names here.
  * The reason of having Copyright info here is to ensure all the modified version, as a whole, under the GPL
@@ -39,6 +39,8 @@ void fopen_ss(FILE** file, const char* fileName, const char* mode)
 
 float g_read_float(FILE* f)
 {
+    if (feof(f) == 1)
+        return -1;
     /*
         read a floating point number from the current pointer of the file,
         skip all spaces
@@ -51,7 +53,9 @@ float g_read_float(FILE* f)
     while (true)
     {
         ch = getc(f);
-        if (ch == EOF || ch == '*' || ch == '$') return -1;
+        if (ch == EOF || ch == '*' || ch == '$' || ch < -1 || ch >=255 )
+            return -1;
+
         if (isdigit(ch))
             break;
 
@@ -257,7 +261,20 @@ string g_time_coding(float time_stamp)
     return strm.str();
 }
 
-int g_ParserIntSequence(std::string str, vector<int>& vect)
+
+int g_ParserStringSequence(std::string str_input, vector<string>& vect)
+{
+
+    std::istringstream ss(str_input);
+    std::string token;
+
+    while (std::getline(ss, token, ';')) {
+        vect.push_back(token);
+    }
+
+    return vect.size();
+}
+int g_ParserIntSequence(std::string str, std::vector<int>& vect)
 {
     std::stringstream ss(str);
     int i;

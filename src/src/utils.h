@@ -31,6 +31,7 @@ float g_read_float(FILE* f);
 
 std::vector<std::string> split(const std::string& s, const std::string& seperator);
 int g_ParserIntSequence(std::string str, std::vector<int>& vect);
+int g_ParserStringSequence(std::string str, std::vector<std::string>& vect);
 
 std::vector<float> g_time_parser(std::string str);
 std::string g_time_coding(float time_stamp);
