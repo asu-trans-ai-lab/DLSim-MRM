@@ -24,8 +24,42 @@ Dr. Xuesong (Simon) Zhou
 
 [Mini-lessson](https://www.youtube.com/watch?v=rorZAhNNOf0&feature=youtu.be) by Dr. Cafer Avci and Dr. Xuesong (Simon) Zhou : What is the best way to learn dynamic traffic simulation and network assignment for a beginner? Do you want to integrate a powerful traffic simulator in your deep learning framework? We would like to offer a collaborative learning experience through 500 lines of python codes and real-life data sets. This is part of our mini-lessons through teaching dialog.
 
-## [More Details in our Wiki Section](https://github.com/asu-trans-ai-lab/DLSim/wiki)
+## More Details in our Wiki Section
+
 [Wiki Home](https://github.com/asu-trans-ai-lab/DLSim/wiki)
+
+Tutorials - Learning oriented
+
+* [Getting Started](https://github.com/asu-trans-ai-lab/DLSim/wiki/getting_started)
+* [Data flow chart](https://github.com/asu-trans-ai-lab/DLSim/wiki/data-flow-chart)
+* [Tutorials](https://github.com/asu-trans-ai-lab/DLSim/wiki/tutorials)
+
+How-to Guide - Problem oriented
+
+* [DLSIM-Theory](https://github.com/asu-trans-ai-lab/DLSim/wiki/DLSIM-Theory)
+* [User Guide](https://github.com/asu-trans-ai-lab/DLSim/wiki/User-Guide)
+* [Test data sets](https://github.com/asu-trans-ai-lab/DLSim/wiki/test-data-sets)
+* [Incident and Workzone](https://github.com/asu-trans-ai-lab/DLSim/wiki/workzone)
+* [Traffic-Signal-Timing-Modeling](https://github.com/asu-trans-ai-lab/DLSim/wiki/Traffic-Signal-Timing-Modeling)
+* [Real time information](https://github.com/asu-trans-ai-lab/DLSim/wiki/realtimeinformation)
+* [Variable Message Signs](https://github.com/asu-trans-ai-lab/DLSim/wiki/VMS)
+* [Price and credit](https://github.com/asu-trans-ai-lab/DLSim/wiki/LR_Price)
+* [Activity chain and path](https://github.com/asu-trans-ai-lab/DLSim/wiki/activity_path)
+* [[Tips & Tricks]]
+* [[Frequently Asked Questions]]
+* [[Error Messages]]
+
+References - Information oriented
+
+* [[Programming Guide]]
+
+Discussions - Understanding oriented 
+
+* Tutorials in [*ASU Transportation AI Lab](https://www.youtube.com/channel/UCpwXRD0kEkR5iQ77iCXCNuQ/videos) by Dr. Xuesong (Simon) Zhou
+* [*recent advances](https://www.youtube.com/watch?v=dj6c6h4mWfI&t=4s) by Dr. Cafer Avci
+* [Streamlined-Workflow](https://github.com/asu-trans-ai-lab/DLSim/wiki/Streamlined-Workflow)
+* [[Slides introducing DLSIM]]
+* [[In-Depth Video Discussions]]
 
 ## References
 
