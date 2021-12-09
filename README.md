@@ -3,7 +3,6 @@
 This site mains the source code and Windows-based release for DLSim package. DLSim is an open-source AMS library for efficiently macroscopic and mesoscopic traffic simulation tool based on [General Modeling Network Specification (GMNS)](https://github.com/zephyr-data-specs/GMNS) format. 
 
 
-
 ## Remarks:
 
 ### Developers:
