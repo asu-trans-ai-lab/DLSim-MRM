@@ -16,13 +16,18 @@ Dr. Peiheng Li
 
 Dr. Xuesong (Simon) Zhou
 
+### Short Introductory Video on YouTube
+
+[Recent Advances](https://www.youtube.com/watch?v=dj6c6h4mWfI) by Dr. Cafer Avci
+
  ### Mini-Lesson on the Internal Algorithmic Details
 
-[Mini-lessson](https://www.youtube.com/watch?v=rorZAhNNOf0&feature=youtu.be) : What is the best way to learn dynamic traffic simulation and network assignment for a beginner? Do you want to integrate a powerful traffic simulator in your deep learning framework? We would like to offer a collaborative learning experience through 500 lines of python codes and real-life data sets. This is part of our mini-lessons through teaching dialog.
+[Mini-lessson](https://www.youtube.com/watch?v=rorZAhNNOf0&feature=youtu.be) by Dr. Cafer Avci and Dr. Xuesong (Simon) Zhou : What is the best way to learn dynamic traffic simulation and network assignment for a beginner? Do you want to integrate a powerful traffic simulator in your deep learning framework? We would like to offer a collaborative learning experience through 500 lines of python codes and real-life data sets. This is part of our mini-lessons through teaching dialog.
 
-Please download latest DTALite-NeXTA package, which follows calendar versioning. Here are the user guides for NeXTA and NeXTA+QGIS using GMNS data format. We have prepared a number of self-learning documents too.
+## [More Details in our Wiki Section](https://github.com/asu-trans-ai-lab/DLSim/wiki)
+[Wiki Home](https://github.com/asu-trans-ai-lab/DLSim/wiki)
 
-### References
+## References
 
 **1. Parallel computing algorithms:** Qu, Y., & Zhou, X. (2017). Large-scale dynamic transportation network simulation: A space-time-event parallel computing approach. Transportation research part c: Emerging technologies, 75, 1-16.
 
@@ -40,9 +45,10 @@ Please download latest DTALite-NeXTA package, which follows calendar versioning.
 
 **8. Workzone applications:** Schroeder, B, et al. Work zone traffic analysis & impact assessment. (2014) FHWA/NC/2012-36. North Carolina. Dept. of Transportation. Research and Analysis Group.
 
+**9. Car Following Behavior:** Wei, Y., Avcı, C., Liu, J., Belezamo, B., Aydın, N., Li, P. T., & Zhou, X. (2017). Dynamic programming-based multi-vehicle longitudinal trajectory optimization with simplified car following models. Transportation research part B: methodological, 106, 102-129.
+
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
 
 ## License
 [License](https://github.com/asu-trans-ai-lab/DLSim)
