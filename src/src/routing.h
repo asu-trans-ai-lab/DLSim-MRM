@@ -215,7 +215,7 @@ public:
         return negative_cost_flag;
     }
 
-    void BuildNetwork(Assignment* p_assignment)
+    void BuildNetwork(Assignment* p_assignment)  // build multimodal network
     {
         if (bBuildNetwork)
             return;
@@ -229,7 +229,7 @@ public:
             m_link_outgoing_connector_zone_seq_no_array[i] = pLink->zone_seq_no_for_outgoing_connector;
         }
 
-        for (int i = 0; i < p_assignment->g_number_of_nodes; ++i) //Initialization for all non-origin nodes
+        for (int i = 0; i < p_assignment->g_number_of_nodes; ++i) // include all nodes (with physical nodes and zone centriods)
         {
             int outgoing_link_size = 0;
 

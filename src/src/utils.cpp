@@ -588,3 +588,19 @@ bool g_read_a_line(FILE* f)
         }
     }
 }
+
+double g_calculate_p2p_distance_in_mile_from_latitude_longitude(double p1_x, double p1_y, double p2_x, double p2_y)
+{
+    double Equatorial_Radius = 3963.19059; // unit: mile
+    double toradians = 3.1415926 / 180.0;
+    double todeg = 180.0 / _PI;
+
+    double p2lat = p2_x * toradians;
+    double p2lng = p2_y * toradians;
+
+    double p1lat = p1_x * toradians;
+    double p1lng = p1_y * toradians;
+
+    double distance = acos(sin(p1lat) * sin(p2lat) + cos(p1lat) * cos(p2lat) * cos(p2lng - p1lng)) * Equatorial_Radius;  // unit: mile
+    return distance;
+}

@@ -58,7 +58,7 @@ void g_output_assignment_result(Assignment& assignment)
     int b_debug_detail_flag = 0;
     FILE* g_pFileLinkMOE = nullptr;
 
-    fopen_ss(&g_pFileLinkMOE, "link_performance.csv", "w");
+    fopen_ss(&g_pFileLinkMOE, "static_link_performance.csv", "w");
     if (!g_pFileLinkMOE)
     {
         dtalog.output() << "File link_performance.csv cannot be opened." << endl;
@@ -164,21 +164,21 @@ void g_output_assignment_result(Assignment& assignment)
     if (assignment.assignment_mode == 0 || assignment.path_output == 0)  //LUE
     {
         FILE* g_pFilePathMOE = nullptr;
-        fopen_ss(&g_pFilePathMOE, "path.csv", "w");
+        fopen_ss(&g_pFilePathMOE, "path_flow.csv", "w");
         fclose(g_pFilePathMOE);
 
     }
     else if (assignment.assignment_mode >= 1)  //UE mode, or ODME, DTA
     {
-        dtalog.output() << "writing path.csv.." << endl;
+        dtalog.output() << "writing path_flow.csv.." << endl;
 
         float path_time_vector[_MAX_LINK_SIZE_IN_A_PATH];
         FILE* g_pFilePathMOE = nullptr;
-        fopen_ss(&g_pFilePathMOE, "path.csv", "w");
+        fopen_ss(&g_pFilePathMOE, "path_flow.csv", "w");
 
         if (!g_pFilePathMOE)
         {
-            dtalog.output() << "File path.csv cannot be opened." << endl;
+            dtalog.output() << "File path_flow.csv cannot be opened." << endl;
             g_ProgramStop();
         }
 
@@ -283,7 +283,7 @@ void g_output_assignment_result(Assignment& assignment)
                                     }
                                     if (subarea_output_flag == 0)
                                     {
-                                        it->second.subarea_output_flag = 0;  // disable the output of this column into path.csv
+                                        it->second.subarea_output_flag = 0;  // disable the output of this column into path_flow.csv
 
                                         for (int nl = 0; nl < it->second.m_link_size; ++nl)  // arc a
                                         {
@@ -686,7 +686,7 @@ void g_output_accessibility_result(Assignment& assignment)
                                     }
                                     if (subarea_output_flag == 0)
                                     {
-                                        it->second.subarea_output_flag = 0;  // disable the output of this column into path.csv
+                                        it->second.subarea_output_flag = 0;  // disable the output of this column into path_flow.csv
 
                                         for (int nl = 0; nl < it->second.m_link_size; ++nl)  // arc a
                                         {
@@ -729,7 +729,6 @@ void g_output_accessibility_result(Assignment& assignment)
                             if (assignment.zone_seq_no_2_info_mapping.find(orig) != assignment.zone_seq_no_2_info_mapping.end())
                             {
                                 information_type = 1;
-                                continue; // too many output 
                             }
 
                             time_stamp = (assignment.g_DemandPeriodVector[tau].starting_time_slot_no + assignment.g_DemandPeriodVector[tau].ending_time_slot_no) / 2.0 * MIN_PER_TIMESLOT;
@@ -856,23 +855,23 @@ void g_output_accessibility_result(Assignment& assignment)
     }
 }
 
-void g_output_TD_link_performance(Assignment& assignment, int output_mode = 1)
+void g_output_dynamic_link_performance(Assignment& assignment, int output_mode = 1)
 {
-    dtalog.output() << "writing TD_link_performance.csv.." << endl;
+    dtalog.output() << "writing dynamic_link_performance.csv.." << endl;
 
     int b_debug_detail_flag = 0;
     FILE* g_pFileLinkMOE = nullptr;
 
-    string file_name = "TD_link_performance.csv";
+    string file_name = "dynamic_link_performance.csv";
 
     if (output_mode == 0)
     {
-        file_name = "TD_link_performance_hd.csv";
+        file_name = "dynamic_link_performance_hd.csv";
     }
 
     if (output_mode == 2)
     {
-        file_name = "TD_link_performance_horizon.csv";
+        file_name = "dynamic_link_performance_horizon.csv";
     }
 
     fopen_ss(&g_pFileLinkMOE, file_name.c_str(), "w");
@@ -886,7 +885,7 @@ void g_output_TD_link_performance(Assignment& assignment, int output_mode = 1)
     {
 
         // Option 2: BPR-X function
-        fprintf(g_pFileLinkMOE, "link_id,tmc_corridor_name,link_type_name,from_node_id,to_node_id,from_cell_code,lanes,length,free_speed,FFTT,time_period,volume,CA,CD,density,queue_length,discharge_rate,TD_free_flow_travel_time,waiting_time_in_sec,RT_speed,speed,geometry,");
+        fprintf(g_pFileLinkMOE, "link_id,tmc_corridor_name,link_type_name,from_node_id,to_node_id,from_cell_code,lanes,length,free_speed,FFTT,time_period,volume,CA,CD,density,queue_length,discharge_rate,dynamic_free_flow_travel_time,waiting_time_in_sec,RT_speed,speed,geometry,");
         fprintf(g_pFileLinkMOE, "notes\n");
 
 
@@ -900,13 +899,13 @@ void g_output_TD_link_performance(Assignment& assignment, int output_mode = 1)
             // first loop for time t
             for (int t = 1; t < assignment.g_number_of_intervals_in_min; ++t)
             {
-                if (assignment.td_link_performance_sampling_interval_in_min < 1)
-                    assignment.td_link_performance_sampling_interval_in_min = 1;
+                if (assignment.dynamic_link_performance_sampling_interval_in_min < 1)
+                    assignment.dynamic_link_performance_sampling_interval_in_min = 1;
 
-                int sampling_time_interval = assignment.td_link_performance_sampling_interval_in_min;
+                int sampling_time_interval = assignment.dynamic_link_performance_sampling_interval_in_min;
 
                 if (output_mode == 0)
-                    sampling_time_interval = assignment.td_link_performance_sampling_interval_hd_in_min * 60; // min by min
+                    sampling_time_interval = assignment.dynamic_link_performance_sampling_interval_hd_in_min * 60; // min by min
 
                 if (output_mode == 2)
                     sampling_time_interval = assignment.g_number_of_loading_intervals_in_sec / 60; // simulation horizon
@@ -925,7 +924,7 @@ void g_output_TD_link_performance(Assignment& assignment, int output_mode = 1)
                     float speed = g_link_vector[i].length / (g_link_vector[i].free_flow_travel_time_in_min / 60.0);
                     float virtual_arrival = 0;
 
-                    float discharge_rate = g_link_vector[i].lane_capacity * g_link_vector[i].number_of_lanes * assignment.td_link_performance_sampling_interval_in_min / 60.0;
+                    float discharge_rate = g_link_vector[i].lane_capacity * g_link_vector[i].number_of_lanes * assignment.dynamic_link_performance_sampling_interval_in_min / 60.0;
 
                     if (time_in_min >= 1)
                     {
@@ -999,14 +998,14 @@ void g_output_TD_link_performance(Assignment& assignment, int output_mode = 1)
 
 }
 
-void g_output_TD_link_state(Assignment& assignment, int output_mode = 1)
+void g_output_dynamic_link_state(Assignment& assignment, int output_mode = 1)
 {
-    dtalog.output() << "writing TD_link_state.csv.." << endl;
+    dtalog.output() << "writing dynamic_link_state.csv.." << endl;
 
     int b_debug_detail_flag = 0;
     FILE* g_pFileLinkMOE = nullptr;
 
-    string file_name = "TD_link_state.csv";
+    string file_name = "dynamic_link_state.csv";
 
     fopen_ss(&g_pFileLinkMOE, file_name.c_str(), "w");
 
@@ -1041,7 +1040,14 @@ void g_output_TD_link_state(Assignment& assignment, int output_mode = 1)
                 {
                     int next_state = assignment.m_LinkOutFlowState[li][t + 1];
 
-                    if (next_state == current_state && t < assignment.g_number_of_loading_intervals_in_sec - 2)
+                    bool print_out_flag = false;
+
+                    if (current_state == 0 && t%60==0 && g_link_vector[li].m_link_pedefined_capacity_map.find(t) != g_link_vector[li].m_link_pedefined_capacity_map.end())
+                    {
+                        print_out_flag = true;
+                    }
+
+                    if (print_out_flag==false && next_state == current_state && t < assignment.g_number_of_loading_intervals_in_sec - 2)
                     {
                         // do nothing 
                     }
@@ -1080,6 +1086,12 @@ void g_output_TD_link_state(Assignment& assignment, int output_mode = 1)
                         last_t = t + 1;
                         current_state = assignment.m_LinkOutFlowState[li][t + 1];
 
+                        if (t + 1 == assignment.g_number_of_loading_intervals_in_sec - 2)
+                        {
+                            //boundary condition anyway
+                            current_state = -1;
+                        }
+
                     }
                     t++;
                 }
@@ -1095,14 +1107,14 @@ void g_output_TD_link_state(Assignment& assignment, int output_mode = 1)
     }
 }
 
-void g_output_TD_link_capacity(Assignment& assignment, int output_mode = 1)
+void g_output_dynamic_link_capacity(Assignment& assignment, int output_mode = 1)
 {
-    dtalog.output() << "writing TD_link_capacity.csv.." << endl;
+    dtalog.output() << "writing dynamic_link_capacity.csv.." << endl;
 
     int b_debug_detail_flag = 0;
     FILE* g_pFileLinkMOE = nullptr;
 
-    string file_name = "TD_link_capacity.csv";
+    string file_name = "dynamic_link_capacity.csv";
 
     fopen_ss(&g_pFileLinkMOE, file_name.c_str(), "w");
 
@@ -1303,13 +1315,13 @@ void g_output_simulation_agents(Assignment& assignment)
 
 void g_output_simulation_result(Assignment& assignment)
 {
-    g_output_TD_link_performance(assignment, 1);
-    g_output_TD_link_performance(assignment, 2);
+    g_output_dynamic_link_performance(assignment, 1);
+    g_output_dynamic_link_performance(assignment, 2);
     if (assignment.assignment_mode == 2)  //DTA mode
     {
-        g_output_TD_link_state(assignment, 1);
+        g_output_dynamic_link_state(assignment, 1);
     }
-    //    g_output_TD_link_capacity(assignment, 1);
+    //    g_output_dynamic_link_capacity(assignment, 1);
 
     g_output_simulation_agents(assignment);
 
@@ -1727,14 +1739,17 @@ void g_OutputModelFiles(int mode)
 
         if (g_pFileModelNode != NULL)
         {
-            fprintf(g_pFileModelNode, "node_id,node_no,#_of_outgoing_nodes,activity_node_flag,zone_id,cell_id,cell_code,info_zone_flag,x_coord,y_coord\n");
+            fprintf(g_pFileModelNode, "node_id,node_no,node_type,#_of_outgoing_nodes,activity_node_flag,zone_id,cell_id,cell_code,info_zone_flag,x_coord,y_coord\n");
             for (int i = 0; i < g_node_vector.size(); i++)
             {
-                if (g_node_vector[i].node_id >= 0)
+
+
+                if (g_node_vector[i].node_id >= 0)  //for all physical links
                 {
-                    fprintf(g_pFileModelNode, "%d,%d,%d,%d,%d,%ld,%s,%d,%f,%f\n",
+                    fprintf(g_pFileModelNode, "%d,%d,%s,%d,%d,%d,%ld,%s,%d,%f,%f\n",
                         g_node_vector[i].node_id,
                         g_node_vector[i].node_seq_no,
+                        g_node_vector[i].node_type.c_str(),
                         g_node_vector[i].m_outgoing_link_seq_no_vector.size(),
                         g_node_vector[i].is_activity_node,
                         g_node_vector[i].zone_org_id,
@@ -1761,7 +1776,7 @@ void g_OutputModelFiles(int mode)
 
     }
 
-    if (mode == 2)
+    if (mode == 2  || mode == 3)
     {
         FILE* g_pFileModelLink = fopen("model_link.csv", "w");
 
@@ -1774,6 +1789,12 @@ void g_OutputModelFiles(int mode)
             {
                 if (g_link_vector[i].link_type >= 0)
                 {
+                    if (mode == 3)
+                    {
+                        if (g_link_vector[i].b_automated_generated_flag == false)  // skip the existing physical links
+                            continue; 
+                    }
+
                     fprintf(g_pFileModelLink, "%s,%d,%d,%d,%d,%s,%d,%f,%f,%f,",
                         g_link_vector[i].link_id.c_str(),
                         g_link_vector[i].link_seq_no,
@@ -1786,14 +1807,27 @@ void g_OutputModelFiles(int mode)
                         g_link_vector[i].free_speed,
                         g_link_vector[i].lane_capacity
 
-
-                        //g_link_vector[i].VDF_period[0].FFTT,
+                         //g_link_vector[i].VDF_period[0].FFTT,
                         //g_link_vector[i].VDF_period[0].capacity,
                         //g_link_vector[i].VDF_period[0].alpha,
                         //g_link_vector[i].VDF_period[0].beta,
                     );
 
-                    fprintf(g_pFileModelLink, "\"%s\",\n", g_link_vector[i].geometry.c_str());
+                    if (g_link_vector[i].geometry.size() > 0)
+                    {
+                        fprintf(g_pFileModelLink, "\"%s\",\n", g_link_vector[i].geometry.c_str());
+                    }else
+                    {
+                    fprintf(g_pFileModelLink, "\"LINESTRING (");
+
+                    fprintf(g_pFileModelLink, "%f %f,", g_node_vector[g_link_vector[i].from_node_seq_no].x, g_node_vector[g_link_vector[i].from_node_seq_no].y);
+                    fprintf(g_pFileModelLink, "%f %f", g_node_vector[g_link_vector[i].to_node_seq_no].x, g_node_vector[g_link_vector[i].to_node_seq_no].y);
+
+                    fprintf(g_pFileModelLink, ")\"");
+                    }
+
+                    fprintf(g_pFileModelLink, "\n");
+
                 }
 
 

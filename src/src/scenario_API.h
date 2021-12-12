@@ -59,6 +59,8 @@ void g_load_scenario_data(Assignment& assignment)
     CCSVParser parser;
     parser.IsFirstLineHeader = false;
 
+    int count = 0;
+
     if (parser.OpenCSVFile("scenario.csv", false))
     {
         while (parser.ReadRecord_Section())
@@ -151,9 +153,6 @@ void g_load_scenario_data(Assignment& assignment)
                 parser.GetValueByFieldName("capacity", capacity);
 
 
-                int info_zone_id = 1;
-                parser.GetValueByFieldName("info_zone", info_zone_id, false);
-
                 string demand_period;
 
                 parser.GetValueByFieldName("demand_period", demand_period);
@@ -236,17 +235,14 @@ void g_load_scenario_data(Assignment& assignment)
 
                 }
 
+                count++;
 
-
-
-
-
-                dtalog.output() << "reading " << assignment.g_number_of_timing_arcs << " capacity reduction scenario.. " << endl;
+               dtalog.output() << "reading " << count << " capacity reduction scenario.. " << endl;
             }
         }
 
         parser.CloseCSVFile();
     }
     // we now know the number of links
-    dtalog.output() << "number of timing records = " << assignment.g_number_of_timing_arcs << endl << endl;
+
 }

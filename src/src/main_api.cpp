@@ -447,7 +447,7 @@ double NetworkForSP::backtrace_shortest_path_tree(Assignment& assignment, int it
 	return total_origin_least_cost;
 }
 
-void  CLink::CalculateTD_VDFunction()
+void  CLink::Calculatedynamic_VDFunction()
 {
     RT_travel_time = 0; // reset RT_travel time for each end of simulation iteration 
     for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
@@ -480,7 +480,7 @@ void  CLink::CalculateTD_VDFunction()
     }
 }
 
-void  CLink::CalculateTD_RTVDFunction()
+void  CLink::Calculatedynamic_RTVDFunction()
 {
     
 //
@@ -533,6 +533,7 @@ double network_assignment(int assignment_mode, int iteration_number, int column_
 
     // definte timestamps
     clock_t start_t, end_t, total_t;
+    clock_t start_simu, end_simu, total_simu;
     start_t = clock();
     clock_t iteration_t, cumulative_lc, cumulative_cp, cumulative_lu;
 
@@ -690,8 +691,14 @@ double network_assignment(int assignment_mode, int iteration_number, int column_
 
     if (assignment.assignment_mode == 2)
     {
+        start_simu = clock();
+
         dtalog.output() << "Step 5: Simulation for traffic assignment.." << endl;
         assignment.STTrafficSimulation();
+        end_simu = clock();
+        total_simu = end_simu - end_simu;
+
+        dtalog.output() << "CPU Running Time for traffic simulation: " << total_simu / 1000.0 << " s" << endl;
         dtalog.output() << endl;
     }
 
@@ -706,7 +713,7 @@ double network_assignment(int assignment_mode, int iteration_number, int column_
     total_t = (end_t - start_t);
     dtalog.output() << "Done!" << endl;
 
-    dtalog.output() << "CPU Running Time for column pool updating: " << total_t / 1000.0 << " s" << endl;
+    dtalog.output() << "CPU Running Time for the entire computing progcess: " << total_t / 1000.0 << " s" << endl;
 
     start_t = clock();
 
@@ -772,7 +779,7 @@ for (int i = 0; i < g_link_vector.size(); ++i)
                     }
                     pLink->RT_travel_time = total_waiting_time_in_min / max(1, pLink->ExitQueue.size());  // average travel time
 
-                    if (pLink->TD_link_closure_map.find(slot_no) != pLink->TD_link_closure_map.end())
+                    if (pLink->dynamic_link_closure_map.find(slot_no) != pLink->dynamic_link_closure_map.end())
                     {
                         pLink->RT_travel_time = 9999;
                     }

@@ -106,7 +106,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
                     demand_period_no = assignment.demand_period_to_seqno_mapping[demand_period];
                 else
                 {
-                    dtalog.output() << "Error: demand period in section [demand_file_list]" << demand_period << "cannot be found." << endl;
+                    dtalog.output() << "Error: demand period in section [demand_file_list]" << demand_period << " cannot be found." << endl;
                     g_ProgramStop();
                 }
 
@@ -120,7 +120,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
                         agent_type_no = assignment.agent_type_2_seqno_mapping[agent_type];
                     else
                     {
-                        dtalog.output() << "Error: agent_type in agent_type " << agent_type << "cannot be found." << endl;
+                        dtalog.output() << "Error: agent_type in agent_type " << agent_type << " cannot be found." << endl;
                         g_ProgramStop();
                     }
                 }
@@ -676,11 +676,11 @@ void g_ReadOutputFileConfiguration(Assignment& assignment)
                 parser.GetValueByFieldName("trajectory_output", assignment.trajectory_output, false, false);
                 parser.GetValueByFieldName("trajectory_sampling_rate", assignment.trajectory_sampling_rate, false, false);
                 parser.GetValueByFieldName("trajectory_diversion_only", assignment.trajectory_diversion_only, false, false);
-                parser.GetValueByFieldName("td_link_performance_sampling_interval_in_min", assignment.td_link_performance_sampling_interval_in_min, false, false);
-                parser.GetValueByFieldName("td_link_performance_sampling_interval_hd_in_min", assignment.td_link_performance_sampling_interval_hd_in_min, false, false);
+                parser.GetValueByFieldName("dynamic_link_performance_sampling_interval_in_min", assignment.dynamic_link_performance_sampling_interval_in_min, false, false);
+                parser.GetValueByFieldName("dynamic_link_performance_sampling_interval_hd_in_min", assignment.dynamic_link_performance_sampling_interval_hd_in_min, false, false);
 
-                dtalog.output() << "td_link_performance_sampling_interval_in_min= " << assignment.td_link_performance_sampling_interval_in_min << " min" << endl;
-                dtalog.output() << "td_link_performance_sampling_interval_hd_in_min= " << assignment.td_link_performance_sampling_interval_hd_in_min << " min" << endl;
+                dtalog.output() << "dynamic_link_performance_sampling_interval_in_min= " << assignment.dynamic_link_performance_sampling_interval_in_min << " min" << endl;
+                dtalog.output() << "dynamic_link_performance_sampling_interval_hd_in_min= " << assignment.dynamic_link_performance_sampling_interval_hd_in_min << " min" << endl;
 
             }
         }
@@ -689,7 +689,7 @@ void g_ReadOutputFileConfiguration(Assignment& assignment)
     }
 }
 
-void g_AddNewVirtualConnectorLink(int internal_from_node_seq_no, int internal_to_node_seq_no, int zone_seq_no = -1)
+void g_add_new_virtual_connector_link(int internal_from_node_seq_no, int internal_to_node_seq_no, string agent_type_str, int zone_seq_no = -1 )
 {
     // create a link object
     CLink link;
@@ -700,6 +700,7 @@ void g_AddNewVirtualConnectorLink(int internal_from_node_seq_no, int internal_to
     link.to_node_seq_no = internal_to_node_seq_no;
     //virtual connector
     link.link_type = -1;
+    
 
     //only for outgoing connectors
     link.zone_seq_no_for_outgoing_connector = zone_seq_no;
@@ -708,7 +709,6 @@ void g_AddNewVirtualConnectorLink(int internal_from_node_seq_no, int internal_to
     link.traffic_flow_code = 0;
 
     link.spatial_capacity_in_vehicles = 99999;
-    link.number_of_lanes = 10;
     link.lane_capacity = 999999;
     link.link_spatial_capacity = 99999;
     link.length = 0.00001;
@@ -721,11 +721,13 @@ void g_AddNewVirtualConnectorLink(int internal_from_node_seq_no, int internal_to
         link.VDF_period[tau].FFTT = 0;
         link.VDF_period[tau].alpha = 0;
         link.VDF_period[tau].beta = 0;
+        link.VDF_period[tau].allowed_uses = agent_type_str;
 
         link.TDBaseTT[tau] = 0;
         link.TDBaseCap[tau] = 99999;
         link.travel_time_per_period[tau] = 0;
-    }
+
+     }
 
     // add this link to the corresponding node as part of outgoing node/link
     g_node_vector[internal_from_node_seq_no].m_outgoing_link_seq_no_vector.push_back(link.link_seq_no);
@@ -741,6 +743,58 @@ void g_AddNewVirtualConnectorLink(int internal_from_node_seq_no, int internal_to
     assignment.g_number_of_links++;
 }
 
+void g_add_new_access_link(int internal_from_node_seq_no, int internal_to_node_seq_no, float length, int agent_type_no)
+{
+    // create a link object
+    CLink link;
+
+    link.b_automated_generated_flag = true;
+    link.from_node_seq_no = internal_from_node_seq_no;
+    link.to_node_seq_no = internal_to_node_seq_no;
+    link.link_seq_no = assignment.g_number_of_links;
+    link.to_node_seq_no = internal_to_node_seq_no;
+
+    link.link_type = 0;
+    link.link_type_code = "multi-modal access_link";
+    //BPR
+    link.traffic_flow_code = 0;
+
+    link.spatial_capacity_in_vehicles = 99999;
+    link.lane_capacity = 999999;
+    link.link_spatial_capacity = 99999;
+    link.length = length;
+    link.free_speed = assignment.g_AgentTypeVector[agent_type_no].access_speed;
+
+    for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
+    {
+        //setup default values
+        link.VDF_period[tau].capacity = 99999;
+        // 60.0 for 60 min per hour
+        link.VDF_period[tau].FFTT = 0;
+        link.VDF_period[tau].alpha = 0;
+        link.VDF_period[tau].beta = 0;
+        link.VDF_period[tau].allowed_uses += assignment.g_AgentTypeVector[agent_type_no].agent_type;
+        link.TDBaseTT[tau] = 0;
+        link.TDBaseCap[tau] = 99999;
+        link.travel_time_per_period[tau] = 0;
+
+
+
+    }
+
+    // add this link to the corresponding node as part of outgoing node/link
+    g_node_vector[internal_from_node_seq_no].m_outgoing_link_seq_no_vector.push_back(link.link_seq_no);
+    // add this link to the corresponding node as part of outgoing node/link
+    g_node_vector[internal_to_node_seq_no].m_incoming_link_seq_no_vector.push_back(link.link_seq_no);
+    // add this link to the corresponding node as part of outgoing node/link
+    g_node_vector[internal_from_node_seq_no].m_to_node_seq_no_vector.push_back(link.to_node_seq_no);
+    // add this link to the corresponding node as part of outgoing node/link
+    g_node_vector[internal_from_node_seq_no].m_to_node_2_link_seq_no_map[link.to_node_seq_no] = link.link_seq_no;
+
+    g_link_vector.push_back(link);
+
+    assignment.g_number_of_links++;
+}
 
 double g_CalculateP2PDistanceInLonglatFromLatitudeLongitude(double p1x, double p1y, double p2x, double p2y)
 {
@@ -858,313 +912,6 @@ double g_CheckActivityNodes(Assignment& assignment)
     return nearby_distance;
 
 }
-
-void g_InfoGridGeneration(Assignment& assignment)
-{
-    dtalog.output() << "Step QEM mode for creating node 2 zone mapping" << endl;
-
-    double activity_nearbydistance = g_CheckActivityNodes(assignment);
-    // initialization of grid rectangle boundary
-    double left = 100000000;
-    double right = -100000000;
-    double top = -1000000000;
-    double  bottom = 1000000000;
-
-    for (int i = 0; i < g_node_vector.size(); i++)
-    {
-        // exapnd the grid boundary according to the nodes
-        left = min(left, g_node_vector[i].x);
-        right = max(right, g_node_vector[i].x);
-        top = max(top, g_node_vector[i].y);
-        bottom = min(bottom, g_node_vector[i].y);
-
-    }
-
-    int grid_size = 8;
-
-    if (g_node_vector.size() > 3000)
-        grid_size = 10;
-    if (g_node_vector.size() > 10000)
-        grid_size = 20;
-    if (g_node_vector.size() > 40000)
-        grid_size = 30;
-
-    double temp_resolution = (((right - left) / grid_size + (top - bottom) / grid_size)) / 2.0;
-
-    //if (activity_nearbydistance * 4 < temp_resolution)
-    //{
-    //    temp_resolution = activity_nearbydistance * 4;
-
-    //}
-
-
-    vector<double> ResolutionVector;
-
-    ResolutionVector.push_back(0.00005);
-    ResolutionVector.push_back(0.0001);
-    ResolutionVector.push_back(0.0002);
-    ResolutionVector.push_back(0.00025);
-    ResolutionVector.push_back(0.0005);
-    ResolutionVector.push_back(0.00075);
-    ResolutionVector.push_back(0.001);
-    ResolutionVector.push_back(0.002);
-    ResolutionVector.push_back(0.0025);
-    ResolutionVector.push_back(0.005);
-    ResolutionVector.push_back(0.0075);
-    ResolutionVector.push_back(0.01);
-    ResolutionVector.push_back(0.02);
-    ResolutionVector.push_back(0.025);
-    ResolutionVector.push_back(0.05);
-    ResolutionVector.push_back(0.075);
-    ResolutionVector.push_back(0.1);
-    ResolutionVector.push_back(0.2);
-    ResolutionVector.push_back(0.25);
-    ResolutionVector.push_back(0.5);
-    ResolutionVector.push_back(0.75);
-    ResolutionVector.push_back(1);
-    ResolutionVector.push_back(2);
-    ResolutionVector.push_back(2.5);
-    ResolutionVector.push_back(5);
-    ResolutionVector.push_back(7.5);
-    ResolutionVector.push_back(10);
-    ResolutionVector.push_back(20);
-    ResolutionVector.push_back(25);
-    ResolutionVector.push_back(50);
-    ResolutionVector.push_back(75);
-
-    double ClosestResolution = 1;
-
-    if (temp_resolution < ResolutionVector[0])
-        temp_resolution = ResolutionVector[0];
-
-    for (unsigned int i = 0; i < ResolutionVector.size() - 1; i++)
-    {
-        if ((temp_resolution > ResolutionVector[i] + 0.000001) && temp_resolution < ResolutionVector[i + 1])
-        {
-            temp_resolution = ResolutionVector[i + 1]; // round up
-            break;
-
-        }
-    }
-
-    assignment.m_GridResolution = temp_resolution;
-
-    for (int i = 0; i < g_node_vector.size(); i++)
-    {
-        g_node_vector[i].cell_id = g_GetCellID(g_node_vector[i].x, g_node_vector[i].y, assignment.m_GridResolution);
-
-        g_node_vector[i].cell_str = g_GetCellCode(g_node_vector[i].x, g_node_vector[i].y, assignment.m_GridResolution, left, top);
-
-        if (g_info_cell_map.find(g_node_vector[i].cell_str) == g_info_cell_map.end())
-        {
-            CInfoCell cell;
-
-            cell.cell_str = g_node_vector[i].cell_str;
-            cell.CreateCell(g_node_vector[i].x, g_node_vector[i].y, assignment.m_GridResolution);
-            g_info_cell_map[g_node_vector[i].cell_str] = cell;
-        }
-    }
-
-
-    /*   assignment.zone_id_2_node_no_mapping.clear();*/
-    dtalog.output() << "Step 1.4.2: Grid Resolution " << assignment.m_GridResolution << endl;
-
-    //int activity_node_count = 0;
-    //for (int i = 0; i < g_node_vector.size(); i++)
-    //{
-
-    //    if (g_node_vector[i].is_activity_node >= 1)
-    //    {
-
-    //        //if (g_node_vector[i].node_id == 966)
-    //        //{
-    //        //    int itest = 1;
-    //        //}
-    //        __int64 cell_id = g_GetCellID(g_node_vector[i].x, g_node_vector[i].y, assignment.m_GridResolution);
-    //        int zone_id;
-
-    //        //if (assignment.cell_id_mapping.find(cell_id) == assignment.cell_id_mapping.end())  // create a cell
-    //        //{
-    //        //    create zone
-    //        //    assignment.cell_id_mapping[cell_id] = g_node_vector[i].node_id;
-
-
-    //        //    dtalog.output() << "Step 1.2: creating cell " << cell_id << " using node id " << g_node_vector[i].node_id << endl;
-
-    //        //    zone_id = assignment.cell_id_mapping[cell_id]; // which is the node id when a cell is created. 
-    //        //    if (assignment.zone_id_2_node_no_mapping.find(zone_id) == assignment.zone_id_2_node_no_mapping.end()) // create a zone 
-    //        //    {
-    //        //        dtalog.output() << "Step 1.2: creating zone " << zone_id << " using node id " << g_node_vector[i].node_id << endl;
-    //        //        create zone
-    //        //        assignment.zone_id_2_node_no_mapping[zone_id] = i;
-    //        //        assignment.zone_id_2_cell_id_mapping[zone_id] = cell_id;
-    //        //        g_node_vector[i].zone_org_id = zone_id;
-    //        //    }
-    //        //}
-    //        //else
-    //        //{
-    //        //    zone_id = assignment.cell_id_mapping[cell_id]; // which is the node id when a cell is created. 
-    //        //     for physcial nodes because only centriod can have valid zone_id.
-    //        //    g_node_vector[i].zone_org_id = zone_id;
-
-    //        //}
-
-    //        activity_node_count++;
-
-
-    //    }
-    //}
-
-    //dtalog.output() << "Step 1.4.3: creating " << assignment.zone_id_2_node_no_mapping.size() << " zones." << " # of activity nodes =" << activity_node_count << endl;
-}
-void g_InfoZoneGeneration(Assignment& assignment)
-{
-    dtalog.output() << "Step QEM mode for creating node 2 zone mapping" << endl;
-
-    double activity_nearbydistance = g_CheckActivityNodes(assignment);
-    // initialization of grid rectangle boundary
-    double left = 100000000;
-    double right = -100000000;
-    double top = -1000000000;
-    double  bottom = 1000000000;
-
-    for (int i = 0; i < g_node_vector.size(); i++)
-    {
-        // exapnd the grid boundary according to the nodes
-        left = min(left, g_node_vector[i].x);
-        right = max(right, g_node_vector[i].x);
-        top = max(top, g_node_vector[i].y);
-        bottom = min(bottom, g_node_vector[i].y);
-
-    }
-
-    int grid_size = 8;
-
-    if (g_node_vector.size() > 3000)
-        grid_size = 10;
-    if (g_node_vector.size() > 10000)
-        grid_size = 20;
-    if (g_node_vector.size() > 40000)
-        grid_size = 30;
-
-    double temp_resolution = (((right - left) / grid_size + (top - bottom) / grid_size)) / 2.0;
-
-    //if (activity_nearbydistance * 4 < temp_resolution)
-    //{
-    //    temp_resolution = activity_nearbydistance * 4;
-
-    //}
-
-
-    vector<double> ResolutionVector;
-
-    ResolutionVector.push_back(0.00005);
-    ResolutionVector.push_back(0.0001);
-    ResolutionVector.push_back(0.0002);
-    ResolutionVector.push_back(0.00025);
-    ResolutionVector.push_back(0.0005);
-    ResolutionVector.push_back(0.00075);
-    ResolutionVector.push_back(0.001);
-    ResolutionVector.push_back(0.002);
-    ResolutionVector.push_back(0.0025);
-    ResolutionVector.push_back(0.005);
-    ResolutionVector.push_back(0.0075);
-    ResolutionVector.push_back(0.01);
-    ResolutionVector.push_back(0.02);
-    ResolutionVector.push_back(0.025);
-    ResolutionVector.push_back(0.05);
-    ResolutionVector.push_back(0.075);
-    ResolutionVector.push_back(0.1);
-    ResolutionVector.push_back(0.2);
-    ResolutionVector.push_back(0.25);
-    ResolutionVector.push_back(0.5);
-    ResolutionVector.push_back(0.75);
-    ResolutionVector.push_back(1);
-    ResolutionVector.push_back(2);
-    ResolutionVector.push_back(2.5);
-    ResolutionVector.push_back(5);
-    ResolutionVector.push_back(7.5);
-    ResolutionVector.push_back(10);
-    ResolutionVector.push_back(20);
-    ResolutionVector.push_back(25);
-    ResolutionVector.push_back(50);
-    ResolutionVector.push_back(75);
-
-    double ClosestResolution = 1;
-
-    if (temp_resolution < ResolutionVector[0])
-        temp_resolution = ResolutionVector[0];
-
-    for (unsigned int i = 0; i < ResolutionVector.size() - 1; i++)
-    {
-        if ((temp_resolution > ResolutionVector[i] + 0.000001) && temp_resolution < ResolutionVector[i + 1])
-        {
-            temp_resolution = ResolutionVector[i + 1]; // round up
-            break;
-
-        }
-    }
-
-    assignment.m_GridResolution = temp_resolution;
-
-    for (int i = 0; i < g_node_vector.size(); i++)
-    {
-        g_node_vector[i].cell_id = g_GetCellID(g_node_vector[i].x, g_node_vector[i].y, assignment.m_GridResolution);
-    }
-
-
-    /*   assignment.zone_id_2_node_no_mapping.clear();*/
-    dtalog.output() << "Step 1.4.2: Grid Resolution " << assignment.m_GridResolution << endl;
-
-    //int activity_node_count = 0;
-    //for (int i = 0; i < g_node_vector.size(); i++)
-    //{
-
-    //    if (g_node_vector[i].is_activity_node >= 1)
-    //    {
-
-    //        //if (g_node_vector[i].node_id == 966)
-    //        //{
-    //        //    int itest = 1;
-    //        //}
-    //        __int64 cell_id = g_GetCellID(g_node_vector[i].x, g_node_vector[i].y, assignment.m_GridResolution);
-    //        int zone_id;
-
-    //        //if (assignment.cell_id_mapping.find(cell_id) == assignment.cell_id_mapping.end())  // create a cell
-    //        //{
-    //        //    create zone
-    //        //    assignment.cell_id_mapping[cell_id] = g_node_vector[i].node_id;
-
-
-    //        //    dtalog.output() << "Step 1.2: creating cell " << cell_id << " using node id " << g_node_vector[i].node_id << endl;
-
-    //        //    zone_id = assignment.cell_id_mapping[cell_id]; // which is the node id when a cell is created. 
-    //        //    if (assignment.zone_id_2_node_no_mapping.find(zone_id) == assignment.zone_id_2_node_no_mapping.end()) // create a zone 
-    //        //    {
-    //        //        dtalog.output() << "Step 1.2: creating zone " << zone_id << " using node id " << g_node_vector[i].node_id << endl;
-    //        //        create zone
-    //        //        assignment.zone_id_2_node_no_mapping[zone_id] = i;
-    //        //        assignment.zone_id_2_cell_id_mapping[zone_id] = cell_id;
-    //        //        g_node_vector[i].zone_org_id = zone_id;
-    //        //    }
-    //        //}
-    //        //else
-    //        //{
-    //        //    zone_id = assignment.cell_id_mapping[cell_id]; // which is the node id when a cell is created. 
-    //        //     for physcial nodes because only centriod can have valid zone_id.
-    //        //    g_node_vector[i].zone_org_id = zone_id;
-
-    //        //}
-
-    //        activity_node_count++;
-
-
-    //    }
-    //}
-
-    //dtalog.output() << "Step 1.4.3: creating " << assignment.zone_id_2_node_no_mapping.size() << " zones." << " # of activity nodes =" << activity_node_count << endl;
-}
-
 
 
 void g_ReadInputData(Assignment& assignment)
@@ -1366,8 +1113,20 @@ void g_ReadInputData(Assignment& assignment)
                 parser_agent_type.GetValueByFieldName("PCE", agent_type.PCE, false, false);
                 parser_agent_type.GetValueByFieldName("headway", agent_type.time_headway_in_sec, false, false);
                 parser_agent_type.GetValueByFieldName("display_code", agent_type.display_code);
-                parser_agent_type.GetValueByFieldName("real_time_information_type", agent_type.real_time_information, false, false);
+                parser_agent_type.GetValueByFieldName("real_time_information_type", agent_type.real_time_information);
 
+                if (agent_type.agent_type == "vms")  // set the real time information type = 1 for vms class by default
+                    agent_type.real_time_information = 1;
+
+                parser_agent_type.GetValueByFieldName("access_node_type", agent_type.access_node_type, false);
+
+                if (agent_type.access_node_type.size() > 0)
+                {
+                    parser_agent_type.GetValueByFieldName("access_speed", agent_type.access_speed);
+                    parser_agent_type.GetValueByFieldName("access_distance_lb", agent_type.access_distance_lb);
+                    parser_agent_type.GetValueByFieldName("access_distance_ub", agent_type.access_distance_ub);
+                    parser_agent_type.GetValueByFieldName("acecss_link_k", agent_type.acecss_link_k);
+                }
 
                 assignment.agent_type_2_seqno_mapping[agent_type.agent_type] = assignment.g_AgentTypeVector.size();
 
@@ -1408,6 +1167,7 @@ void g_ReadInputData(Assignment& assignment)
 
     CCSVParser parser;
 
+    int multmodal_activity_node_count = 0;
     dtalog.output() << "Step 1.4: Reading node data in node.csv..." << endl;
 
     if (parser.OpenCSVFile("node.csv", true))
@@ -1432,13 +1192,23 @@ void g_ReadInputData(Assignment& assignment)
 
             int zone_id = -1;
 
-            parser.GetValueByFieldName("node_type", node.node_type);
+            parser.GetValueByFieldName("node_type", node.node_type, false);
 
             parser.GetValueByFieldName("zone_id", zone_id);
             if (zone_id >= 1)
             {
                 node.is_activity_node = 1;  // from zone
+                string str_agent_type;
+                parser.GetValueByFieldName("agent_type", str_agent_type, false);
+
+                if (str_agent_type.size() > 0 && assignment.agent_type_2_seqno_mapping.find(str_agent_type) != assignment.agent_type_2_seqno_mapping.end())
+                {
+                    node.agent_type_str = str_agent_type;
+                    node.agent_type_no = assignment.agent_type_2_seqno_mapping[str_agent_type];
+                    multmodal_activity_node_count++;
+                }
             }
+
             parser.GetValueByFieldName("x_coord", node.x, true, false);
             parser.GetValueByFieldName("y_coord", node.y, true, false);
 
@@ -1474,7 +1244,7 @@ void g_ReadInputData(Assignment& assignment)
             int info_type = 0;
             parser.GetValueByFieldName("info_type", info_type, false);
 
-            if (info_type >= 1 && zone_id >=1)
+            if (info_type >= 1 && zone_id >= 1)
             {
 
                 info_zone_id_mapping[zone_id] = node_id;
@@ -1495,6 +1265,7 @@ void g_ReadInputData(Assignment& assignment)
         }
 
         dtalog.output() << "number of nodes = " << assignment.g_number_of_nodes << endl;
+        dtalog.output() << "number of multimodal activity nodes = " << multmodal_activity_node_count << endl;
         dtalog.output() << "number of zones = " << zone_id_mapping.size() << endl;
         dtalog.output() << "number of info zones = " << info_zone_id_mapping.size() << endl;
 
@@ -1504,511 +1275,581 @@ void g_ReadInputData(Assignment& assignment)
 
 
     /// <summary>  mappping node to zone
-
-    //for (int i = 0; i < g_node_vector.size(); i++)
-    //{
-    //    if (g_node_vector[i].node_type == "stop")
-    //    {
-    //        // find the closest zone id
-    //        std::map<int, int>::iterator it;
-
-    //        double min_distance = 9999999;
-    //        int min_distance_zone_id = -1;
-
-
-    //        for (it = zone_id_mapping.begin(); it != zone_id_mapping.end(); ++it)
-    //        {
-    //            double zone_x = assignment.zone_id_X_mapping[it->first];
-    //            double zone_y = assignment.zone_id_Y_mapping[it->first];
-
-    //            double distance = pow((zone_x - g_node_vector[i].x) * (zone_x - g_node_vector[i].x) + (zone_y - g_node_vector[i].y) * (zone_y - g_node_vector[i].y), 0.5);
-    //            if (distance < min_distance)
-    //            {
-    //                min_distance = distance;
-    //                min_distance_zone_id = it->first;
-    //            }
-    //        
-    //        }
-
-    //        if (min_distance_zone_id >= 1)
-    //        {
-    //            g_node_vector[i].zone_org_id = min_distance_zone_id;  // update zone_org_id;
-    //        }
-    //    }
-    //}
-
-
-    /// //
-    /// </summary>
-    /// <param name="assignment"></param>
-
-    g_InfoGridGeneration(assignment);
-    //g_InfoZoneMapping(assignment);
-    g_OutputModelFiles(1);  // node
-
-    // initialize zone vector
-    dtalog.output() << "Step 1.5: Initializing O-D zone vector..." << endl;
-
-    std::map<int, int>::iterator it;
-
-    for (it = zone_id_mapping.begin(); it != zone_id_mapping.end(); ++it)
+    // hanlding multimodal access link: stage 1
+    for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at) // first loop for each agent type
     {
-        COZone ozone;
-
-        // for each zone, we have to also create centriod
-        ozone.zone_id = it->first;  // zone_id
-        ozone.zone_seq_no = g_zone_vector.size();
-        ozone.obs_production = zone_id_production[it->first];
-        ozone.obs_attraction = zone_id_attraction[it->first];
-
-        assignment.g_zoneid_to_zone_seq_no_mapping[ozone.zone_id] = ozone.zone_seq_no;  // create the zone id to zone seq no mapping
-
-        // create a centriod
-        CNode node;
-        // very large number as a special id
-        node.node_id = -1 * ozone.zone_id;
-        node.node_seq_no = g_node_vector.size();
-        assignment.g_node_id_to_seq_no_map[node.node_id] = node.node_seq_no;
-        node.zone_id = ozone.zone_id;
-
-        if (info_zone_id_mapping.find(ozone.zone_id) != info_zone_id_mapping.end())
+        if (assignment.g_AgentTypeVector[at].access_node_type.size() > 0)  // for each multmodal agent type
         {
-            ozone.b_real_time_information = true;
-            assignment.zone_seq_no_2_info_mapping[ozone.zone_seq_no] = 1;
+            // find the closest zone id
 
-        }
-        // push it to the global node vector
-        g_node_vector.push_back(node);
-        assignment.g_number_of_nodes++;
-
-        ozone.node_seq_no = node.node_seq_no;
-        // this should be the only one place that defines this mapping
-        zone_id_to_centriod_node_id_mapping[ozone.zone_id] = node.node_id;
-        // add element into vector
-        g_zone_vector.push_back(ozone);
-    }
-
-    // gravity model.
-    if (assignment.assignment_mode == 5)
-    {
-        dtalog.output() << "writing demand.csv.." << endl;
-
-        FILE* g_pFileODMatrix = nullptr;
-        fopen_ss(&g_pFileODMatrix, "demand.csv", "w");
-
-        if (!g_pFileODMatrix)
-        {
-            dtalog.output() << "File demand.csv cannot be opened." << endl;
-            g_ProgramStop();
-        }
-        else
-        {
-            fprintf(g_pFileODMatrix, "o_zone_id,d_zone_id,volume\n");
-
-            float total_attraction = 0;
-
-            for (int d = 0; d < g_zone_vector.size(); ++d)
+            for (int a_k = 0; a_k < g_node_vector.size(); a_k++)
             {
-                if (g_zone_vector[d].obs_attraction > 0)
-                    total_attraction += g_zone_vector[d].obs_attraction;
-            }
-
-            // reset the estimated production and attraction
-            for (int orig = 0; orig < g_zone_vector.size(); ++orig)  // o
-            {
-                if (g_zone_vector[orig].obs_production >= 0)
+                if (g_node_vector[a_k].is_activity_node == 1 && g_node_vector[a_k].agent_type_no == at) //second loop for mode_specific activity node
                 {
-                    for (int dest = 0; dest < g_zone_vector.size(); ++dest)  // d
+
+                    // stage 2:  // min_distance
+                    double min_distance = 9999999;
+                    int min_distance_node_seq_no = -1;
+
+                    // stage 1:  // preferreed distance range
+                    double min_distance_within_range = 9999999;
+                    int min_distance_node_id_within_range = -1;
+
+                    std::vector<int> access_node_seq_vector;
+                    std::vector<float> access_node_distance_vector;
+
+                    for (int i = 0; i < g_node_vector.size(); i++)
                     {
-                        if (g_zone_vector[dest].obs_attraction > 0)
+                        if (g_node_vector[i].node_type.size() > 0)  // stop or station  //third loop for each stop or station node
                         {
-                            float value = g_zone_vector[orig].obs_production * g_zone_vector[dest].obs_attraction / max(0.0001f, total_attraction);
-                            fprintf(g_pFileODMatrix, "%d,%d,%.4f,\n", g_zone_vector[orig].zone_id, g_zone_vector[dest].zone_id, value);
-                            dtalog.output() << "orig= " << g_zone_vector[orig].zone_id << " dest= " << g_zone_vector[dest].zone_id << ":" << value << endl;
+
+                            if (assignment.g_AgentTypeVector[at].access_node_type.find(g_node_vector[i].node_type) != string::npos)  // check allowed access code
+                            {
+
+                                double zone_x = g_node_vector[a_k].x;
+                                double zone_y = g_node_vector[a_k].y;
+
+                                double distance = g_calculate_p2p_distance_in_mile_from_latitude_longitude(zone_x, zone_y, g_node_vector[i].x, g_node_vector[i].y);
+                                // calculate the distance 
+
+                                if (distance < min_distance)
+                                {
+                                    min_distance = distance;
+                                    min_distance_node_seq_no = i;
+                                }
+
+                                if (distance >= assignment.g_AgentTypeVector[at].access_distance_lb && distance <= assignment.g_AgentTypeVector[at].access_distance_ub)  // check the range 
+                                {
+                                    min_distance_within_range = distance;
+                                    min_distance_node_id_within_range = i;
+                                    access_node_seq_vector.push_back(i);
+                                    access_node_distance_vector.push_back(distance);
+                                }
+                            }
+
+                        }
+                    }  // scan for all nodes
+
+
+                    // check access node vector for each pair of zone and agent type
+                    // 
+                    if (access_node_seq_vector.size() > 0)  // preferred: access link within the range 
+                    {
+                        float distance_k = 99999;
+
+                        if(access_node_distance_vector.size() > assignment.g_AgentTypeVector[at].acecss_link_k)
+                        {
+
+                        std::vector<float> access_node_distance_vector_temp;
+                        access_node_distance_vector_temp = access_node_distance_vector;
+                        std::sort(access_node_distance_vector_temp.begin(), access_node_distance_vector_temp.end());
+
+                        distance_k = access_node_distance_vector_temp[max(0,assignment.g_AgentTypeVector[at].acecss_link_k - 1)];
+
+                        }
+
+                        for (int an = 0; an < access_node_seq_vector.size(); an++)
+                        {
+                            if(access_node_distance_vector[an] < distance_k)  // within the shortest k ranage 
+                            { 
+                            g_add_new_access_link(a_k, access_node_seq_vector[an], access_node_distance_vector[an], at);
+                            g_add_new_access_link(access_node_seq_vector[an], a_k, access_node_distance_vector[an], at);
+                            }
+                        }
+
+                    }
+                    else if (min_distance_node_seq_no >= 0 && min_distance < assignment.g_AgentTypeVector[at].access_distance_ub)  // no node in the  preferred range, just use any feasible node with minimum distance by default
+                    {
+                        g_add_new_access_link(a_k, min_distance_node_seq_no, min_distance, at);
+                        g_add_new_access_link(min_distance_node_seq_no, a_k, min_distance, at);
+
+                    }
+                    else {
+
+//                        dtalog.output() << " zone" << g_node_vector[a_k].zone_org_id << " with agent type = " << assignment.g_AgentTypeVector[at].agent_type.c_str() << " has no access to stop or station" << endl;
+                        // zone without multimodal access
+                    }
+
+                }  // for each zone
+
+            }
+        } 
+    }// for each agent type 
+
+        //g_InfoZoneMapping(assignment);
+        g_OutputModelFiles(1);  // node
+
+        // initialize zone vector
+        dtalog.output() << "Step 1.5: Initializing O-D zone vector..." << endl;
+
+        std::map<int, int>::iterator it;
+        // creating zone centriod
+        for (it = zone_id_mapping.begin(); it != zone_id_mapping.end(); ++it)
+        {
+            COZone ozone;
+
+            // for each zone, we have to also create centriod
+            ozone.zone_id = it->first;  // zone_id
+            ozone.zone_seq_no = g_zone_vector.size();
+            ozone.obs_production = zone_id_production[it->first];
+            ozone.obs_attraction = zone_id_attraction[it->first];
+
+            assignment.g_zoneid_to_zone_seq_no_mapping[ozone.zone_id] = ozone.zone_seq_no;  // create the zone id to zone seq no mapping
+
+            // create a centriod
+            CNode node;
+            // very large number as a special id
+            node.node_id = -1 * ozone.zone_id;
+            node.node_seq_no = g_node_vector.size();
+            assignment.g_node_id_to_seq_no_map[node.node_id] = node.node_seq_no;
+            node.zone_id = ozone.zone_id;
+
+            if (info_zone_id_mapping.find(ozone.zone_id) != info_zone_id_mapping.end())
+            {
+                ozone.b_real_time_information = true;
+                assignment.zone_seq_no_2_info_mapping[ozone.zone_seq_no] = 1;
+                dtalog.output() << "info zone =" << ozone.zone_id << endl;
+
+            }
+            // push it to the global node vector
+            g_node_vector.push_back(node);
+            assignment.g_number_of_nodes++;
+
+            ozone.node_seq_no = node.node_seq_no;
+            // this should be the only one place that defines this mapping
+            zone_id_to_centriod_node_id_mapping[ozone.zone_id] = node.node_id;
+            // add element into vector
+            g_zone_vector.push_back(ozone);
+        }
+
+        // gravity model.
+        if (assignment.assignment_mode == 5)
+        {
+            dtalog.output() << "writing demand.csv.." << endl;
+
+            FILE* g_pFileODMatrix = nullptr;
+            fopen_ss(&g_pFileODMatrix, "demand.csv", "w");
+
+            if (!g_pFileODMatrix)
+            {
+                dtalog.output() << "File demand.csv cannot be opened." << endl;
+                g_ProgramStop();
+            }
+            else
+            {
+                fprintf(g_pFileODMatrix, "o_zone_id,d_zone_id,volume\n");
+
+                float total_attraction = 0;
+
+                for (int d = 0; d < g_zone_vector.size(); ++d)
+                {
+                    if (g_zone_vector[d].obs_attraction > 0)
+                        total_attraction += g_zone_vector[d].obs_attraction;
+                }
+
+                // reset the estimated production and attraction
+                for (int orig = 0; orig < g_zone_vector.size(); ++orig)  // o
+                {
+                    if (g_zone_vector[orig].obs_production >= 0)
+                    {
+                        for (int dest = 0; dest < g_zone_vector.size(); ++dest)  // d
+                        {
+                            if (g_zone_vector[dest].obs_attraction > 0)
+                            {
+                                float value = g_zone_vector[orig].obs_production * g_zone_vector[dest].obs_attraction / max(0.0001f, total_attraction);
+                                fprintf(g_pFileODMatrix, "%d,%d,%.4f,\n", g_zone_vector[orig].zone_id, g_zone_vector[dest].zone_id, value);
+                                dtalog.output() << "orig= " << g_zone_vector[orig].zone_id << " dest= " << g_zone_vector[dest].zone_id << ":" << value << endl;
+                            }
                         }
                     }
                 }
-            }
 
-            fclose(g_pFileODMatrix);
+                fclose(g_pFileODMatrix);
+            }
         }
-    }
 
-    dtalog.output() << "number of zones = " << g_zone_vector.size() << endl;
-    // step 4: read link file
+        dtalog.output() << "number of zones = " << g_zone_vector.size() << endl;
+        // step 4: read link file
 
-    CCSVParser parser_link;
+        CCSVParser parser_link;
 
-    dtalog.output() << "Step 1.6: Reading link data in link.csv... " << endl;
-    if (parser_link.OpenCSVFile("link.csv", true))
-    {
-        while (parser_link.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
+        dtalog.output() << "Step 1.6: Reading link data in link.csv... " << endl;
+        if (parser_link.OpenCSVFile("link.csv", true))
         {
-            string link_type_name_str;
-            parser_link.GetValueByFieldName("link_type_name", link_type_name_str,false);
-
-            if (link_type_name_str == "z2sta"/* || link_type_name_str == "sta2sta_2r"*/)  // filtering
-                continue;
-
-            int from_node_id;
-            if (!parser_link.GetValueByFieldName("from_node_id", from_node_id))
-                continue;
-
-            int to_node_id;
-            if (!parser_link.GetValueByFieldName("to_node_id", to_node_id))
-                continue;
-
-            string linkID;
-            parser_link.GetValueByFieldName("link_id", linkID);
-            // add the to node id into the outbound (adjacent) node list
-
-            if (assignment.g_node_id_to_seq_no_map.find(from_node_id) == assignment.g_node_id_to_seq_no_map.end())
+            while (parser_link.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
             {
-                dtalog.output() << "Error: from_node_id " << from_node_id << " in file link.csv is not defined in node.csv." << endl;
-                continue; //has not been defined
-            }
+                string link_type_name_str;
+                parser_link.GetValueByFieldName("link_type_name", link_type_name_str, false);
 
-            if (assignment.g_node_id_to_seq_no_map.find(to_node_id) == assignment.g_node_id_to_seq_no_map.end())
-            {
-                dtalog.output() << "Error: to_node_id " << to_node_id << " in file link.csv is not defined in node.csv." << endl;
-                continue; //has not been defined
-            }
+                if (link_type_name_str == "z2sta"/* || link_type_name_str == "sta2sta_2r"*/)  // filtering
+                    continue;
 
-            //if (assignment.g_link_id_map.find(linkID) != assignment.g_link_id_map.end())
-            //    dtalog.output() << "Error: link_id " << linkID.c_str() << " has been defined more than once. Please check link.csv." << endl;
+                int from_node_id;
+                if (!parser_link.GetValueByFieldName("from_node_id", from_node_id))
+                    continue;
 
-            int internal_from_node_seq_no = assignment.g_node_id_to_seq_no_map[from_node_id];  // map external node number to internal node seq no.
-            int internal_to_node_seq_no = assignment.g_node_id_to_seq_no_map[to_node_id];
+                int to_node_id;
+                if (!parser_link.GetValueByFieldName("to_node_id", to_node_id))
+                    continue;
 
+                string linkID;
+                parser_link.GetValueByFieldName("link_id", linkID);
+                // add the to node id into the outbound (adjacent) node list
 
-            // create a link object
-            CLink link;
-
-            link.from_node_seq_no = internal_from_node_seq_no;
-            link.to_node_seq_no = internal_to_node_seq_no;
-            link.link_seq_no = assignment.g_number_of_links;
-            link.to_node_seq_no = internal_to_node_seq_no;
-            link.link_id = linkID;
-
-            assignment.g_link_id_map[link.link_id] = 1;
-
-            string movement_str;
-            parser_link.GetValueByFieldName("mvmt_txt_id", movement_str, false);
-            int cell_type = -1;
-            if (parser_link.GetValueByFieldName("cell_type", cell_type, false) == true)
-                link.cell_type = cell_type;
-
-
-
-
-            parser_link.GetValueByFieldName("geometry", link.geometry, false);
-            parser_link.GetValueByFieldName("path_code", link.path_code_str, false);
-            parser_link.GetValueByFieldName("tmc_corridor_name", link.tmc_corridor_name, false);
-            parser_link.GetValueByFieldName("link_type_name", link.link_type_name, false);
-
-            parser_link.GetValueByFieldName("link_type_code", link.link_type_code, false);
-
-            // and valid
-            if (movement_str.size() > 0)
-            {
-                int main_node_id = -1;
-
-
-                link.mvmt_txt_id = movement_str;
-                link.main_node_id = main_node_id;
-            }
-
-            // Peiheng, 05/13/21, if setting.csv does not have corresponding link type or the whole section is missing, set it as 2 (i.e., Major arterial)
-            int link_type = 2;
-            parser_link.GetValueByFieldName("link_type", link_type, false);
-
-            if (assignment.g_LinkTypeMap.find(link_type) == assignment.g_LinkTypeMap.end())
-            {
-                dtalog.output() << "link type " << link_type << " in link.csv is not defined for link " << from_node_id << "->" << to_node_id << " in link_type.csv" << endl;
-                // link.link_type has been taken care by its default constructor
-                //g_ProgramStop();
-            }
-            else
-            {
-                // link type should be defined in settings.csv
-                link.link_type = link_type;
-            }
-
-            if (assignment.g_LinkTypeMap[link.link_type].type_code == "c")  // suggestion: we can move "c" as "connector" in allowed_uses
-            {
-                if (g_node_vector[internal_from_node_seq_no].zone_org_id >= 0)
+                if (assignment.g_node_id_to_seq_no_map.find(from_node_id) == assignment.g_node_id_to_seq_no_map.end())
                 {
-                    int zone_org_id = g_node_vector[internal_from_node_seq_no].zone_org_id;
-                    if (assignment.g_zoneid_to_zone_seq_no_mapping.find(zone_org_id) != assignment.g_zoneid_to_zone_seq_no_mapping.end())
-                        link.zone_seq_no_for_outgoing_connector = assignment.g_zoneid_to_zone_seq_no_mapping[zone_org_id];
-                }
-            }
-
-            double length = 1.0; // km or mile
-            double free_speed = 1.0;
-            double k_jam = 200;
-            double bwtt_speed = 12;  //miles per hour
-
-            double lane_capacity = 1800;
-            parser_link.GetValueByFieldName("length", length);
-            if (length < 0.007)
-            {
-                length = 0.007;  // minimum length
-            }
-            parser_link.GetValueByFieldName("free_speed", free_speed);
-
-            if (free_speed <= 0.1)
-                free_speed = 60;
-
-            free_speed = max(0.1, free_speed);
-
-            link.free_speed = free_speed;
-
-
-
-            int number_of_lanes = 1;
-            parser_link.GetValueByFieldName("lanes", number_of_lanes);
-            parser_link.GetValueByFieldName("capacity", lane_capacity);
-
-            link.free_flow_travel_time_in_min = length / free_speed * 60;
-            link.traffic_flow_code = assignment.g_LinkTypeMap[link.link_type].traffic_flow_code;
-
-            //spatial queue and kinematic wave
-            link.spatial_capacity_in_vehicles = max(1.0, length * number_of_lanes * k_jam);
-
-            // kinematic wave
-            if (link.traffic_flow_code == 3)
-                link.BWTT_in_simulation_interval = length / bwtt_speed * 3600 / number_of_seconds_per_interval;
-
-            // Peiheng, 02/03/21, useless block
-            if (linkID == "10")
-                int i_debug = 1;
-
-            char VDF_field_name[50];
-
-            for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)
-            {
-                double pce_at = 1; // default
-                sprintf(VDF_field_name, "VDF_pce%s", assignment.g_AgentTypeVector[at].agent_type.c_str());
-
-                parser_link.GetValueByFieldName(VDF_field_name, pce_at, false, true);
-
-                if (pce_at > 1.001)  // log
-                {
-                    //dtalog.output() << "link " << from_node_id << "->" << to_node_id << " has a pce of " << pce_at << " for agent type "
-                    //    << assignment.g_AgentTypeVector[at].agent_type.c_str() << endl;
+                    dtalog.output() << "Error: from_node_id " << from_node_id << " in file link.csv is not defined in node.csv." << endl;
+                    continue; //has not been defined
                 }
 
-
-                for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
+                if (assignment.g_node_id_to_seq_no_map.find(to_node_id) == assignment.g_node_id_to_seq_no_map.end())
                 {
-                    link.VDF_period[tau].pce[at] = pce_at;
+                    dtalog.output() << "Error: to_node_id " << to_node_id << " in file link.csv is not defined in node.csv." << endl;
+                    continue; //has not been defined
                 }
 
-            }
+                //if (assignment.g_link_id_map.find(linkID) != assignment.g_link_id_map.end())
+                //    dtalog.output() << "Error: link_id " << linkID.c_str() << " has been defined more than once. Please check link.csv." << endl;
 
-            // for traffic simulation
-            for (int s = 0; s < _MAX_TIMESLOT_PerPeriod; s++)
-            {
-                link.TD_link_capacity[s] = lane_capacity * number_of_lanes;;
-            }
+                int internal_from_node_seq_no = assignment.g_node_id_to_seq_no_map[from_node_id];  // map external node number to internal node seq no.
+                int internal_to_node_seq_no = assignment.g_node_id_to_seq_no_map[to_node_id];
 
-            for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
-            {
-                //setup default values
-                link.VDF_period[tau].capacity = lane_capacity * number_of_lanes;
-                link.VDF_period[tau].FFTT = length / free_speed * 60.0;  // 60.0 for 60 min per hour
-                link.VDF_period[tau].alpha = 0.15;
-                link.VDF_period[tau].beta = 4;
-                link.VDF_period[tau].preload = 0;
 
-                for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)
+                // create a link object
+                CLink link;
+
+                link.from_node_seq_no = internal_from_node_seq_no;
+                link.to_node_seq_no = internal_to_node_seq_no;
+                link.link_seq_no = assignment.g_number_of_links;
+                link.to_node_seq_no = internal_to_node_seq_no;
+                link.link_id = linkID;
+
+                assignment.g_link_id_map[link.link_id] = 1;
+
+                string movement_str;
+                parser_link.GetValueByFieldName("mvmt_txt_id", movement_str, false);
+                int cell_type = -1;
+                if (parser_link.GetValueByFieldName("cell_type", cell_type, false) == true)
+                    link.cell_type = cell_type;
+
+
+
+
+                parser_link.GetValueByFieldName("geometry", link.geometry, false);
+                parser_link.GetValueByFieldName("path_code", link.path_code_str, false);
+                parser_link.GetValueByFieldName("tmc_corridor_name", link.tmc_corridor_name, false);
+                parser_link.GetValueByFieldName("link_type_name", link.link_type_name, false);
+
+                parser_link.GetValueByFieldName("link_type_code", link.link_type_code, false);
+
+                // and valid
+                if (movement_str.size() > 0)
                 {
-                    link.VDF_period[tau].toll[at] = 0;
-                    link.VDF_period[tau].LR_price[at] = 0;
-                    link.VDF_period[tau].LR_RT_price[at] = 0;
+                    int main_node_id = -1;
+
+
+                    link.mvmt_txt_id = movement_str;
+                    link.main_node_id = main_node_id;
                 }
 
+                // Peiheng, 05/13/21, if setting.csv does not have corresponding link type or the whole section is missing, set it as 2 (i.e., Major arterial)
+                int link_type = 2;
+                parser_link.GetValueByFieldName("link_type", link_type, false);
 
-                link.VDF_period[tau].starting_time_slot_no = assignment.g_DemandPeriodVector[tau].starting_time_slot_no;
-                link.VDF_period[tau].ending_time_slot_no = assignment.g_DemandPeriodVector[tau].ending_time_slot_no;
-
-
-                int demand_period_id = assignment.g_DemandPeriodVector[tau].demand_period_id;
-                sprintf(VDF_field_name, "VDF_fftt%d", demand_period_id);
-                parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].FFTT, false, false);  // FFTT should be per min
-
-                if (link.VDF_period[tau].FFTT > 100)
+                if (assignment.g_LinkTypeMap.find(link_type) == assignment.g_LinkTypeMap.end())
                 {
-                    dtalog.output() << "link " << from_node_id << "->" << to_node_id << " has a FFTT of " << link.VDF_period[tau].FFTT << " min at demand period " << demand_period_id
-                        << " " << assignment.g_DemandPeriodVector[tau].demand_period.c_str() << endl;
+                    dtalog.output() << "link type " << link_type << " in link.csv is not defined for link " << from_node_id << "->" << to_node_id << " in link_type.csv" << endl;
+                    // link.link_type has been taken care by its default constructor
+                    //g_ProgramStop();
+                }
+                else
+                {
+                    // link type should be defined in settings.csv
+                    link.link_type = link_type;
                 }
 
-                sprintf(VDF_field_name, "VDF_cap%d", demand_period_id);
-                parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].capacity, false, false);  // capacity should be per period per link (include all lanes)
-
-                sprintf(VDF_field_name, "VDF_alpha%d", demand_period_id);
-                parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].alpha, false, false);
-
-                sprintf(VDF_field_name, "VDF_beta%d", demand_period_id);
-                parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].beta, false, false);
-
-                sprintf(VDF_field_name, "VDF_allowed_uses%d", demand_period_id);
-                parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].allowed_uses, false);
-
-                sprintf(VDF_field_name, "VDF_preload%d", demand_period_id);
-                parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].preload, false, false);
-
-                for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)
+                if (assignment.g_LinkTypeMap[link.link_type].type_code == "c")  // suggestion: we can move "c" as "connector" in allowed_uses
                 {
-                    sprintf(VDF_field_name, "VDF_toll%s%d", assignment.g_AgentTypeVector[at].agent_type.c_str(), demand_period_id);
-                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].toll[at], false, false);
-
-                    if (link.VDF_period[tau].toll[at] > 0.001)
+                    if (g_node_vector[internal_from_node_seq_no].zone_org_id >= 0)
                     {
-                        dtalog.output() << "link " << from_node_id << "->" << to_node_id << " has a toll of " << link.VDF_period[tau].toll[at] << " for agent type "
-                            << assignment.g_AgentTypeVector[at].agent_type.c_str() << " at demand period " << demand_period_id << endl;
+                        int zone_org_id = g_node_vector[internal_from_node_seq_no].zone_org_id;
+                        if (assignment.g_zoneid_to_zone_seq_no_mapping.find(zone_org_id) != assignment.g_zoneid_to_zone_seq_no_mapping.end())
+                            link.zone_seq_no_for_outgoing_connector = assignment.g_zoneid_to_zone_seq_no_mapping[zone_org_id];
+                    }
+                }
+
+                double length = 1.0; // km or mile
+                double free_speed = 1.0;
+                double k_jam = 200;
+                double bwtt_speed = 12;  //miles per hour
+
+                double lane_capacity = 1800;
+                parser_link.GetValueByFieldName("length", length);
+                if (length < 0.007)
+                {
+                    length = 0.007;  // minimum length
+                }
+                parser_link.GetValueByFieldName("free_speed", free_speed);
+
+                if (free_speed <= 0.1)
+                    free_speed = 60;
+
+                free_speed = max(0.1, free_speed);
+
+                link.free_speed = free_speed;
+
+
+
+                int number_of_lanes = 1;
+                parser_link.GetValueByFieldName("lanes", number_of_lanes);
+                parser_link.GetValueByFieldName("capacity", lane_capacity);
+
+                link.free_flow_travel_time_in_min = length / free_speed * 60;
+                link.traffic_flow_code = assignment.g_LinkTypeMap[link.link_type].traffic_flow_code;
+
+                //spatial queue and kinematic wave
+                link.spatial_capacity_in_vehicles = max(1.0, length * number_of_lanes * k_jam);
+
+                // kinematic wave
+                if (link.traffic_flow_code == 3)
+                    link.BWTT_in_simulation_interval = length / bwtt_speed * 3600 / number_of_seconds_per_interval;
+
+                // Peiheng, 02/03/21, useless block
+                if (linkID == "10")
+                    int i_debug = 1;
+
+                char VDF_field_name[50];
+
+                for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)
+                {
+                    double pce_at = 1; // default
+                    sprintf(VDF_field_name, "VDF_pce%s", assignment.g_AgentTypeVector[at].agent_type.c_str());
+
+                    parser_link.GetValueByFieldName(VDF_field_name, pce_at, false, true);
+
+                    if (pce_at > 1.001)  // log
+                    {
+                        //dtalog.output() << "link " << from_node_id << "->" << to_node_id << " has a pce of " << pce_at << " for agent type "
+                        //    << assignment.g_AgentTypeVector[at].agent_type.c_str() << endl;
+                    }
+
+
+                    for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
+                    {
+                        link.VDF_period[tau].pce[at] = pce_at;
                     }
 
                 }
 
-                sprintf(VDF_field_name, "VDF_penalty%d", demand_period_id);
-                parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].penalty, false, false);
-
-                if (link.cell_type >= 1) // micro lane-changing arc
+                // for traffic simulation
+                for (int s = 0; s < _MAX_TIMESLOT_PerPeriod; s++)
                 {
-                    // additinonal min: 24 seconds 0.4 min
-                    link.VDF_period[tau].penalty += 0.4;
+                    link.dynamic_link_capacity[s] = lane_capacity * number_of_lanes;;
                 }
 
-                sprintf(VDF_field_name, "VDF_PHF%d", demand_period_id);
-                parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].PHF, false, false);
-
-                sprintf(VDF_field_name, "VDF_mu%d", demand_period_id);
-                parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].mu, false, false);  // mu should be per hour per link, so that we can calculate congestion duration and D/mu in BPR-X
-
-                parser_link.GetValueByFieldName("cycle_length", link.VDF_period[tau].cycle_length, false, false);
-
-                if (link.VDF_period[tau].cycle_length >= 1)
+                for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
                 {
-                    link.timing_arc_flag = true;
+                    //setup default values
+                    link.VDF_period[tau].capacity = lane_capacity * number_of_lanes;
+                    link.VDF_period[tau].FFTT = length / free_speed * 60.0;  // 60.0 for 60 min per hour
+                    link.VDF_period[tau].alpha = 0.15;
+                    link.VDF_period[tau].beta = 4;
+                    link.VDF_period[tau].preload = 0;
 
-                    parser_link.GetValueByFieldName("start_green_time", link.VDF_period[tau].start_green_time);
-                    parser_link.GetValueByFieldName("end_green_time", link.VDF_period[tau].end_green_time);
-                    parser_link.GetValueByFieldName("red_time", link.VDF_period[tau].red_time, false);
-                    parser_link.GetValueByFieldName("green_time", link.VDF_period[tau].effective_green_time, false);
+                    for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)
+                    {
+                        link.VDF_period[tau].toll[at] = 0;
+                        link.VDF_period[tau].LR_price[at] = 0;
+                        link.VDF_period[tau].LR_RT_price[at] = 0;
+                    }
+
+
+                    link.VDF_period[tau].starting_time_slot_no = assignment.g_DemandPeriodVector[tau].starting_time_slot_no;
+                    link.VDF_period[tau].ending_time_slot_no = assignment.g_DemandPeriodVector[tau].ending_time_slot_no;
+
+
+                    int demand_period_id = assignment.g_DemandPeriodVector[tau].demand_period_id;
+                    sprintf(VDF_field_name, "VDF_fftt%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].FFTT, false, false);  // FFTT should be per min
+
+                    if (link.VDF_period[tau].FFTT > 100)
+                    {
+                        dtalog.output() << "link " << from_node_id << "->" << to_node_id << " has a FFTT of " << link.VDF_period[tau].FFTT << " min at demand period " << demand_period_id
+                            << " " << assignment.g_DemandPeriodVector[tau].demand_period.c_str() << endl;
+                    }
+
+                    sprintf(VDF_field_name, "VDF_cap%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].capacity, false, false);  // capacity should be per period per link (include all lanes)
+
+                    sprintf(VDF_field_name, "VDF_alpha%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].alpha, false, false);
+
+                    sprintf(VDF_field_name, "VDF_beta%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].beta, false, false);
+
+                    sprintf(VDF_field_name, "VDF_allowed_uses%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].allowed_uses, false);
+
+                    sprintf(VDF_field_name, "VDF_preload%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].preload, false, false);
+
+                    for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)
+                    {
+                        sprintf(VDF_field_name, "VDF_toll%s%d", assignment.g_AgentTypeVector[at].agent_type.c_str(), demand_period_id);
+                        parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].toll[at], false, false);
+
+                        if (link.VDF_period[tau].toll[at] > 0.001)
+                        {
+                            dtalog.output() << "link " << from_node_id << "->" << to_node_id << " has a toll of " << link.VDF_period[tau].toll[at] << " for agent type "
+                                << assignment.g_AgentTypeVector[at].agent_type.c_str() << " at demand period " << demand_period_id << endl;
+                        }
+
+                    }
+
+                    sprintf(VDF_field_name, "VDF_penalty%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].penalty, false, false);
+
+                    if (link.cell_type >= 1) // micro lane-changing arc
+                    {
+                        // additinonal min: 24 seconds 0.4 min
+                        link.VDF_period[tau].penalty += 0.4;
+                    }
+
+                    sprintf(VDF_field_name, "VDF_PHF%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].PHF, false, false);
+
+                    sprintf(VDF_field_name, "VDF_mu%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].mu, false, false);  // mu should be per hour per link, so that we can calculate congestion duration and D/mu in BPR-X
+
+                    parser_link.GetValueByFieldName("cycle_length", link.VDF_period[tau].cycle_length, false, false);
+
+                    if (link.VDF_period[tau].cycle_length >= 1)
+                    {
+                        link.timing_arc_flag = true;
+
+                        parser_link.GetValueByFieldName("start_green_time", link.VDF_period[tau].start_green_time);
+                        parser_link.GetValueByFieldName("end_green_time", link.VDF_period[tau].end_green_time);
+                        parser_link.GetValueByFieldName("red_time", link.VDF_period[tau].red_time, false);
+                        parser_link.GetValueByFieldName("green_time", link.VDF_period[tau].effective_green_time, false);
+                    }
+
                 }
 
+                // for each period
+
+                float default_cap = 1000;
+                float default_BaseTT = 1;
+
+                // setup default value
+                for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
+                {
+                    link.TDBaseTT[tau] = default_BaseTT;
+                    link.TDBaseCap[tau] = default_cap;
+                }
+
+                //link.m_OutflowNumLanes = number_of_lanes;//visum lane_cap is actually link_cap
+
+                link.number_of_lanes = number_of_lanes;
+                link.lane_capacity = lane_capacity;
+                link.link_spatial_capacity = k_jam * number_of_lanes * length;
+
+                link.length = max(0.00001, length);
+                for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
+                    link.travel_time_per_period[tau] = length / free_speed * 60;
+
+                // min // calculate link cost based length and speed limit // later we should also read link_capacity, calculate delay
+
+                //int sequential_copying = 0;
+                //
+                //parser_link.GetValueByFieldName("sequential_copying", sequential_copying);
+
+                g_node_vector[internal_from_node_seq_no].m_outgoing_link_seq_no_vector.push_back(link.link_seq_no);  // add this link to the corresponding node as part of outgoing node/link
+                g_node_vector[internal_to_node_seq_no].m_incoming_link_seq_no_vector.push_back(link.link_seq_no);  // add this link to the corresponding node as part of outgoing node/link
+
+                g_node_vector[internal_from_node_seq_no].m_to_node_seq_no_vector.push_back(link.to_node_seq_no);  // add this link to the corresponding node as part of outgoing node/link
+                g_node_vector[internal_from_node_seq_no].m_to_node_2_link_seq_no_map[link.to_node_seq_no] = link.link_seq_no;  // add this link to the corresponding node as part of outgoing node/link
+
+                g_link_vector.push_back(link);
+
+                string mvmt_key;
+                parser_link.GetValueByFieldName("mvmt_key", mvmt_key, false);
+                if (mvmt_key.size() > 4) // main_node_id _ movement code
+                {
+                    assignment.g_mvmt_key_to_link_no_map[mvmt_key] = assignment.g_number_of_links;
+                }
+
+                assignment.g_number_of_links++;
+
+                if (assignment.g_number_of_links % 10000 == 0)
+                    dtalog.output() << "reading " << assignment.g_number_of_links << " links.. " << endl;
             }
 
-            // for each period
-
-            float default_cap = 1000;
-            float default_BaseTT = 1;
-
-            // setup default value
-            for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
-            {
-                link.TDBaseTT[tau] = default_BaseTT;
-                link.TDBaseCap[tau] = default_cap;
-            }
-
-            //link.m_OutflowNumLanes = number_of_lanes;//visum lane_cap is actually link_cap
-
-            link.number_of_lanes = number_of_lanes;
-            link.lane_capacity = lane_capacity;
-            link.link_spatial_capacity = k_jam * number_of_lanes * length;
-
-            link.length = max(0.00001, length);
-            for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
-                link.travel_time_per_period[tau] = length / free_speed * 60;
-
-            // min // calculate link cost based length and speed limit // later we should also read link_capacity, calculate delay
-
-            //int sequential_copying = 0;
-            //
-            //parser_link.GetValueByFieldName("sequential_copying", sequential_copying);
-
-            g_node_vector[internal_from_node_seq_no].m_outgoing_link_seq_no_vector.push_back(link.link_seq_no);  // add this link to the corresponding node as part of outgoing node/link
-            g_node_vector[internal_to_node_seq_no].m_incoming_link_seq_no_vector.push_back(link.link_seq_no);  // add this link to the corresponding node as part of outgoing node/link
-
-            g_node_vector[internal_from_node_seq_no].m_to_node_seq_no_vector.push_back(link.to_node_seq_no);  // add this link to the corresponding node as part of outgoing node/link
-            g_node_vector[internal_from_node_seq_no].m_to_node_2_link_seq_no_map[link.to_node_seq_no] = link.link_seq_no;  // add this link to the corresponding node as part of outgoing node/link
-
-            g_link_vector.push_back(link);
-
-            string mvmt_key;
-            parser_link.GetValueByFieldName("mvmt_key", mvmt_key, false);
-            if (mvmt_key.size() > 4) // main_node_id _ movement code
-            {
-                assignment.g_mvmt_key_to_link_no_map[mvmt_key] = assignment.g_number_of_links;
-            }
-
-            assignment.g_number_of_links++;
-
-            if (assignment.g_number_of_links % 10000 == 0)
-                dtalog.output() << "reading " << assignment.g_number_of_links << " links.. " << endl;
+            parser_link.CloseCSVFile();
         }
+        // we now know the number of links
+        dtalog.output() << "number of links = " << assignment.g_number_of_links << endl;
 
-        parser_link.CloseCSVFile();
-    }
-    // we now know the number of links
-    dtalog.output() << "number of links = " << assignment.g_number_of_links << endl;
-
-    // after we read the physical links
-    // we create virtual connectors
-    for (int i = 0; i < g_node_vector.size(); ++i)
-    {
-        if (g_node_vector[i].zone_org_id >= 0) // for each physical node
-        { // we need to make sure we only create two way connectors between nodes and zones
-
-            int internal_from_node_seq_no, internal_to_node_seq_no, zone_seq_no;
-
-            internal_from_node_seq_no = g_node_vector[i].node_seq_no;
-            int node_id = zone_id_to_centriod_node_id_mapping[g_node_vector[i].zone_org_id];
-            internal_to_node_seq_no = assignment.g_node_id_to_seq_no_map[node_id];
-            zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[g_node_vector[i].zone_org_id];
-
-            // incomming virtual connector
-            g_AddNewVirtualConnectorLink(internal_from_node_seq_no, internal_to_node_seq_no, -1);
-            // outgoing virtual connector
-            g_AddNewVirtualConnectorLink(internal_to_node_seq_no, internal_from_node_seq_no, zone_seq_no);
-        }
-    }
-
-    dtalog.output() << "number of links =" << assignment.g_number_of_links << endl;
-    g_OutputModelFiles(2);
-
-    if (dtalog.debug_level() == 2)
-    {
+        // after we read the physical links
+        // we create virtual connectors
         for (int i = 0; i < g_node_vector.size(); ++i)
         {
-            if (g_node_vector[i].zone_org_id > 0) // for each physical node
-            {
-                // we need to make sure we only create two way connectors between nodes and zones
-                dtalog.output() << "node id= " << g_node_vector[i].node_id << " with zone id " << g_node_vector[i].zone_org_id << "and "
-                    << g_node_vector[i].m_outgoing_link_seq_no_vector.size() << " outgoing links." << endl;
-                for (int j = 0; j < g_node_vector[i].m_outgoing_link_seq_no_vector.size(); ++j)
-                {
-                    int link_seq_no = g_node_vector[i].m_outgoing_link_seq_no_vector[j];
-                    dtalog.output() << "  outgoing node = " << g_node_vector[g_link_vector[link_seq_no].to_node_seq_no].node_id << endl;
-                }
+
+            if (g_node_vector[i].zone_org_id >= 0) // for each physical node
+            { // we need to make sure we only create two way connectors between nodes and zones
+
+                    // for each node-zone pair: create a pair of connectors with the agent-type related acess_map
+                int zone_org_id = g_node_vector[i].zone_org_id;
+                int internal_from_node_seq_no, internal_to_node_seq_no, zone_seq_no;
+
+                internal_from_node_seq_no = g_node_vector[i].node_seq_no;
+                int node_id = zone_id_to_centriod_node_id_mapping[zone_org_id];
+                internal_to_node_seq_no = assignment.g_node_id_to_seq_no_map[node_id];
+                zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[zone_org_id];
+
+                // we need to mark all accessble model on this access links, so we can handle that in the future for each agent type's memory block in shortest path
+                // incomming virtual connector
+                g_add_new_virtual_connector_link(internal_from_node_seq_no, internal_to_node_seq_no, g_node_vector[i].agent_type_str, -1);
+                // outgoing virtual connector
+                g_add_new_virtual_connector_link(internal_to_node_seq_no, internal_from_node_seq_no, g_node_vector[i].agent_type_str, zone_seq_no);
+                // result is that: we have a unique pair of node-zone access link in the overall network, but still carry agent_type_acess_map for agent types with access on this node-zone connector
+
             }
-            else
+
+        }
+        dtalog.output() << "number of links =" << assignment.g_number_of_links << endl;
+        g_OutputModelFiles(3);
+
+        if (dtalog.debug_level() == 2)
+        {
+            for (int i = 0; i < g_node_vector.size(); ++i)
             {
-                if (dtalog.debug_level() == 3)
+                if (g_node_vector[i].zone_org_id > 0) // for each physical node
                 {
-                    dtalog.output() << "node id= " << g_node_vector[i].node_id << " with " << g_node_vector[i].m_outgoing_link_seq_no_vector.size() << " outgoing links." << endl;
+                    // we need to make sure we only create two way connectors between nodes and zones
+                    dtalog.output() << "node id= " << g_node_vector[i].node_id << " with zone id " << g_node_vector[i].zone_org_id << "and "
+                        << g_node_vector[i].m_outgoing_link_seq_no_vector.size() << " outgoing links." << endl;
                     for (int j = 0; j < g_node_vector[i].m_outgoing_link_seq_no_vector.size(); ++j)
                     {
                         int link_seq_no = g_node_vector[i].m_outgoing_link_seq_no_vector[j];
                         dtalog.output() << "  outgoing node = " << g_node_vector[g_link_vector[link_seq_no].to_node_seq_no].node_id << endl;
                     }
                 }
+                else
+                {
+                    if (dtalog.debug_level() == 3)
+                    {
+                        dtalog.output() << "node id= " << g_node_vector[i].node_id << " with " << g_node_vector[i].m_outgoing_link_seq_no_vector.size() << " outgoing links." << endl;
+                        for (int j = 0; j < g_node_vector[i].m_outgoing_link_seq_no_vector.size(); ++j)
+                        {
+                            int link_seq_no = g_node_vector[i].m_outgoing_link_seq_no_vector[j];
+                            dtalog.output() << "  outgoing node = " << g_node_vector[g_link_vector[link_seq_no].to_node_seq_no].node_id << endl;
+                        }
+                    }
+                }
             }
         }
-    }
 
+}
     //CCSVParser parser_movement;
     //int prohibited_count = 0;
 
@@ -2060,7 +1901,7 @@ void g_ReadInputData(Assignment& assignment)
     //    parser_movement.CloseCSVFile();
     //}
 
-}
+
 
 //
 //

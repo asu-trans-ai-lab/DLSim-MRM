@@ -11,7 +11,7 @@ constexpr auto _MAX_TIMEPERIODS = 1; // time period set to 4: mid night, morning
 constexpr auto _MAX_MEMORY_BLOCKS = 100;
 
 constexpr auto _MAX_LINK_SIZE_IN_A_PATH = 5000;		// lu
-constexpr auto _MAX_LINK_SIZE_FOR_A_NODE = 200;
+constexpr auto _MAX_LINK_SIZE_FOR_A_NODE = 500;
 
 constexpr auto _MAX_TIMESLOT_PerPeriod = 100; // max 96 15-min slots per day
 constexpr auto _default_saturation_flow_rate = 1530;
@@ -309,7 +309,7 @@ public:
 
 class CAgent_type {
 public:
-    CAgent_type() : agent_type_no{ 1 }, value_of_time{ 1 }, time_headway_in_sec{ 1 }, real_time_information{ 0 }
+    CAgent_type() : agent_type_no{ 1 }, value_of_time{ 1 }, time_headway_in_sec{ 1 }, real_time_information{ 0 }, access_speed{ 2 }, access_distance_lb{ 0.0001 }, access_distance_ub{ 4 }, acecss_link_k{ 4 }
     {
     }
 
@@ -322,6 +322,14 @@ public:
     int real_time_information;
     string agent_type;
     string display_code;
+
+    string access_node_type;
+    float access_speed;
+
+    float access_distance_lb;
+    float access_distance_ub;
+    int acecss_link_k;
+
 
 };
 
@@ -605,7 +613,7 @@ public:
     Assignment() : assignment_mode{ 0 }, g_number_of_memory_blocks{ 8 }, g_number_of_threads{ 1 }, g_link_type_file_loaded{ true }, g_agent_type_file_loaded{ false },
         total_demand_volume{ 0.0 }, g_column_pool{ nullptr }, g_number_of_in_memory_simulation_intervals{ 500 },
         g_number_of_column_generation_iterations{ 20 }, g_number_of_demand_periods{ 24 }, g_number_of_links{ 0 }, g_number_of_timing_arcs{ 0 },
-        g_number_of_nodes{ 0 }, g_number_of_zones{ 0 }, g_number_of_agent_types{ 0 }, debug_detail_flag{ 1 }, path_output{ 1 }, trajectory_output{ 1 }, major_path_volume_threshold{ 0.000001 }, trajectory_sampling_rate{ 1.0 }, td_link_performance_sampling_interval_in_min{ 60 }, td_link_performance_sampling_interval_hd_in_min{ 15 }, trajectory_diversion_only{ 0 }, m_GridResolution{ 0.01 }
+        g_number_of_nodes{ 0 }, g_number_of_zones{ 0 }, g_number_of_agent_types{ 0 }, debug_detail_flag{ 1 }, path_output{ 1 }, trajectory_output{ 1 }, major_path_volume_threshold{ 0.000001 }, trajectory_sampling_rate{ 1.0 }, dynamic_link_performance_sampling_interval_in_min{ 60 }, dynamic_link_performance_sampling_interval_hd_in_min{ 15 }, trajectory_diversion_only{ 0 }, m_GridResolution{ 0.01 }
     {
     }
 
@@ -663,8 +671,8 @@ public:
     int trajectory_output;
     float trajectory_sampling_rate;
     int trajectory_diversion_only;
-    int td_link_performance_sampling_interval_in_min;
-    float td_link_performance_sampling_interval_hd_in_min;
+    int dynamic_link_performance_sampling_interval_in_min;
+    float dynamic_link_performance_sampling_interval_hd_in_min;
 
     float major_path_volume_threshold;
 
@@ -999,7 +1007,7 @@ public:
         BWTT_in_simulation_interval{ 100 }, zone_seq_no_for_outgoing_connector{ -1 }, number_of_lanes{ 1 }, lane_capacity{ 1999 },
         length{ 1 }, free_flow_travel_time_in_min{ 1 }, link_spatial_capacity{ 100 }, 
         timing_arc_flag{ false }, traffic_flow_code{ 0 }, spatial_capacity_in_vehicles{ 999999 }, link_type{ 2 }, subarea_id{ -1 }, RT_flow_volume{ 0 },
-        cell_type{ -1 }, saturation_flow_rate{ 1800 }, TD_link_reduction_start_time_slot_no{ 99999 }
+        cell_type{ -1 }, saturation_flow_rate{ 1800 }, dynamic_link_reduction_start_time_slot_no{ 99999 }, b_automated_generated_flag {false}
     {
         for (int tau = 0; tau < _MAX_TIMEPERIODS; ++tau)
         {
@@ -1033,8 +1041,8 @@ public:
     {
     }
 
-    void CalculateTD_VDFunction();
-    void CalculateTD_RTVDFunction();
+    void Calculatedynamic_VDFunction();
+    void Calculatedynamic_RTVDFunction();
 
 
     float get_VOC_ratio(int tau)
@@ -1082,10 +1090,10 @@ public:
 
     std::map <int, int> m_link_pedefined_capacity_map;  // per sec
 // please remove this redundent data structure 
-    float TD_link_capacity[_MAX_TIMESLOT_PerPeriod];
-    int TD_link_reduction_start_time_slot_no;
-    std::map <int, bool> TD_link_closure_map;
-    std::map <int, string> TD_link_closure_type_map;
+    float dynamic_link_capacity[_MAX_TIMESLOT_PerPeriod];
+    int dynamic_link_reduction_start_time_slot_no;
+    std::map <int, bool> dynamic_link_closure_map;
+    std::map <int, string> dynamic_link_closure_type_map;
 
     double length;
     double free_flow_travel_time_in_min;
@@ -1127,6 +1135,7 @@ public:
     int from_node_seq_no;
     int to_node_seq_no;
     int link_type;
+    bool b_automated_generated_flag;
 
     int cell_type;
     string mvmt_txt_id;
@@ -1192,7 +1201,7 @@ public:
 class CNode
 {
 public:
-    CNode() : zone_id{ -1 }, zone_org_id{ -1 }, prohibited_movement_size{ 0 }, node_seq_no{ -1 }, subarea_id{ -1 }, is_activity_node{ 0 }, is_information_zone{ 0 }
+    CNode() : zone_id{ -1 }, zone_org_id{ -1 }, prohibited_movement_size{ 0 }, node_seq_no{ -1 }, subarea_id{ -1 }, is_activity_node{ 0 }, is_information_zone{ 0 }, agent_type_no{ -1 }
     {
     }
 
@@ -1203,7 +1212,9 @@ public:
     string cell_str;
     // original zone id for non-centriod nodes
     int zone_org_id;
+
     string node_type;
+    string agent_type_str;
     int subarea_id;
     int prohibited_movement_size;
     // sequence number
@@ -1214,6 +1225,7 @@ public:
 
     int is_activity_node;
     int is_information_zone;
+    int agent_type_no;
 
     double x;
     double y;
@@ -1225,6 +1237,8 @@ public:
     std::map<int, int> m_to_node_2_link_seq_no_map;
 
     std::map<string, int> m_prohibited_movement_string_map;
+    // for simulation
+    std::map<int, int> next_link_for_resource_request;
 };
 
 class CInfoCell {

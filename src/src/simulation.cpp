@@ -344,6 +344,11 @@ void Assignment::STTrafficSimulation()
                                     continue;
 
                                 CAgent_Simu* pAgent = new CAgent_Simu();
+
+                                if (pAgent->agent_id == 45)
+                                {
+                                    int idebug = 1;
+                                }
                                 // for future use of column pool
                                 pAgent->at = at;
                                 pAgent->dest = dest;
@@ -357,6 +362,11 @@ void Assignment::STTrafficSimulation()
                                 it->second.agent_simu_id_vector.push_back(pAgent->agent_id);
 
                                 int simulation_time_intervalNo = (int)(pAgent->departure_time_in_min * 60 / number_of_seconds_per_interval);
+
+                                if (simulation_time_intervalNo > 1440 * 60 * 4)
+                                {
+                                    int idebug = 1;
+                                }
                                 g_AgentTDListMap[simulation_time_intervalNo].m_AgentIDVector.push_back(pAgent->agent_id);
 
                                 for (int nl = 0; nl < it->second.m_link_size; ++nl)  // arc a
@@ -544,26 +554,34 @@ void Assignment::STTrafficSimulation()
             int debug_node_resource_competing_mode = 0;
             if (cell_based_simulation_mode)
             {
-                std::map<int, int> next_link_for_resource_request;
+                g_node_vector[node].next_link_for_resource_request.clear();
 
 
+                CLink* pLink;
+                CLink* pNextLink;
                 for (int i = 0; i < g_node_vector[node].m_incoming_link_seq_no_vector.size(); ++i)
                 {
                     int link = g_node_vector[node].m_incoming_link_seq_no_vector[i];  // we will start with different first link from the incoming link list,
                     // equal change, regardless of # of lanes or main line vs. ramp, but one can use service arc, to control the effective capacity rates, e.g. through a metered ramp, to
                     // allow mainline to use the remaining flow
-                    CLink* pLink = &(g_link_vector[link]);
+                    pLink = &(g_link_vector[link]);
+
+                    if (pLink->current_driving_AgentID < 0)  // no driving vehicle in this cell, no need to check, this will skip the heavy duty STL step related 
+                    {
+                        continue;
+                    }
+
                     if (pLink->ExitQueue.size() >= 1)
                     {
                         int agent_id = pLink->ExitQueue.front();
                         CAgent_Simu* p_agent = g_agent_simu_vector[agent_id];
                         int next_link_seq_no = p_agent->path_link_seq_no_vector[p_agent->m_current_link_seq_no + 1];
-                        CLink* pNextLink = &(g_link_vector[next_link_seq_no]);
+                         pNextLink = &(g_link_vector[next_link_seq_no]);
 
                         int current_vehicle_count = m_LinkCACount[next_link_seq_no] - m_LinkCDCount[next_link_seq_no];
                         if (pNextLink->cell_type >= 0 && current_vehicle_count < pNextLink->spatial_capacity_in_vehicles)  // only apply for cell mode
                         {
-                            next_link_for_resource_request[next_link_seq_no] = 1;
+                            g_node_vector[node].next_link_for_resource_request[next_link_seq_no] = 1;
                             incoming_link_request_count++;
                         }
                     }
@@ -572,7 +590,7 @@ void Assignment::STTrafficSimulation()
 
                 if (incoming_link_request_count >= 2)
                 {
-                    if (next_link_for_resource_request.size() == 1)
+                    if (g_node_vector[node].next_link_for_resource_request.size() == 1)
                     {
                         //                if(g_node_vector[node].node_id == 2347 && t / 240 >= 18)
                         node_resource_competing_mode = true;
@@ -589,7 +607,7 @@ void Assignment::STTrafficSimulation()
                         int link = g_node_vector[node].m_incoming_link_seq_no_vector[i];  // we will start with different first link from the incoming link list,
                         // equal change, regardless of # of lanes or main line vs. ramp, but one can use service arc, to control the effective capacity rates, e.g. through a metered ramp, to
                         // allow mainline to use the remaining flow
-                        CLink* pLink = &(g_link_vector[link]);
+                        pLink = &(g_link_vector[link]);
                         if (pLink->cell_type >= 0 && pLink->ExitQueue.size() >= 1)
                         {
                             int agent_id = pLink->ExitQueue.front();
@@ -632,6 +650,8 @@ void Assignment::STTrafficSimulation()
 
                 int time_in_sec = t * number_of_seconds_per_interval;
 
+                if (cell_based_simulation_mode && pLink->current_driving_AgentID < 0)  // no driving vehicle in this cell, no need to check, this will skip the heavy duty STL step related 
+                    continue;
 
                 while (m_LinkOutFlowCapacity[link][time_in_sec] >= 1 && pLink->ExitQueue.size() >= 1)
                 {

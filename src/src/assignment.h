@@ -164,7 +164,7 @@ double update_link_travel_time_and_cost()
     for (int i = 0; i < g_link_vector.size(); ++i)
     {
         // step 1: travel time based on VDF
-        g_link_vector[i].CalculateTD_VDFunction();
+        g_link_vector[i].Calculatedynamic_VDFunction();
 
         for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); ++tau)
         {
@@ -293,7 +293,7 @@ double g_reset_and_update_link_volume_based_on_ODME_columns(int number_of_links,
     // calcualte deviation for each measurement type
     for (int i = 0; i < number_of_links; ++i)
     {
-        g_link_vector[i].CalculateTD_VDFunction();
+        g_link_vector[i].Calculatedynamic_VDFunction();
 
         if (g_link_vector[i].obs_count >= 1)  // with data
         {
