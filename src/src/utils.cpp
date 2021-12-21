@@ -25,9 +25,9 @@ using std::ofstream;
 using std::istringstream;
 using std::ostringstream;
 
-void g_ProgramStop()
+void g_program_stop()
 {
-    dtalog.output() << "STALite Program stops. Press any key to terminate. Thanks!" << endl;
+    dtalog.output() << "DTALite Program stops. Press any key to terminate. Thanks!" << endl;
     getchar();
     exit(0);
 }
@@ -341,7 +341,7 @@ bool CCSVParser::OpenCSVFile(string fileName, bool b_required)
         if (b_required)
         {
             dtalog.output() << "File " << fileName << " does not exist. Please check." << std::endl;
-            //g_ProgramStop();
+            //g_program_stop();
         }
         return false;
     }
@@ -537,7 +537,7 @@ bool CCSVParser::GetValueByFieldName(string field_name, string& value, bool requ
         if (required_field)
         {
             dtalog.output() << "Field " << field_name << " in file " << mFileName << " does not exist. Please check the file." << std::endl;
-            g_ProgramStop();
+            g_program_stop();
         }
         return false;
     }

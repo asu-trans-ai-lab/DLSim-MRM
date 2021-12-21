@@ -165,6 +165,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="assignment.h" />
+    <ClInclude Include="cbi_tool.h" />
     <ClInclude Include="DTA.h" />
     <ClInclude Include="input.h" />
     <ClInclude Include="ODME.h" />
@@ -172,7 +173,9 @@
     <ClInclude Include="routing.h" />
     <ClInclude Include="scenario_API.h" />
     <ClInclude Include="STS_Routing.h" />
+    <ClInclude Include="trip_generation.h" />
     <ClInclude Include="utils.h" />
+    <ClInclude Include="VDF.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="flash_dta.cpp" />

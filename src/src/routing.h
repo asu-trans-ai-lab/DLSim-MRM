@@ -69,7 +69,7 @@ struct CNodeForwardStar {
 class NetworkForSP  // mainly for shortest path calculation
 {
 public:
-    NetworkForSP() : temp_path_node_vector_size{ _MAX_LINK_SIZE_IN_A_PATH }, m_value_of_time{ 10 }, bBuildNetwork{ false }, m_memory_block_no{ 0 }, m_agent_type_no{ 0 }, m_tau{ 0 }, b_real_time_information{ false }
+    NetworkForSP() : temp_path_node_vector_size{ MAX_LINK_SIZE_IN_A_PATH }, m_value_of_time{ 10 }, bBuildNetwork{ false }, m_memory_block_no{ 0 }, m_agent_type_no{ 0 }, m_tau{ 0 }, b_real_time_information{ false }
     {
     }
 
@@ -117,9 +117,9 @@ public:
     int m_memory_block_no;
 
     //node seq vector for each ODK
-    int temp_path_node_vector[_MAX_LINK_SIZE_IN_A_PATH];
+    int temp_path_node_vector[MAX_LINK_SIZE_IN_A_PATH];
     //node seq vector for each ODK
-    int temp_path_link_vector[_MAX_LINK_SIZE_IN_A_PATH];
+    int temp_path_link_vector[MAX_LINK_SIZE_IN_A_PATH];
 
     bool m_bSingleSP_Flag;
 
@@ -180,8 +180,9 @@ public:
         m_link_outgoing_connector_zone_seq_no_array = new int[number_of_links]; //10
     }
 
-    bool UpdateGeneralizedLinkCost(int agent_type_no , Assignment* p_assignment, int origin_zone)
+    bool UpdateGeneralizedLinkCost(int agent_type_no , Assignment* p_assignment, int origin_zone, int iteration_k)
     {
+        int link_cost_debug_flag = 1;
         bool negative_cost_flag = false;
         for (int i = 0; i < g_link_vector.size(); ++i)
         {
@@ -195,20 +196,24 @@ public:
             {
                 LR_price = pLink->VDF_period[m_tau].LR_RT_price[agent_type_no];
 
-                if (LR_price < -0.01)
-                    negative_cost_flag = true;
+                //if (LR_price < -0.01)
+              //      negative_cost_flag = true;
 
-                if (fabs(LR_price) > 0.001)
-                {
-                    dtalog.output() << "link " << pLink->link_id.c_str() << " has a lr RT price of " << LR_price << " for agent type "
-                        << assignment.g_AgentTypeVector[agent_type_no].agent_type.c_str() << " at demand period =" << m_tau << endl;
-                }
+              //  if (fabs(LR_price) > 0.001)
+              //  {
+              //      dtalog.output() << "link " << pLink->link_id.c_str() << " " << g_node_vector[g_link_vector[l].from_node_seq_no].node_id << "->"
+            		//g_node_vector[g_link_vector[l].to_node_seq_no].node_id << "," 
+              //          << "  has a travel time of " << LR_price << " for agent type "
+              //          << assignment.g_AgentTypeVector[agent_type_no].agent_type.c_str() << " at demand period =" << m_tau << endl;
+              //  }
 
             }
 
              m_link_genalized_cost_array[i] = pLink->travel_time_per_period[m_tau] + pLink->VDF_period[m_tau].penalty + 
                  LR_price +
                  pLink->VDF_period[m_tau].toll[agent_type_no] / m_value_of_time * 60 + pLink->RT_travel_time;  // *60 as 60 min per hour
+
+
             //route_choice_cost 's unit is min
         }
 
@@ -220,8 +225,8 @@ public:
         if (bBuildNetwork)
             return;
 
-        int m_outgoing_link_seq_no_vector[_MAX_LINK_SIZE_FOR_A_NODE];
-        int m_to_node_seq_no_vector[_MAX_LINK_SIZE_FOR_A_NODE];
+        int m_outgoing_link_seq_no_vector[MAX_LINK_SIZE_FOR_A_NODE];
+        int m_to_node_seq_no_vector[MAX_LINK_SIZE_FOR_A_NODE];
 
         for (int i = 0; i < g_link_vector.size(); ++i)
         {
@@ -245,14 +250,14 @@ public:
 
                     outgoing_link_size++;
 
-                    if (outgoing_link_size >= _MAX_LINK_SIZE_FOR_A_NODE)
+                    if (outgoing_link_size >= MAX_LINK_SIZE_FOR_A_NODE)
                     {
-                        dtalog.output() << " Error: outgoing_link_size >= _MAX_LINK_SIZE_FOR_A_NODE" << endl;
+                        dtalog.output() << " Error: outgoing_link_size >= MAX_LINK_SIZE_FOR_A_NODE" << endl;
                         // output the log
 
                         g_OutputModelFiles(1);
 
-                        g_ProgramStop();
+                        g_program_stop();
                     }
                 }
             }
@@ -375,6 +380,7 @@ public:
     float optimal_label_correcting(int processor_id, Assignment* p_assignment, int iteration_k, int o_node_index, int d_node_no = -1, bool pure_travel_time_cost = false)
     {
         int local_debugging_flag = 0;
+
         int SE_loop_count = 0;
 
         if (iteration_k == 0)
@@ -384,7 +390,7 @@ public:
         int origin_node = m_origin_node_vector[o_node_index]; // assigned nodes for computing
         int origin_zone = m_origin_zone_seq_no_vector[o_node_index]; // assigned nodes for computing
 
-        bool negative_cost_flag = UpdateGeneralizedLinkCost(agent_type, p_assignment, origin_zone);
+        bool negative_cost_flag = UpdateGeneralizedLinkCost(agent_type, p_assignment, origin_zone, iteration_k);
 
 
         if (negative_cost_flag == true)
@@ -407,7 +413,7 @@ public:
         {
             // not scanned
             m_node_status_array[i] = 0;
-            m_node_label_cost[i] = _MAX_LABEL_COST;
+            m_node_label_cost[i] = MAX_LABEL_COST;
             // pointer to previous NODE INDEX from the current label at current node and time
             m_link_predecessor[i] = -1;
             // pointer to previous NODE INDEX from the current label at current node and time
@@ -521,10 +527,17 @@ public:
 
                 new_to_node_cost = m_node_label_cost[from_node] + m_link_genalized_cost_array[link_sqe_no] + additional_cost;
 
+                if (iteration_k==2 && g_node_vector[from_node].node_id == 19 && g_node_vector[to_node].node_id == 20)
+                {
+                    float cost = m_link_genalized_cost_array[link_sqe_no];
+                    int debug = 1;
+                }
+
                 if (dtalog.log_path() || local_debugging_flag)
                 {
                     dtalog.output() << "SP:  checking from node " << g_node_vector[from_node].node_id
                         << "  to node " << g_node_vector[to_node].node_id << " cost = " << new_to_node_cost << endl;
+
                 }
 
                 if (new_to_node_cost < m_node_label_cost[to_node]) // we only compare cost at the downstream node ToID at the new arrival time t
@@ -615,7 +628,36 @@ public:
                         << m_label_time_array[i] << "node_pred_id " << node_pred_id << endl;
                 }
             }
-        }
+       }
+
+        //if (iteration_k==2)  // only one processor
+        //{
+        //    int agent_type = m_agent_type_no; // assigned nodes for computing
+        //    int origin_node = m_origin_node_vector[o_node_index]; // assigned nodes for computing
+        //    int origin_zone = m_origin_zone_seq_no_vector[o_node_index]; // assigned nodes for computing
+        //   
+        //    if(p_assignment->g_origin_demand_array.find(origin_zone)!= p_assignment->g_origin_demand_array.end() && p_assignment->g_origin_demand_array[origin_zone]>=1)
+        //    {
+
+        //    std::string s_iteration = std::to_string(iteration_k);
+        //    std::string s_agent_type = p_assignment->g_AgentTypeVector [agent_type].agent_type;
+        //    std::string s_origin_zone = std::to_string(g_zone_vector[origin_zone].zone_id);
+        //
+
+
+        //    for (int i = 0; i < p_assignment->g_number_of_nodes; ++i)
+        //    {
+        //        std::string s_node = std::to_string(g_node_vector[i].node_id);
+        //        std::string map_key;
+
+        //        map_key = s_iteration+ "," + s_agent_type + "," + s_origin_zone + "," + s_node;
+
+        //        g_node_vector[i].pred_per_iteration_map[map_key] = m_node_predecessor[i];
+        //        g_node_vector[i].label_cost_per_iteration_map[map_key] = m_node_label_cost[i];
+
+        //    }
+        //    }
+        //}
 
         if (d_node_no >= 1)
             return m_node_label_cost[d_node_no];
@@ -641,7 +683,7 @@ public:
         {
             // not scanned
             m_node_status_array[i] = 0;
-            m_node_label_cost[i] = _MAX_LABEL_COST;
+            m_node_label_cost[i] = MAX_LABEL_COST;
             // pointer to previous NODE INDEX from the current label at current node and time
             m_link_predecessor[i] = -1;
             // pointer to previous NODE INDEX from the current label at current node and time

@@ -3,21 +3,23 @@
 #define GUARD_DTA_H
 #define BUILD_EXE //self-use
 
-constexpr auto _MAX_LABEL_COST = 1.0e+15;
+constexpr auto MAX_LABEL_COST = 1.0e+15;
 constexpr auto _INFO_ZONE_ID = 100000;
 
-constexpr auto _MAX_AGNETTYPES = 7; //because of the od demand store format,the MAX_demandtype must >=g_DEMANDTYPES.size()+1;
-constexpr auto _MAX_TIMEPERIODS = 1; // time period set to 4: mid night, morning peak, mid-day and afternoon peak;
-constexpr auto _MAX_MEMORY_BLOCKS = 100;
+constexpr auto MAX_AGNETTYPES = 7; //because of the od demand store format,the MAX_demandtype must >=g_DEMANDTYPES.size()+1;
+constexpr auto MAX_TIMEPERIODS = 5; // time period set to 4: mid night, morning peak, mid-day and afternoon peak;
+constexpr auto MAX_MEMORY_BLOCKS = 100;
 
-constexpr auto _MAX_LINK_SIZE_IN_A_PATH = 5000;		// lu
-constexpr auto _MAX_LINK_SIZE_FOR_A_NODE = 500;
+constexpr auto MAX_LINK_SIZE_IN_A_PATH = 10000;		// lu
+constexpr auto MAX_LINK_SIZE_FOR_A_NODE = 500;
 
-constexpr auto _MAX_TIMESLOT_PerPeriod = 100; // max 96 15-min slots per day
+constexpr auto MAX_TIMESLOT_PerPeriod = 100; // max 96 15-min slots per day
+constexpr auto MAX_TIMEINTERVAL_PerDay = 300; // max 96*3 5-min slots per day
+constexpr auto MAX_DAY_PerYear = 360; // max 96*3 5-min slots per day
 constexpr auto _default_saturation_flow_rate = 1530;
 
 constexpr auto MIN_PER_TIMESLOT = 15;
-constexpr auto _simulation_discharge_period = 1;
+constexpr auto _simulation_discharge_period_in_min = 60;
 
 /* make sure we change the following two parameters together*/
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
@@ -69,7 +71,7 @@ T** Allocate2DDynamicArray(int nRows, int nCols)
     if (!dynamicArray)
     {
         dtalog.output() << "Error: insufficient memory.";
-        g_ProgramStop();
+        g_program_stop();
     }
 
     for (int i = 0; i < nRows; ++i)
@@ -79,7 +81,7 @@ T** Allocate2DDynamicArray(int nRows, int nCols)
         if (!dynamicArray[i])
         {
             dtalog.output() << "Error: insufficient memory.";
-            g_ProgramStop();
+            g_program_stop();
         }
     }
 
@@ -106,7 +108,7 @@ T*** Allocate3DDynamicArray(int nX, int nY, int nZ)
     if (!dynamicArray)
     {
         dtalog.output() << "Error: insufficient memory.";
-        g_ProgramStop();
+        g_program_stop();
     }
 
     for (int x = 0; x < nX; ++x)
@@ -121,7 +123,7 @@ T*** Allocate3DDynamicArray(int nX, int nY, int nZ)
         if (!dynamicArray[x])
         {
             dtalog.output() << "Error: insufficient memory.";
-            g_ProgramStop();
+            g_program_stop();
         }
 
         for (int y = 0; y < nY; ++y)
@@ -130,7 +132,7 @@ T*** Allocate3DDynamicArray(int nX, int nY, int nZ)
             if (!dynamicArray[x][y])
             {
                 dtalog.output() << "Error: insufficient memory.";
-                g_ProgramStop();
+                g_program_stop();
             }
         }
     }
@@ -168,13 +170,13 @@ T**** Allocate4DDynamicArray(int nM, int nX, int nY, int nZ)
     if (!dynamicArray)
     {
         dtalog.output() << "Error: insufficient memory.";
-        g_ProgramStop();
+        g_program_stop();
     }
 
     if (nM == 0 || nX == 0 || nY == 0 || nZ == 0)
     {
         dtalog.output() << "allocating 4D memory but size = 0 in 1 dimension.";
-        g_ProgramStop();
+        g_program_stop();
     }
     for (int m = 0; m < nM; ++m)
     {
@@ -193,7 +195,7 @@ T**** Allocate4DDynamicArray(int nM, int nX, int nY, int nZ)
         if (!dynamicArray[m])
         {
             dtalog.output() << "Error: insufficient memory.";
-            g_ProgramStop();
+            g_program_stop();
         }
 
         for (int x = 0; x < nX; ++x)
@@ -203,7 +205,7 @@ T**** Allocate4DDynamicArray(int nM, int nX, int nY, int nZ)
             if (!dynamicArray[m][x])
             {
                 dtalog.output() << "Error: insufficient memory.";
-                g_ProgramStop();
+                g_program_stop();
             }
 
             for (int y = 0; y < nY; ++y)
@@ -212,7 +214,7 @@ T**** Allocate4DDynamicArray(int nM, int nX, int nY, int nZ)
                 if (!dynamicArray[m][x][y])
                 {
                     dtalog.output() << "Error: insufficient memory.";
-                    g_ProgramStop();
+                    g_program_stop();
                 }
             }
         }
@@ -246,7 +248,7 @@ void Deallocate4DDynamicArray(T**** dArray, int nM, int nX, int nY)
 
 class CDemand_Period {
 public:
-    CDemand_Period() : demand_period{ 0 }, starting_time_slot_no{ 0 }, ending_time_slot_no{ 0 }, m_RandomSeed{ 101 }
+    CDemand_Period() : demand_period{ 0 }, starting_time_slot_no{ 0 }, ending_time_slot_no{ 0 }, m_RandomSeed{ 101 }, t2_peak_in_hour {0}
     {
     }
 
@@ -297,12 +299,13 @@ public:
         return starting_time_slot_no;  // first time slot as the default value
     }
 
-    float departure_time_ratio[_MAX_TIMESLOT_PerPeriod];
-    float cumulative_departure_time_ratio[_MAX_TIMESLOT_PerPeriod];
+    float departure_time_ratio[MAX_TIMESLOT_PerPeriod];
+    float cumulative_departure_time_ratio[MAX_TIMESLOT_PerPeriod];
 
     string demand_period;
     int starting_time_slot_no;
     int ending_time_slot_no;
+    float t2_peak_in_hour;
     string time_period;
     int demand_period_id;
 };
@@ -330,13 +333,15 @@ public:
     float access_distance_ub;
     int acecss_link_k;
 
+    std::map<int, bool> zone_id_cover_map;
+
 
 };
 
 class CLinkType
 {
 public:
-    CLinkType() : link_type{ 1 }, number_of_links{ 0 }, traffic_flow_code{ 0 }
+    CLinkType() : link_type{ 1 }, number_of_links{ 0 }, traffic_flow_code{ 0 }, k_jam {500}
     {
     }
 
@@ -344,7 +349,7 @@ public:
     int link_type;
     int number_of_links;
     int traffic_flow_code;
-
+    float k_jam;
     string link_type_name;
     string type_code;
 };
@@ -439,6 +444,10 @@ public:
     double path_toll;
     // first order graident cost.
     double path_gradient_cost;
+
+    std::map <int, double> path_gradient_cost_per_iteration_map;
+    std::map <int, double> path_volume_per_iteration_map;
+
     // first order graident cost - least gradient cost
     double path_gradient_cost_difference;
     // first order graident cost - least gradient cost
@@ -612,7 +621,7 @@ public:
     // default is UE
     Assignment() : assignment_mode{ 0 }, g_number_of_memory_blocks{ 8 }, g_number_of_threads{ 1 }, g_link_type_file_loaded{ true }, g_agent_type_file_loaded{ false },
         total_demand_volume{ 0.0 }, g_column_pool{ nullptr }, g_number_of_in_memory_simulation_intervals{ 500 },
-        g_number_of_column_generation_iterations{ 20 }, g_number_of_demand_periods{ 24 }, g_number_of_links{ 0 }, g_number_of_timing_arcs{ 0 },
+        g_number_of_column_generation_iterations{ 20 }, g_number_of_column_updating_iterations{ 0 }, g_number_of_demand_periods{ 24 }, g_number_of_links{ 0 }, g_number_of_timing_arcs{ 0 },
         g_number_of_nodes{ 0 }, g_number_of_zones{ 0 }, g_number_of_agent_types{ 0 }, debug_detail_flag{ 1 }, path_output{ 1 }, trajectory_output{ 1 }, major_path_volume_threshold{ 0.000001 }, trajectory_sampling_rate{ 1.0 }, dynamic_link_performance_sampling_interval_in_min{ 60 }, dynamic_link_performance_sampling_interval_hd_in_min{ 15 }, trajectory_diversion_only{ 0 }, m_GridResolution{ 0.01 }
     {
     }
@@ -663,6 +672,11 @@ public:
     bool RTSP_RealTimeShortestPathFinding(int time_slot_no, int simu_interval_t);
     void DeallocateLinkMemory4Simulation();
 
+    std::map<int, int> zone_id_to_centriod_node_no_mapping;  // this is an one-to-one mapping
+    std::map<int, int> zone_id_2_node_no_mapping;  // this is used to mark if this zone_id has been identified or not
+    std::map<int, _int64> zone_id_2_cell_id_mapping;  // this is used to mark if this zone_id has been identified or not
+    std::map<_int64, int> cell_id_mapping;  // this is used to mark if this cell_id has been identified or not
+
     double m_GridResolution;
     int assignment_mode;
     int g_number_of_memory_blocks;
@@ -686,10 +700,10 @@ public:
     // the data horizon in the memory
     int g_number_of_in_memory_simulation_intervals;
     int g_number_of_column_generation_iterations;
+    int g_number_of_column_updating_iterations;
     int g_number_of_demand_periods;
 
 
-    std::map<_int64, int> cell_id_mapping;  // this is used to mark if this cell_id has been identified or not;
 
     int g_number_of_links;
     int g_number_of_timing_arcs;
@@ -723,7 +737,7 @@ public:
     std::map<string, int> demand_period_to_seqno_mapping;
     std::map<string, int> agent_type_2_seqno_mapping;
 
-    float total_demand[_MAX_AGNETTYPES][_MAX_TIMEPERIODS];
+    float total_demand[MAX_AGNETTYPES][MAX_TIMEPERIODS];
     float g_DemandGlobalMultiplier;
 
     // used in ST Simulation
@@ -751,253 +765,14 @@ public:
 
     int g_number_of_intervals_in_sec;
 
+    std::map<string, int> m_TMClink_map;
+    std::map<string, int> m_TMC_corridor_map;
+    bool map_tmc_reading();
 };
 
 extern Assignment assignment;
 
-class CVDF_Period
-{
-public:
-    CVDF_Period() : m{ 0.5 }, VOC{ 0 }, gamma{ 3.47f }, mu{ 1000 }, PHF{ 3 },
-        alpha{ 0.15f }, beta{ 4 }, rho{ 1 }, preload{ 0 }, penalty{ 0 }, LR_price{ 0 }, LR_RT_price{ 0 }, marginal_base{ 1 },
-        starting_time_slot_no{ 0 }, ending_time_slot_no{ 0 },
-        cycle_length{ -1 }, red_time{ 0 }, effective_green_time{ 0 }, t0{ 0 }, t3{ 0 }, start_green_time{ -1 }, end_green_time{ -1 }
-    {
-        for (int at = 0; at < _MAX_AGNETTYPES; at++)
-        {
-            toll[at] = 0;
-            pce[at] = 0;
-        }
-
-        for (int t = 0; t < _MAX_TIMESLOT_PerPeriod; ++t)
-        {
-            Queue[t] = 0;
-            waiting_time[t] = 0;
-            arrival_rate[t] = 0;
-            discharge_rate[t] = 0;
-            travel_time[t] = 0;
-        }
-    }
-
-    ~CVDF_Period()
-    {
-    }
-
-    float get_waiting_time(int relative_time_slot_no)
-    {
-        if (relative_time_slot_no >= 0 && relative_time_slot_no < _MAX_TIMESLOT_PerPeriod)
-            return waiting_time[relative_time_slot_no];
-        else
-            return 0;
-    }
-
-    float PerformSignalVDF(float hourly_per_lane_volume, float red, float cycle_length)
-    {
-        float lambda = hourly_per_lane_volume;
-        float mu = _default_saturation_flow_rate; //default saturation flow ratesa
-        float s_bar = 1.0 / 60.0 * red * red / (2 * cycle_length); // 60.0 is used to convert sec to min
-        float uniform_delay = s_bar / max(1 - lambda / mu, 0.1f);
-
-        return uniform_delay;
-    }
-
-    double PerformBPR(double volume)
-    {
-        // take nonnegative values
-        volume = max(0.0, volume);
-
-        // Peiheng, 02/02/21, useless block
-        if (volume > 1.0)
-        {
-            int debug = 1;
-        }
-
-        VOC = volume / max(0.00001, capacity);
-        avg_travel_time = FFTT + FFTT * alpha * pow((volume + preload) / max(0.00001, capacity), beta);
-        total_travel_time = (volume + preload) * avg_travel_time;
-        marginal_base = FFTT * alpha * beta * pow((volume + preload) / max(0.00001, capacity), beta - 1);
-
-        if (cycle_length > 1)
-        {
-            if (volume > 10)
-                avg_travel_time += cycle_length / 60.0 / 2.0; // add additional random delay due to signalized intersection by 
-            else
-            {
-                int debug = 1;
-            }
-        }
-        return avg_travel_time;
-        // volume --> avg_traveltime
-    }
-
-    // input period based volume
-    double PerformBPR_X(double volume)
-    {
-        bValidQueueData = false;
-        congestion_period_P = 0;
-
-        float FFTT_in_hour = FFTT / 60.0;
-        // convert avg_travel_time from unit of min to hour
-        float avg_travel_time_in_hour = avg_travel_time / 60.0;
-
-        // Step 1: Initialization
-        int L = ending_time_slot_no - starting_time_slot_no;  // in 15 min slot
-        if (L >= _MAX_TIMESLOT_PerPeriod - 1)
-            return 0;
-
-        for (int t = starting_time_slot_no; t <= ending_time_slot_no; ++t)
-        {
-            Queue[t] = 0;
-            waiting_time[t] = 0;
-            arrival_rate[t] = 0;
-            discharge_rate[t] = mu / 2.0;
-            travel_time[t] = FFTT_in_hour;
-        }
-
-        // avg_travel time should be per min
-        // avg_travel_time = (FFTT_in_hour + avg_waiting_time)*60.0;
-
-        //int L = ending_time_slot_no - starting_time_slot_no;  // in 15 min slot
-        float mid_time_slot_no = starting_time_slot_no + L / 2.0;  // t1;  // we can discuss thi
-        // Case 1: fully uncongested region
-        if (volume <= L * mu / 2)
-        {
-            // still keep 0 waiting time for all time period
-            congestion_period_P = 0;
-        }
-        else
-        {
-            // partially congested region
-            //if (volume > L * mu / 2 ) // Case 2
-            float P = 0;
-            // unit: hour  // volume / PHF  is D, D/mu = congestion period
-            congestion_period_P = volume / PHF / mu;
-            P = congestion_period_P * 4; //unit: 15 time slot
-
-            t0 = max(0.0, mid_time_slot_no - P / 2.0);
-            t3 = min((double)_MAX_TIMESLOT_PerPeriod - 1, mid_time_slot_no + P / 2.0);
-
-            // we need to recalculate gamma coefficient based on D/C ratio. based on assumption of beta = 4;
-            // average waiting time based on eq. (32)
-            // https://www.researchgate.net/publication/348488643_Introduction_to_connection_between_point_queue_model_and_BPR
-            // w= gamma*power(D/mu,4)/(80*mu)
-            // gamma = w*80*mu/power(D/mu,4)
-            // avg_travel_time has been calculated based on standard BPR function, thus, the condition is that, PerformBPR() should be called before PerformBPR_X
-
-            float uncongested_travel_time_in_hour = FFTT_in_hour;
-            float w = avg_travel_time_in_hour - uncongested_travel_time_in_hour; //unit: hour
-            // mu is read from the external link.csv file
-            float D_over_mu = congestion_period_P;
-
-            gamma = w * 120 * mu / pow(D_over_mu, 4);  // m =1/2, gamma = w80... when m = 3/4
-
-            // derive t0 and t3 based on congestion duration p
-            int t2 = m * (t3 - t0) + t0;
-            //tt_relative is relative time
-            for (int tt_relative = 0; tt_relative <= L; ++tt_relative)
-            {
-                //absolute time index
-                int time_abs = starting_time_slot_no + tt_relative;
-                if (time_abs < t0)
-                {
-                    //first uncongested phase with mu/2 as the approximate flow rates
-                    waiting_time[time_abs] = 0;  // per hour
-                    arrival_rate[time_abs] = mu / 2;
-                    discharge_rate[time_abs] = mu / 2.0;
-                    travel_time[time_abs] = FFTT_in_hour;  // per hour
-                }
-
-                if (time_abs >= t0 && time_abs <= t3 && t3 > t0)
-                {
-                    float t_ph = time_abs / (60.0 / MIN_PER_TIMESLOT);
-                    float t0_ph = t0 / (60.0 / MIN_PER_TIMESLOT);
-                    float t2_ph = t2 / (60.0 / MIN_PER_TIMESLOT);
-                    float t3_ph = t3 / (60.0 / MIN_PER_TIMESLOT);
-
-                    //second congested phase based on the gamma calculated from the dynamic eq. (32)
-                    Queue[time_abs] = 1 / (4.0) * gamma * (t_ph - t0_ph) * (t_ph - t0_ph) * (t_ph - t3_ph) * (t_ph - t3_ph);
-                    // unit is hour
-                    waiting_time[time_abs] = 1 / (4.0 * mu) * gamma * (t_ph - t0_ph) * (t_ph - t0_ph) * (t_ph - t3_ph) * (t_ph - t3_ph);
-                    arrival_rate[time_abs] = gamma * (t_ph - t0_ph) * (t_ph - t2_ph) * (t_ph - t3_ph) + mu;
-                    discharge_rate[time_abs] = mu;
-                    travel_time[time_abs] = FFTT_in_hour + waiting_time[time_abs]; // per hour
-                    bValidQueueData = true;
-                }
-
-                if (time_abs > t3)
-                {
-                    //third uncongested phase with mu/2 as the approximate flow rates
-                    waiting_time[time_abs] = 0;
-                    arrival_rate[time_abs] = mu / 2;
-                    discharge_rate[time_abs] = mu / 2.0;
-                    travel_time[time_abs] = FFTT_in_hour;
-                }
-                // avg_waiting_time = gamma / (120 * mu)*pow(P, 4.0) *60.0;// avg_waiting_time  should be per min
-                // dtalog() << avg_waiting_time << endl;
-                // avg_travel_time = (FFTT_in_hour + avg_waiting_time)*60.0; // avg_travel time should be per min
-            }
-        }
-
-        return avg_travel_time;
-    }
-
-    double m;
-    // we should also pass uncongested_travel_time as length/(speed_at_capacity)
-    double VOC;
-    //updated BPR-X parameters
-    double gamma;
-    double mu;
-    //peak hour factor
-    double PHF;
-    //standard BPR parameter
-    double alpha;
-    double beta;
-    double preload;
-    double toll[_MAX_AGNETTYPES];
-    double pce[_MAX_AGNETTYPES];
-    double penalty;
-    double LR_price[_MAX_AGNETTYPES];
-    double LR_RT_price[_MAX_AGNETTYPES];;
-    string allowed_uses;
-
-
-    double rho;
-    double marginal_base;
-    // in 15 min slot
-    int starting_time_slot_no;
-    int ending_time_slot_no;
-    float cycle_length;
-    float red_time;
-    float effective_green_time;
-    int start_green_time;
-    int end_green_time;
-
-    int t0, t3;
-
-    bool bValidQueueData;
-    string period;
-
-    double capacity;
-    double FFTT;
-
-    double congestion_period_P;
-    // inpput
-    double volume;
-
-    //output
-    double avg_delay;
-    double avg_travel_time = 0;
-    double avg_waiting_time = 0;
-    double total_travel_time = 0;
-
-    // t starting from starting_time_slot_no if we map back to the 24 hour horizon
-    float Queue[_MAX_TIMESLOT_PerPeriod];
-    float waiting_time[_MAX_TIMESLOT_PerPeriod];
-    float arrival_rate[_MAX_TIMESLOT_PerPeriod];
-
-    float discharge_rate[_MAX_TIMESLOT_PerPeriod];
-    float travel_time[_MAX_TIMESLOT_PerPeriod];
-};
+# include "VDF.h"
 
 class CLink
 {
@@ -1007,9 +782,10 @@ public:
         BWTT_in_simulation_interval{ 100 }, zone_seq_no_for_outgoing_connector{ -1 }, number_of_lanes{ 1 }, lane_capacity{ 1999 },
         length{ 1 }, free_flow_travel_time_in_min{ 1 }, link_spatial_capacity{ 100 }, 
         timing_arc_flag{ false }, traffic_flow_code{ 0 }, spatial_capacity_in_vehicles{ 999999 }, link_type{ 2 }, subarea_id{ -1 }, RT_flow_volume{ 0 },
-        cell_type{ -1 }, saturation_flow_rate{ 1800 }, dynamic_link_reduction_start_time_slot_no{ 99999 }, b_automated_generated_flag {false}
+        cell_type{ -1 }, saturation_flow_rate{ 1800 }, dynamic_link_reduction_start_time_slot_no{ 99999 }, b_automated_generated_flag{ false }, time_to_be_released{ -1 },
+        FT{ 1 }, AT{ 1 }, s3_m{ 4 }, tmc_road_order{ 0 }, VDF_type{ "BPR" }, VDF_type_no{ 0 }
     {
-        for (int tau = 0; tau < _MAX_TIMEPERIODS; ++tau)
+        for (int tau = 0; tau < MAX_TIMEPERIODS; ++tau)
         {
             flow_volume_per_period[tau] = 0;
             queue_length_perslot[tau] = 0;
@@ -1018,18 +794,11 @@ public:
             TDBaseCap[tau] = 0;
             TDBaseFlow[tau] = 0;
             TDBaseQueue[tau] = 0;
-            //cost_perhour[tau] = 0;
-
-            for (int at = 0; at < _MAX_AGNETTYPES; ++at)
+           //cost_perhour[tau] = 0;
+            for (int at = 0; at < MAX_AGNETTYPES; ++at)
                 volume_per_period_per_at[tau][at] = 0;
         }
 
-        //for (int tau = 0; tau < _MAX_TIMESLOT_PerPeriod; ++tau)
-        //{
-        //    RT_travel_time_vector[tau] = -1;
-        //    RT_speed_vector[tau] = -1;
-
-        //}
     }
 
     ~CLink()
@@ -1041,8 +810,7 @@ public:
     {
     }
 
-    void Calculatedynamic_VDFunction();
-    void Calculatedynamic_RTVDFunction();
+    void calculate_dynamic_VDFunction(int inner_iteration_number, bool congestion_bottleneck_sensitivity_analysis_mode, int VDF_type_no);
 
 
     float get_VOC_ratio(int tau)
@@ -1089,8 +857,56 @@ public:
     double saturation_flow_rate;
 
     std::map <int, int> m_link_pedefined_capacity_map;  // per sec
-// please remove this redundent data structure 
-    float dynamic_link_capacity[_MAX_TIMESLOT_PerPeriod];
+
+    float est_speed[MAX_TIMEINTERVAL_PerDay];
+    float est_volume_per_hour_per_lane[MAX_TIMEINTERVAL_PerDay];
+
+    float get_est_hourly_speed(int time_in_min)
+    {
+        int t = time_in_min / 5;
+        float total_speed_value = 0;
+        int total_speed_count = 0;
+
+        for (int tt = 0; tt < 12; tt++)
+        {
+
+            if (t + tt >= 0 && t + tt < MAX_TIMEINTERVAL_PerDay)
+            {
+                if (est_speed[t + tt] >= 1)
+                {
+                    total_speed_value += est_speed[t + tt];
+                    total_speed_count++;
+                }
+            }
+        }
+
+        return total_speed_value / max(1, total_speed_count);
+    }
+
+    float get_est_hourly_volume(int time_in_min)
+    {
+        int t = time_in_min / 5;
+        float total_volume_value = 0;
+        int total_volume_count = 0;
+
+        for (int tt = 0; tt < 12; tt++)
+        {
+
+            if (t + tt >= 0 && t + tt < MAX_TIMEINTERVAL_PerDay)
+            {
+                if (est_volume_per_hour_per_lane[t + tt] >= 1)
+                {
+                    total_volume_value += est_volume_per_hour_per_lane[t + tt];
+                    total_volume_count++;
+                }
+            }
+        }
+
+        return total_volume_value / max(1, total_volume_count);
+    }
+
+
+    
     int dynamic_link_reduction_start_time_slot_no;
     std::map <int, bool> dynamic_link_closure_map;
     std::map <int, string> dynamic_link_closure_type_map;
@@ -1115,6 +931,63 @@ public:
     
     string link_id;
     string geometry;
+
+    int FT;
+    int AT;
+    float PCE;
+    float fftt;
+
+    float vc; // critical speed;
+    float kc; // critical density;
+    float s3_m; // m factor in s3 model
+
+    void update_kc(float free_speed_value)
+    {
+        int update_kc_method = 0; // 0: HCM
+//        float speed_ratio = free_speed / max(1, speed);
+        kc = lane_capacity * pow(2, 2 / s3_m) / max(1, free_speed_value);
+
+        if (kc > 50)
+            kc = 50;
+
+        if (update_kc_method == 0 && free_speed_value >= 55 && lane_capacity >= 1500) // free flow speed > 55, treat as freeway facility type
+        {
+            kc = 45;  // 45 vehicles per mile per lane based on HCM
+            vc = lane_capacity / kc;
+            s3_m = 2 * log(2) / log(free_speed_value / vc);
+        }
+        else  // non freeway facility, capacity is partially determined by g/c ratio
+        {
+            vc = free_speed_value * 0.7;
+            s3_m = 2 * log(2) / log(free_speed_value / vc);
+        }
+        TMC_highest_speed = free_speed_value;
+
+    }
+
+    double get_volume_from_speed(float speed, float free_speed_value)
+    {
+        //test data free_speed = 55.0f; 
+        //speed = 52;
+        //kc = 23.14167648;
+
+        if (speed < 0)
+            return -1;
+
+        double speed_ratio = free_speed_value / max(1, speed);
+        if (speed_ratio <= 1.00001)
+            speed_ratio = 1.00001;
+
+        /*   float volume = 0;*/
+        double ratio_difference = pow(speed_ratio, s3_m / 2) - 1;
+
+        double ratio_difference_final = max(ratio_difference, 0.00000001);
+
+        double volume = speed * kc * pow(ratio_difference_final, 1 / s3_m);
+
+        return volume;
+
+    }
     bool AllowAgentType(string agent_type, int tau)
     {
         if (VDF_period[tau].allowed_uses.size() == 0 || VDF_period[tau].allowed_uses == "all")  // if the allowed_uses is empty then all types are allowed.
@@ -1144,15 +1017,14 @@ public:
     string link_type_name;
     string link_type_code;
 
-    float PCE;
-    float fftt;
+    string VDF_type;
+    int    VDF_type_no;
+    CPeriod_VDF VDF_period[MAX_TIMEPERIODS];
 
-    CVDF_Period VDF_period[_MAX_TIMEPERIODS];
-
-    double TDBaseTT[_MAX_TIMEPERIODS];
-    double TDBaseCap[_MAX_TIMEPERIODS];
-    double TDBaseFlow[_MAX_TIMEPERIODS];
-    double TDBaseQueue[_MAX_TIMEPERIODS];
+    double TDBaseTT[MAX_TIMEPERIODS];
+    double TDBaseCap[MAX_TIMEPERIODS];
+    double TDBaseFlow[MAX_TIMEPERIODS];
+    double TDBaseQueue[MAX_TIMEPERIODS];
 
     int type;
 
@@ -1161,21 +1033,46 @@ public:
     //float travel_time;
 
     int subarea_id;
-    double flow_volume_per_period[_MAX_TIMEPERIODS];
+    double flow_volume_per_period[MAX_TIMEPERIODS];
     double RT_flow_volume;
-    double background_flow_volume_per_period[_MAX_TIMEPERIODS];
+    double background_flow_volume_per_period[MAX_TIMEPERIODS];
 
-    double  volume_per_period_per_at[_MAX_TIMEPERIODS][_MAX_AGNETTYPES];
+    double  volume_per_period_per_at[MAX_TIMEPERIODS][MAX_AGNETTYPES];
 
-    double  queue_length_perslot[_MAX_TIMEPERIODS];  // # of vehicles in the vertical point queue
-    double travel_time_per_period[_MAX_TIMEPERIODS];
+    double  queue_length_perslot[MAX_TIMEPERIODS];  // # of vehicles in the vertical point queue
+    double travel_time_per_period[MAX_TIMEPERIODS];
     double RT_travel_time;
 
     std::map<int, float> RT_travel_time_vector;
     std::map<int, float> RT_speed_vector;
-    //	double  travel_marginal_cost_per_period[_MAX_TIMEPERIODS][_MAX_AGNETTYPES];
+    //	double  travel_marginal_cost_per_period[MAX_TIMEPERIODS][MAX_AGNETTYPES];
 
     int number_of_periods;
+
+
+    //TMC
+    string tmc_code;
+    int tmc_corridor_id;
+   
+    int tmc_road_order;
+
+    int tmc_road_sequence;
+    string tmc_road, tmc_direction, tmc_intersection;
+    float tmc_reference_speed;
+    float tmc_mean_speed;
+    float VDF_STA_speed[5];
+    float VDF_STA_VOC[5];
+    float VDF_STA_volume[5];
+
+    float Scenario_STA_VOC_Ratio[5];
+    bool Scenario_evaluation_flag;
+
+    float tmc_volume;
+    GDPoint TMC_from, TMC_to;
+    float TMC_highest_speed;
+
+
+    //end of TMC
 
     //std::vector <SLinkMOE> m_LinkMOEAry;
     //beginning of simulation data
@@ -1239,6 +1136,12 @@ public:
     std::map<string, int> m_prohibited_movement_string_map;
     // for simulation
     std::map<int, int> next_link_for_resource_request;
+
+    std::map<int, float> label_cost;
+
+    std::map<string, int> pred_per_iteration_map;
+    std::map<string, float> label_cost_per_iteration_map;
+
 };
 
 class CInfoCell {
@@ -1319,19 +1222,35 @@ public:
 
 
 
+class CODMatrix
+{
+public:
+    std::map <int, float> value_map;
+    std::map <int, float> distance_map;
+    std::map <int, double> disutility_map;
+
+};
 class COZone
 {
 public:
-    COZone() : obs_production{ -1 }, obs_attraction{ -1 },
-        est_production{ -1 }, est_attraction{ -1 },
-        est_production_dev{ 0 }, est_attraction_dev{ -1 }, total_demand{ 0 }, b_real_time_information{ false }
+    COZone() : obs_production{ 0 }, obs_attraction{ 0 },
+        est_production{ 0 }, est_attraction{ 0 },
+        est_production_dev{ 0 }, est_attraction_dev{ 0 }, b_real_time_information {false}
     {
     }
 
+    _int64 cell_id;
+    double cell_x;
+    double cell_y;
     bool b_real_time_information;
-
     float obs_production;
     float obs_attraction;
+
+    float gravity_production[MAX_AGNETTYPES];
+    float gravity_attraction[MAX_AGNETTYPES];
+
+    float gravity_est_production[MAX_AGNETTYPES];
+    float gravity_est_attraction[MAX_AGNETTYPES];
 
     float est_production;
     float est_attraction;
@@ -1344,15 +1263,50 @@ public:
     // external zone id // this is origin zone
     int zone_id;
     int node_seq_no;
-    float total_demand;
+
     float obs_production_upper_bound_flag;
     float obs_attraction_upper_bound_flag;
 
+    CODMatrix m_ODMatrix[MAX_AGNETTYPES][MAX_TIMEPERIODS];
+    CODMatrix m_ODAccessibilityMatrix[MAX_AGNETTYPES][MAX_TIMEPERIODS];
+
     std::vector<int> m_activity_node_vector;
+
+
 };
+//class COZone
+//{
+//public:
+//    COZone() : obs_production{ -1 }, obs_attraction{ -1 },
+//        est_production{ -1 }, est_attraction{ -1 },
+//        est_production_dev{ 0 }, est_attraction_dev{ -1 }, total_demand{ 0 }, b_real_time_information{ false }
+//    {
+//    }
+//
+//    bool b_real_time_information;
+//
+//    float obs_production;
+//    float obs_attraction;
+//
+//    float est_production;
+//    float est_attraction;
+//
+//    float est_production_dev;
+//    float est_attraction_dev;
+//
+//     0, 1,
+//    int zone_seq_no;
+//     external zone id // this is origin zone
+//    int zone_id;
+//    int node_seq_no;
+//    float total_demand;
+//    float obs_production_upper_bound_flag;
+//    float obs_attraction_upper_bound_flag;
+//
+//    std::vector<int> m_activity_node_vector;
+//};
 
 extern std::vector<COZone> g_zone_vector;
-
 class CAGBMAgent
 {
 public:

@@ -259,7 +259,7 @@ public:
 
 			}
 			else
-				return _MAX_LABEL_COST;
+				return MAX_LABEL_COST;
 		}
 
 		std::vector<int> GetBestLinkSequence()
@@ -499,7 +499,7 @@ public:
 //								}
 //								if (subarea_output_flag == 0)
 //								{
-//									it->second.subarea_output_flag = 0;  // disable the output of this column into path_flow.csv
+//									it->second.subarea_output_flag = 0;  // disable the output of this column into route_assignment.csv
 //
 //									for (int nl = 0; nl < it->second.m_link_size; ++nl)  // arc a
 //									{
@@ -528,7 +528,7 @@ public:
 //		if (!g_pFileLinkMOE)
 //		{
 //			dtalog.output() << "File link_background_volume.csv cannot be opened." << endl;
-//			g_ProgramStop();
+//			g_program_stop();
 //		}
 //		else
 //		{

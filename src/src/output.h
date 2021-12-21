@@ -61,8 +61,8 @@ void g_output_assignment_result(Assignment& assignment)
     fopen_ss(&g_pFileLinkMOE, "static_link_performance.csv", "w");
     if (!g_pFileLinkMOE)
     {
-        dtalog.output() << "File link_performance.csv cannot be opened." << endl;
-        g_ProgramStop();
+        dtalog.output() << "File static_link_performance.csv cannot be opened." << endl;
+        g_program_stop();
     }
     else
     {
@@ -70,9 +70,14 @@ void g_output_assignment_result(Assignment& assignment)
         // Option 2: BPR-X function
         fprintf(g_pFileLinkMOE, "link_id,from_node_id,to_node_id,link_type_name,link_type_code,time_period,volume,travel_time,speed,speed_ratio,VOC,capacity,queue,density,geometry,");
 
+//        travel_time_per_iteration_map[iteration_k]
+
         //ODME
         if (assignment.assignment_mode == 3)
             fprintf(g_pFileLinkMOE, "obs_count,upper_type,dev,");
+
+        for (int iteration_number = 0; iteration_number < min(20,assignment.g_number_of_column_generation_iterations); iteration_number++)
+            fprintf(g_pFileLinkMOE, "TT_%d,", iteration_number);
 
         fprintf(g_pFileLinkMOE, "notes\n");
 
@@ -114,6 +119,23 @@ void g_output_assignment_result(Assignment& assignment)
                     else
                         fprintf(g_pFileLinkMOE, ",,");
                 }
+
+                for (int iteration_number = 0; iteration_number < min(20, assignment.g_number_of_column_generation_iterations); iteration_number++)
+                {
+                    float tt = -1;
+                    if(g_link_vector[i].VDF_period[tau].travel_time_per_iteration_map.find(iteration_number) != g_link_vector[i].VDF_period[tau].travel_time_per_iteration_map.end())
+                    { 
+                        tt = g_link_vector[i].VDF_period[tau].travel_time_per_iteration_map[iteration_number];
+                    }
+                    else
+                    {
+                        tt = -1;
+                    }
+
+                    fprintf(g_pFileLinkMOE, "%.2f,", tt);
+                }
+                    
+
                 fprintf(g_pFileLinkMOE, "period-based\n");
 
                 // print out for BPR-X
@@ -136,7 +158,7 @@ void g_output_assignment_result(Assignment& assignment)
                         float V_mu_over_V_f_ratio = 0.5; // to be calibrated.
                         float physical_queue = g_link_vector[i].VDF_period[tau].Queue[tt] / (1 - V_mu_over_V_f_ratio);  // per lane
                         float density = g_link_vector[i].VDF_period[tau].discharge_rate[tt] / max(0.001f, speed);
-                        if (density > 150)  // 150 as kjam.
+                        if (density > 150)  // 150 as k_jam.
                             density = 150;
 
                         fprintf(g_pFileLinkMOE, "%s,%d,%d,%s_%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,\"%s\",",
@@ -164,25 +186,33 @@ void g_output_assignment_result(Assignment& assignment)
     if (assignment.assignment_mode == 0 || assignment.path_output == 0)  //LUE
     {
         FILE* g_pFilePathMOE = nullptr;
-        fopen_ss(&g_pFilePathMOE, "path_flow.csv", "w");
+        fopen_ss(&g_pFilePathMOE, "route_assignment.csv", "w");
         fclose(g_pFilePathMOE);
 
     }
     else if (assignment.assignment_mode >= 1)  //UE mode, or ODME, DTA
     {
-        dtalog.output() << "writing path_flow.csv.." << endl;
+        dtalog.output() << "writing route_assignment.csv.." << endl;
 
-        float path_time_vector[_MAX_LINK_SIZE_IN_A_PATH];
+        float path_time_vector[MAX_LINK_SIZE_IN_A_PATH];
         FILE* g_pFilePathMOE = nullptr;
-        fopen_ss(&g_pFilePathMOE, "path_flow.csv", "w");
+        fopen_ss(&g_pFilePathMOE, "route_assignment.csv", "w");
 
         if (!g_pFilePathMOE)
         {
-            dtalog.output() << "File path_flow.csv cannot be opened." << endl;
-            g_ProgramStop();
+            dtalog.output() << "File route_assignment.csv cannot be opened." << endl;
+            g_program_stop();
         }
 
-        fprintf(g_pFilePathMOE, "agent_id,o_zone_id,d_zone_id,path_id,information_type,agent_type,demand_period,volume,assign_volume,subarea_flag,sensor_flag,toll,travel_time,VDF_travel_time,distance,path_code,node_sequence,link_sequence,time_sequence,geometry\n");
+        fprintf(g_pFilePathMOE, "path_no,o_zone_id,d_zone_id,path_id,information_type,agent_type,demand_period,volume,assign_volume,subarea_flag,sensor_flag,toll,#_of_nodes,travel_time,VDF_travel_time,distance,node_sequence,link_sequence");
+
+        for (int iteration_number = 0; iteration_number < min(20, assignment.g_number_of_column_updating_iterations); iteration_number++)
+        { 
+            fprintf(g_pFilePathMOE, "TT_%d,", iteration_number);
+            fprintf(g_pFilePathMOE, "Vol_%d,", iteration_number);
+        }
+
+        fprintf(g_pFilePathMOE, "geometry,\n");
 
         int count = 1;
 
@@ -283,7 +313,7 @@ void g_output_assignment_result(Assignment& assignment)
                                     }
                                     if (subarea_output_flag == 0)
                                     {
-                                        it->second.subarea_output_flag = 0;  // disable the output of this column into path_flow.csv
+                                        it->second.subarea_output_flag = 0;  // disable the output of this column into route_assignment.csv
 
                                         for (int nl = 0; nl < it->second.m_link_size; ++nl)  // arc a
                                         {
@@ -312,7 +342,7 @@ void g_output_assignment_result(Assignment& assignment)
             if (!g_pFileLinkMOE)
             {
                 dtalog.output() << "File link_background_volume.csv cannot be opened." << endl;
-                g_ProgramStop();
+                g_program_stop();
             }
             else
             {
@@ -380,7 +410,7 @@ void g_output_assignment_result(Assignment& assignment)
                                 
                         {
 
-                            int information_type = 0;
+                            int information_type = p_column_pool->information_type;
 
 
                             time_stamp = (assignment.g_DemandPeriodVector[tau].starting_time_slot_no + assignment.g_DemandPeriodVector[tau].ending_time_slot_no) / 2.0 * MIN_PER_TIMESLOT;
@@ -410,6 +440,13 @@ void g_output_assignment_result(Assignment& assignment)
                                 path_time_vector[1] = time_stamp;
 
                                 string path_code_str;
+
+
+                                if (it->second.m_link_size < MAX_LINK_SIZE_IN_A_PATH)
+                                {
+                                    dtalog.output() << "error: it->second.m_link_size < MAX_LINK_SIZE_IN_A_PATH" << endl;
+                                    g_program_stop();
+                                }
 
                                 for (int nl = 0; nl < it->second.m_link_size; ++nl)  // arc a
                                 {
@@ -488,8 +525,10 @@ void g_output_assignment_result(Assignment& assignment)
                                 // assignment_mode = 1, path flow mode
                                 if (assignment.assignment_mode >= 1)
                                 {
+                                    if (it->second.m_node_size - virtual_first_link_delta - virtual_last_link_delta <= 2)
+                                        continue;
 
-                                    fprintf(g_pFilePathMOE, "%d,%d,%d,%d,%d,%s,%s,%.2f,%d,%d,%d,%.1f,%.1f,%.4f,%.4f,%s,",
+                                    fprintf(g_pFilePathMOE, "%d,%d,%d,%d,%d,%s,%s,%.2f,%d,%d,%d,%.1f,%d,%.1f,%.4f,%.4f,",
                                         count,
                                         g_zone_vector[orig].zone_id,
                                         g_zone_vector[dest].zone_id,
@@ -502,11 +541,12 @@ void g_output_assignment_result(Assignment& assignment)
                                         it->second.subarea_output_flag,
                                         it->second.measurement_flag,
                                         path_toll,
+                                        it->second.m_node_size- virtual_first_link_delta- virtual_last_link_delta,
                                         final_path_travel_time,
                                         path_travel_time,
                                         //path_FF_travel_time,
                                         //final_path_travel_time- path_FF_travel_time,
-                                        path_distance, path_code_str.c_str());
+                                        path_distance);
 
                                     /* Format and print various data */
                                     for (int ni = 0 + virtual_first_link_delta; ni < it->second.m_node_size - virtual_last_link_delta; ++ni)
@@ -521,10 +561,15 @@ void g_output_assignment_result(Assignment& assignment)
                                     }
                                     fprintf(g_pFilePathMOE, ",");
 
-                                    for (int nt = 0 + virtual_first_link_delta; nt < it->second.m_node_size - virtual_last_link_delta; ++nt)
-                                        fprintf(g_pFilePathMOE, "%s;", g_time_coding(path_time_vector[nt]).c_str());
 
-                                    fprintf(g_pFilePathMOE, ",");
+                                    //for (int nt = 0 + virtual_first_link_delta; nt < min(5000-1, it->second.m_node_size - virtual_last_link_delta); ++nt)
+                                    //{
+                                    //    if(path_time_vector[nt] < assignment.g_LoadingEndTimeInMin)
+                                    //    {
+                                    //    fprintf(g_pFilePathMOE, "%s;", g_time_coding(path_time_vector[nt]).c_str());
+                                    //    }
+                                    //}
+                                    //fprintf(g_pFilePathMOE, ",");
 
                                     //for (int nt = 0 + virtual_first_link_delta; nt < it->second.m_link_size+1 - virtual_last_link_delta; ++nt)
                                     //    fprintf(g_pFilePathMOE, "%.2f;", path_time_vector[nt]);
@@ -536,18 +581,40 @@ void g_output_assignment_result(Assignment& assignment)
 
                                     //fprintf(g_pFilePathMOE, ",");
 
-                                    fprintf(g_pFilePathMOE, "\"LINESTRING (");
-
-                                    for (int ni = 0 + virtual_first_link_delta; ni < it->second.m_node_size - virtual_last_link_delta; ++ni)
+                                    for (int iteration_number = 0; iteration_number < min(20, assignment.g_number_of_column_updating_iterations); iteration_number++)
                                     {
-                                        fprintf(g_pFilePathMOE, "%f %f", g_node_vector[it->second.path_node_vector[ni]].x,
-                                            g_node_vector[it->second.path_node_vector[ni]].y);
+                                        double TT = -1;
+                                        double Vol = 0;
+                                        if (it->second.path_gradient_cost_per_iteration_map.find(iteration_number) != it->second.path_gradient_cost_per_iteration_map.end())
+                                        {
+                                            TT = it->second.path_gradient_cost_per_iteration_map[iteration_number];
+                                        }
 
-                                        if (ni != it->second.m_node_size - virtual_last_link_delta - 1)
-                                            fprintf(g_pFilePathMOE, ", ");
+                                        if (it->second.path_volume_per_iteration_map.find(iteration_number) != it->second.path_volume_per_iteration_map.end())
+                                        {
+                                            Vol = it->second.path_volume_per_iteration_map[iteration_number];
+                                        }
+
+                                        fprintf(g_pFilePathMOE, "%f,%f,", TT, Vol);
+
                                     }
 
-                                    fprintf(g_pFilePathMOE, ")\"\n");
+                                    if(it->second.m_node_size- virtual_first_link_delta- virtual_last_link_delta>=2)
+                                    {
+                                    fprintf(g_pFilePathMOE, "\"LINESTRING (");
+                                        for (int ni = 0 + virtual_first_link_delta; ni < it->second.m_node_size - virtual_last_link_delta; ++ni)
+                                        {
+                                            fprintf(g_pFilePathMOE, "%f %f", g_node_vector[it->second.path_node_vector[ni]].x,
+                                                g_node_vector[it->second.path_node_vector[ni]].y);
+
+                                            if (ni != it->second.m_node_size - virtual_last_link_delta - 1)
+                                                fprintf(g_pFilePathMOE, ", ");
+                                        }
+
+                                    fprintf(g_pFilePathMOE, ")\"");
+                                    }
+
+                                    fprintf(g_pFilePathMOE, "\n");
                                     count++;
                                 }
 
@@ -567,25 +634,25 @@ void g_output_accessibility_result(Assignment& assignment)
     if (assignment.assignment_mode == 0 || assignment.path_output == 0)  //LUE
     {
         FILE* g_pFilePathMOE = nullptr;
-        fopen_ss(&g_pFilePathMOE, "accessibility.csv", "w");
+        fopen_ss(&g_pFilePathMOE, "od_accessibility.csv", "w");
         fclose(g_pFilePathMOE);
 
     }
     else if (assignment.assignment_mode >= 1)  //UE mode, or ODME, DTA
     {
-        dtalog.output() << "writing accessibility.csv.." << endl;
+        dtalog.output() << "writing od_accessibility.csv.." << endl;
 
-        float path_time_vector[_MAX_LINK_SIZE_IN_A_PATH];
+        float path_time_vector[MAX_LINK_SIZE_IN_A_PATH];
         FILE* g_pFilePathMOE = nullptr;
-        fopen_ss(&g_pFilePathMOE, "accessibility.csv", "w");
+        fopen_ss(&g_pFilePathMOE, "od_accessibility.csv", "w");
 
         if (!g_pFilePathMOE)
         {
-            dtalog.output() << "File accessibility.csv cannot be opened." << endl;
-            g_ProgramStop();
+            dtalog.output() << "File od_accessibility.csv cannot be opened." << endl;
+            g_program_stop();
         }
 
-        fprintf(g_pFilePathMOE, "agent_id,o_zone_id,d_zone_id,path_id,information_type,agent_type,demand_period,volume,assign_volume,subarea_flag,sensor_flag,toll,travel_time,VDF_travel_time,distance\n");
+        fprintf(g_pFilePathMOE, "od_no,o_zone_id,d_zone_id,o_zone_agent_type_cover_flag,d_zone_agent_type_cover_flag,path_id,information_type,agent_type,demand_period,volume,assign_volume,subarea_flag,sensor_flag,toll,travel_time,VDF_travel_time,distance\n");
 
         int count = 1;
 
@@ -686,7 +753,7 @@ void g_output_accessibility_result(Assignment& assignment)
                                     }
                                     if (subarea_output_flag == 0)
                                     {
-                                        it->second.subarea_output_flag = 0;  // disable the output of this column into path_flow.csv
+                                        it->second.subarea_output_flag = 0;  // disable the output of this column into route_assignment.csv
 
                                         for (int nl = 0; nl < it->second.m_link_size; ++nl)  // arc a
                                         {
@@ -822,10 +889,26 @@ void g_output_accessibility_result(Assignment& assignment)
                                 if (assignment.assignment_mode >= 1)
                                 {
 
-                                    fprintf(g_pFilePathMOE, "%d,%d,%d,%d,%d,%s,%s,%.2f,%d,%d,%d,%.1f,%.1f,%.4f,%.4f,%s\n",
+                                    int o_zone_agent_type_cover_flag = 0;
+                                    int d_zone_agent_type_cover_flag = 0;
+
+                                    if (assignment.g_AgentTypeVector[at].zone_id_cover_map.find(g_zone_vector[orig].zone_id) != assignment.g_AgentTypeVector[at].zone_id_cover_map.end())
+                                    {
+                                        o_zone_agent_type_cover_flag = 1;
+                                    }
+
+                                    if (assignment.g_AgentTypeVector[at].zone_id_cover_map.find(g_zone_vector[dest].zone_id) != assignment.g_AgentTypeVector[at].zone_id_cover_map.end())
+                                    {
+                                        d_zone_agent_type_cover_flag = 1;
+                                    }
+
+
+                                    fprintf(g_pFilePathMOE, "%d,%d,%d,%d,%d,%d,%d,%s,%s,%.2f,%d,%d,%d,%.1f,%.1f,%.4f,%.4f,%s\n",
                                         count,
                                         g_zone_vector[orig].zone_id,
                                         g_zone_vector[dest].zone_id,
+                                        o_zone_agent_type_cover_flag,
+                                        d_zone_agent_type_cover_flag,
                                         it->second.path_seq_no,
                                         information_type,
                                         assignment.g_AgentTypeVector[at].agent_type.c_str(),
@@ -874,18 +957,19 @@ void g_output_dynamic_link_performance(Assignment& assignment, int output_mode =
         file_name = "dynamic_link_performance_horizon.csv";
     }
 
+ 
     fopen_ss(&g_pFileLinkMOE, file_name.c_str(), "w");
 
     if (!g_pFileLinkMOE)
     {
-        dtalog.output() << "File " << file_name.c_str() << "cannot be opened." << endl;
-        g_ProgramStop();
+        dtalog.output() << "File " << file_name.c_str() << " cannot be opened." << endl;
+        g_program_stop();
     }
     else
     {
 
         // Option 2: BPR-X function
-        fprintf(g_pFileLinkMOE, "link_id,tmc_corridor_name,link_type_name,from_node_id,to_node_id,from_cell_code,lanes,length,free_speed,FFTT,time_period,volume,CA,CD,density,queue_length,discharge_rate,dynamic_free_flow_travel_time,waiting_time_in_sec,RT_speed,speed,geometry,");
+        fprintf(g_pFileLinkMOE, "link_id,tmc_corridor_name,link_type_name,from_node_id,to_node_id,from_cell_code,lanes,length,free_speed,FFTT,time_period,volume,CA,CD,density,queue_length,discharge_rate,travel_time,waiting_time_in_min,RT_speed,speed,geometry,");
         fprintf(g_pFileLinkMOE, "notes\n");
 
 
@@ -916,11 +1000,11 @@ void g_output_dynamic_link_performance(Assignment& assignment, int output_mode =
 
                     float volume = 0;
                     float queue = 0;
-                    float waiting_time_in_sec = 0;
+                    float waiting_time_in_min = 0;
                     int arrival_rate = 0;
-                    float avg_waiting_time_in_sec = 0;
+                    float avg_waiting_time_in_min = 0;
 
-                    float travel_time = (float)(g_link_vector[i].free_flow_travel_time_in_min + avg_waiting_time_in_sec / 60.0);
+                    float travel_time = (float)(g_link_vector[i].free_flow_travel_time_in_min + avg_waiting_time_in_min);
                     float speed = g_link_vector[i].length / (g_link_vector[i].free_flow_travel_time_in_min / 60.0);
                     float virtual_arrival = 0;
 
@@ -936,27 +1020,28 @@ void g_output_dynamic_link_performance(Assignment& assignment, int output_mode =
 
                         float waiting_time_count = 0;
 
-                        waiting_time_in_sec = assignment.m_LinkTDWaitingTime[i][t] * number_of_seconds_per_interval;
+                        waiting_time_in_min = assignment.m_LinkTDWaitingTime[i][t] * number_of_seconds_per_interval;
 
                         if (output_mode == 2)
                         {
-                            waiting_time_in_sec = assignment.m_LinkTotalWaitingTimeVector[i];
-                            avg_waiting_time_in_sec = waiting_time_in_sec / max(1, arrival_rate);
+                            waiting_time_in_min = assignment.m_LinkTotalWaitingTimeVector[i];
+                            avg_waiting_time_in_min = waiting_time_in_min / max(1, arrival_rate);
                         }
 
                         arrival_rate = assignment.m_LinkCumulativeArrivalVector[i][t] - assignment.m_LinkCumulativeArrivalVector[i][t - sampling_time_interval];
-                        avg_waiting_time_in_sec = waiting_time_in_sec / max(1, arrival_rate);
+                        avg_waiting_time_in_min = waiting_time_in_min / max(1, arrival_rate);
 
-                        travel_time = (float)(g_link_vector[i].free_flow_travel_time_in_min + avg_waiting_time_in_sec / 60.0);
+                        travel_time = (float)(g_link_vector[i].free_flow_travel_time_in_min + avg_waiting_time_in_min);
                         speed = g_link_vector[i].length / (max(0.00001f, travel_time / 60.0));
                     }
 
-                    if (speed >= 1000)
+
+                    float density = (assignment.m_LinkCumulativeArrivalVector[i][t] - assignment.m_LinkCumulativeDepartureVector[i][t]) / (g_link_vector[i].length * g_link_vector[i].number_of_lanes);
+
+                    if (density >= 1000 )
                     {
                         int i_debug = 1;
                     }
-                    float density = (assignment.m_LinkCumulativeArrivalVector[i][t] - assignment.m_LinkCumulativeDepartureVector[i][t]) / (g_link_vector[i].length * g_link_vector[i].number_of_lanes);
-
                     if (output_mode == 0)
                     {
                         if (assignment.m_LinkCumulativeArrivalVector[i][t] < 1000)
@@ -985,13 +1070,125 @@ void g_output_dynamic_link_performance(Assignment& assignment, int output_mode =
                         queue,
                         discharge_rate,
                         travel_time,
-                        avg_waiting_time_in_sec,
+                        avg_waiting_time_in_min,
                         speed,
                         g_link_vector[i].geometry.c_str());
 
                     fprintf(g_pFileLinkMOE, "simulation-based\n");
                 }
             }  // for each time t
+        }  // for each link l
+        fclose(g_pFileLinkMOE);
+    }//assignment mode 2 as simulation
+
+}
+
+void g_output_dynamic_QVDF_link_performance()
+{
+    dtalog.output() << "writing dynamic_link_performance_QVDF.csv.." << endl;
+
+    int b_debug_detail_flag = 0;
+    FILE* g_pFileLinkMOE = nullptr;
+
+    string file_name = "dynamic_link_performance_QVDF.csv";
+
+    fopen_ss(&g_pFileLinkMOE, file_name.c_str(), "w");
+
+    if (!g_pFileLinkMOE)
+    {
+        dtalog.output() << "File " << file_name.c_str() << " cannot be opened." << endl;
+        g_program_stop();
+    }
+    else
+    {
+
+        // Option 2: BPR-X function
+        fprintf(g_pFileLinkMOE, "link_id,tmc_corridor_name,link_type_name,from_node_id,to_node_id,geometry,");
+
+        // hourly data
+        for (int t = 6 * 60; t < 20 * 60; t += 60)
+        {
+            int hour = t / 60;
+            int minute = t - hour * 60;
+
+            fprintf(g_pFileLinkMOE, "vh%02d,", hour);
+        }
+
+        for (int t = 6 * 60; t < 20 * 60; t += 60)
+        {
+            int hour = t / 60;
+            int minute = t - hour * 60;
+
+            fprintf(g_pFileLinkMOE, "qh%02d,", hour);
+        }
+
+        for (int t = 6 * 60; t < 20 * 60; t += 5)
+        {
+            int hour = t / 60;
+            int minute = t - hour * 60;
+            fprintf(g_pFileLinkMOE, "v%02d:%02d,", hour, minute);
+        }
+
+        for (int t = 6 * 60; t < 20 * 60; t += 5)
+        {
+            int hour = t / 60;
+            int minute = t - hour * 60;
+            fprintf(g_pFileLinkMOE, "q%02d:%02d,", hour, minute);
+        }
+
+        fprintf(g_pFileLinkMOE, "\n");
+
+        //Initialization for all nodes
+        for (int i = 0; i < g_link_vector.size(); ++i)
+        {
+            // virtual connectors
+            if (g_link_vector[i].link_type == -1)
+                continue;
+
+            if (g_link_vector[i].VDF_type_no != 1)  // only ouptut QVDF only
+                continue;
+
+            fprintf(g_pFileLinkMOE, "%s,%s,%s,%d,%d,\"%s\",",
+                g_link_vector[i].link_id.c_str(),
+                g_link_vector[i].tmc_corridor_name.c_str(),
+                g_link_vector[i].link_type_name.c_str(),
+
+                g_node_vector[g_link_vector[i].from_node_seq_no].node_id,
+                g_node_vector[g_link_vector[i].to_node_seq_no].node_id,
+                //g_link_vector[i].number_of_lanes,
+                //g_link_vector[i].length,
+                //g_link_vector[i].free_speed,
+                //g_link_vector[i].free_flow_travel_time_in_min,
+                g_link_vector[i].geometry.c_str());
+
+            for (int t = 6 * 60; t < 20 * 60; t += 60)
+            {
+                float speed = g_link_vector[i].get_est_hourly_speed(t);
+                fprintf(g_pFileLinkMOE, "%.3f,", speed);
+            }
+
+            for (int t = 6 * 60; t < 20 * 60; t += 60)
+            {
+                float volume = g_link_vector[i].get_est_hourly_volume(t);
+                fprintf(g_pFileLinkMOE, "%.3f,", volume);
+            }
+
+            for (int t = 6 * 60; t < 20 * 60; t += 5)
+            {
+                int time_interval = t / 5;
+                float speed = g_link_vector[i].est_speed[time_interval];
+                fprintf(g_pFileLinkMOE, "%.3f,", speed);
+            }
+
+            for (int t = 6 * 60; t < 20 * 60; t += 5)
+            {
+                int time_interval = t / 5;
+                float volume = g_link_vector[i].est_volume_per_hour_per_lane[time_interval];
+                fprintf(g_pFileLinkMOE, "%.3f,", volume);
+            }
+
+            fprintf(g_pFileLinkMOE, "\n");
+
         }  // for each link l
         fclose(g_pFileLinkMOE);
     }//assignment mode 2 as simulation
@@ -1011,8 +1208,8 @@ void g_output_dynamic_link_state(Assignment& assignment, int output_mode = 1)
 
     if (!g_pFileLinkMOE)
     {
-        dtalog.output() << "File " << file_name.c_str() << "cannot be opened." << endl;
-        g_ProgramStop();
+        dtalog.output() << "File " << file_name.c_str() << " cannot be opened." << endl;
+        g_program_stop();
     }
     else
     {
@@ -1107,76 +1304,6 @@ void g_output_dynamic_link_state(Assignment& assignment, int output_mode = 1)
     }
 }
 
-void g_output_dynamic_link_capacity(Assignment& assignment, int output_mode = 1)
-{
-    dtalog.output() << "writing dynamic_link_capacity.csv.." << endl;
-
-    int b_debug_detail_flag = 0;
-    FILE* g_pFileLinkMOE = nullptr;
-
-    string file_name = "dynamic_link_capacity.csv";
-
-    fopen_ss(&g_pFileLinkMOE, file_name.c_str(), "w");
-
-    if (!g_pFileLinkMOE)
-    {
-        dtalog.output() << "File " << file_name.c_str() << "cannot be opened." << endl;
-        g_ProgramStop();
-    }
-    else
-    {
-
-        // Option 2: BPR-X function
-        fprintf(g_pFileLinkMOE, "link_id,from_node_id,to_node_id,time_stamp,capacity,state,state_name\n");
-
-
-        //Initialization for all nodes
-        for (unsigned li = 0; li < g_link_vector.size(); ++li)
-        {
-            if (g_link_vector[li].flow_volume_per_period[0] > 1)
-            {
-                // reset for signalized links (not freeway links as type code != 'f' for the case of freeway workzones)
-                // only for the loading period
-
-                int t = 0;
-                int last_t = t;
-                while (t < assignment.g_number_of_loading_intervals_in_sec - 1)
-                {
-                    int current_state = -1;
-
-                    if (g_link_vector[li].timing_arc_flag == 1)
-                        current_state = assignment.m_LinkOutFlowState[li][t];
-
-                    float current_cap = assignment.m_LinkOutFlowCapacity[li][t];
-
-                    string state_str;
-
-                    if (current_state == 1)
-                        state_str = "g";
-
-                    if (current_state == 0)
-                        state_str = "r";
-
-                    fprintf(g_pFileLinkMOE, "%s,%d,%d,T%s,%.3f,%d,%s\n",
-                        g_link_vector[li].link_id.c_str(),
-                        g_node_vector[g_link_vector[li].from_node_seq_no].node_id,
-                        g_node_vector[g_link_vector[li].to_node_seq_no].node_id,
-                        g_time_coding(assignment.g_LoadingStartTimeInMin + t / 60.0).c_str(),
-                        current_cap,
-                        current_state,
-                        state_str.c_str());
-
-                    t++;
-                }
-
-
-            }
-
-        }
-        fclose(g_pFileLinkMOE);
-
-    }
-}
 void g_output_simulation_agents(Assignment& assignment)
 {
     if (assignment.assignment_mode == 0 || assignment.trajectory_output == 0)  //LUE
@@ -1189,14 +1316,14 @@ void g_output_simulation_agents(Assignment& assignment)
     {
         dtalog.output() << "writing agent.csv.." << endl;
 
-        float path_time_vector[_MAX_LINK_SIZE_IN_A_PATH];
+        float path_time_vector[MAX_LINK_SIZE_IN_A_PATH];
         FILE* g_pFileAgent = nullptr;
         fopen_ss(&g_pFileAgent, "agent.csv", "w");
 
         if (!g_pFileAgent)
         {
             dtalog.output() << "File agent.csv cannot be opened." << endl;
-            g_ProgramStop();
+            g_program_stop();
         }
 
         fprintf(g_pFileAgent, "agent_id,o_zone_id,d_zone_id,OD_index,path_id,#_of_links,diversion_flag,agent_type,demand_period,volume,toll,travel_time,distance,speed,departure_time_in_min,arrival_time_in_min,departure_time_slot_no,\n");
@@ -1280,6 +1407,12 @@ void g_output_simulation_agents(Assignment& assignment)
                                         int departure_time_in_slot_no = time_stamp / MIN_PER_TIMESLOT;
                                         float speed = pAgentSimu->path_distance / max(0.001, pAgentSimu->path_travel_time_in_min) * 60;
 
+                                        if (it->second.m_link_size < MAX_LINK_SIZE_IN_A_PATH)
+                                        {
+                                            dtalog.output() << "error: it->second.m_link_size < MAX_LINK_SIZE_IN_A_PATH" << endl;
+                                            g_program_stop();
+                                        }
+
                                         fprintf(g_pFileAgent, "%d,%d,%d,%d->%d,%d,%d,%d,%s,%s,1,%.1f,%.4f,%.4f,%.4f,%.4f,%.4f,%d",
                                             pAgentSimu->agent_id,
                                             g_zone_vector[orig].zone_id,
@@ -1317,11 +1450,12 @@ void g_output_simulation_result(Assignment& assignment)
 {
     g_output_dynamic_link_performance(assignment, 1);
     g_output_dynamic_link_performance(assignment, 2);
+    g_output_dynamic_QVDF_link_performance();
+
     if (assignment.assignment_mode == 2)  //DTA mode
     {
         g_output_dynamic_link_state(assignment, 1);
     }
-    //    g_output_dynamic_link_capacity(assignment, 1);
 
     g_output_simulation_agents(assignment);
 
@@ -1335,14 +1469,14 @@ void g_output_simulation_result(Assignment& assignment)
     {
         dtalog.output() << "writing trajectory.csv.." << endl;
 
-        float path_time_vector[_MAX_LINK_SIZE_IN_A_PATH];
+        float path_time_vector[MAX_LINK_SIZE_IN_A_PATH];
         FILE* g_pFilePathMOE = nullptr;
         fopen_ss(&g_pFilePathMOE, "trajectory.csv", "w");
 
         if (!g_pFilePathMOE)
         {
             dtalog.output() << "File trajectory.csv cannot be opened." << endl;
-            g_ProgramStop();
+            g_program_stop();
         }
 
         fprintf(g_pFilePathMOE, "agent_id,o_zone_id,d_zone_id,path_id,display_code,agent_type,PCE_unit,demand_period,volume,toll,travel_time,distance,node_sequence,link_sequence,time_sequence,waiting_time_in_simu_interval,geometry\n");
@@ -1567,14 +1701,14 @@ void g_output_simulation_result(Assignment& assignment)
     {
         dtalog.output() << "writing trace.csv.." << endl;
 
-        float path_time_vector[_MAX_LINK_SIZE_IN_A_PATH];
+        float path_time_vector[MAX_LINK_SIZE_IN_A_PATH];
         FILE* g_pFilePathMOE = nullptr;
         fopen_ss(&g_pFilePathMOE, "trace.csv", "w");
 
         if (!g_pFilePathMOE)
         {
             dtalog.output() << "File trace.csv cannot be opened." << endl;
-            g_ProgramStop();
+            g_program_stop();
         }
 
         fprintf(g_pFilePathMOE, "agent_id,seq_no,node_id,timestamp,timestamp_in_min,trip_time_in_min,travel_time_in_sec,waiting_time_in_simu_interval,x_coord,y_coord\n");
@@ -1728,6 +1862,7 @@ void g_output_simulation_result(Assignment& assignment)
         fclose(g_pFilePathMOE);
     }
 
+    g_OutputModelFiles(10); // label cost tree
 }
 
 
@@ -1739,19 +1874,21 @@ void g_OutputModelFiles(int mode)
 
         if (g_pFileModelNode != NULL)
         {
-            fprintf(g_pFileModelNode, "node_id,node_no,node_type,#_of_outgoing_nodes,activity_node_flag,zone_id,cell_id,cell_code,info_zone_flag,x_coord,y_coord\n");
+            fprintf(g_pFileModelNode, "node_id,node_no,node_type,#_of_outgoing_nodes,activity_node_flag,agent_type,zone_id,cell_id,cell_code,info_zone_flag,x_coord,y_coord\n");
             for (int i = 0; i < g_node_vector.size(); i++)
             {
 
 
                 if (g_node_vector[i].node_id >= 0)  //for all physical links
                 {
-                    fprintf(g_pFileModelNode, "%d,%d,%s,%d,%d,%d,%ld,%s,%d,%f,%f\n",
+
+                    fprintf(g_pFileModelNode, "%d,%d,%s,%d,%d,%s,%d,%ld,%s,%d,%f,%f\n",
                         g_node_vector[i].node_id,
                         g_node_vector[i].node_seq_no,
                         g_node_vector[i].node_type.c_str(),
                         g_node_vector[i].m_outgoing_link_seq_no_vector.size(),
                         g_node_vector[i].is_activity_node,
+                        g_node_vector[i].agent_type_str.c_str(),
                         g_node_vector[i].zone_org_id,
                         g_node_vector[i].cell_id,
                         g_node_vector[i].cell_str.c_str(),
@@ -1769,7 +1906,7 @@ void g_OutputModelFiles(int mode)
         else
         {
             dtalog.output() << "Error: File model_node.csv cannot be opened.\n It might be currently used and locked by EXCEL." << endl;
-            g_ProgramStop();
+            g_program_stop();
 
 
         }
@@ -1782,7 +1919,7 @@ void g_OutputModelFiles(int mode)
 
         if (g_pFileModelLink != NULL)
         {
-            fprintf(g_pFileModelLink, "link_id,link_no,from_node_id,to_node_id,link_type,link_type_name,lanes,length,free_speed,capacity,geometry\n");
+            fprintf(g_pFileModelLink, "link_id,link_no,from_node_id,to_node_id,link_type,link_type_name,lanes,length,free_speed,capacity,allow_uses,geometry\n");
 
             //VDF_fftt1,VDF_cap1,VDF_alpha1,VDF_beta1
             for (int i = 0; i < g_link_vector.size(); i++)
@@ -1795,7 +1932,7 @@ void g_OutputModelFiles(int mode)
                             continue; 
                     }
 
-                    fprintf(g_pFileModelLink, "%s,%d,%d,%d,%d,%s,%d,%f,%f,%f,",
+                    fprintf(g_pFileModelLink, "%s,%d,%d,%d,%d,%s,%d,%f,%f,%f,%s,",
                         g_link_vector[i].link_id.c_str(),
                         g_link_vector[i].link_seq_no,
                         g_node_vector[g_link_vector[i].from_node_seq_no].node_id,
@@ -1805,8 +1942,8 @@ void g_OutputModelFiles(int mode)
                         g_link_vector[i].number_of_lanes,
                         g_link_vector[i].length,
                         g_link_vector[i].free_speed,
-                        g_link_vector[i].lane_capacity
-
+                        g_link_vector[i].lane_capacity,
+                        g_link_vector[i].VDF_period[0].allowed_uses.c_str()
                          //g_link_vector[i].VDF_period[0].FFTT,
                         //g_link_vector[i].VDF_period[0].capacity,
                         //g_link_vector[i].VDF_period[0].alpha,
@@ -1838,7 +1975,7 @@ void g_OutputModelFiles(int mode)
         else
         {
             dtalog.output() << "Error: File model_link.csv cannot be opened.\n It might be currently used and locked by EXCEL." << endl;
-            g_ProgramStop();
+            g_program_stop();
 
         }
 
@@ -1852,7 +1989,7 @@ void g_OutputModelFiles(int mode)
         if (g_pFileZone == NULL)
         {
             cout << "File model_cell.csv cannot be opened." << endl;
-            g_ProgramStop();
+            g_program_stop();
         }
         else
         {
@@ -1879,6 +2016,51 @@ void g_OutputModelFiles(int mode)
             fclose(g_pFileZone);
         }
     }
+
+    if (mode == 10)
+    {
+        FILE* g_pFileModel_LC = fopen("model_shortest_path_tree.csv", "w");
+
+        if (g_pFileModel_LC != NULL)
+        {
+            fprintf(g_pFileModel_LC, "iteration,agent_type,zone_id,node_id,pred,label_cost\n");
+            for (int i = 0; i < g_node_vector.size(); i++)
+            {
+
+
+                if (g_node_vector[i].node_id >= 0)  //for all physical links
+                {
+                    std::map<string, float> ::iterator it;
+
+                    for (it = g_node_vector[i].label_cost_per_iteration_map.begin(); it != g_node_vector[i].label_cost_per_iteration_map.end(); ++it)
+                    {
+                        int node_pred_id = -1;
+                        int pred_no = g_node_vector[i].pred_per_iteration_map[it->first];
+                        if (pred_no >= 0)
+                            node_pred_id = g_node_vector[pred_no].node_id;
+
+                        fprintf(g_pFileModel_LC, "%s,%d,%f,\n", it->first.c_str(), node_pred_id, it->second);
+                    }
+
+                }
+
+            }
+
+            fclose(g_pFileModel_LC);
+        }
+        else
+        {
+            dtalog.output() << "Error: File model_label_cost_tree.csv cannot be opened.\n It might be currently used and locked by EXCEL." << endl;
+            g_program_stop();
+
+
+        }
+
+    }
+
 }
+
+
+
 // FILE* g_pFileOutputLog = nullptr;
 

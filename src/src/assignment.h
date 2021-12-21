@@ -137,7 +137,7 @@ void g_reset_and_update_link_volume_based_on_columns(int number_of_links, int it
     }
 }
 
-double update_link_travel_time_and_cost()
+double update_link_travel_time_and_cost(int inner_iteration_number)
 {
     if (assignment.assignment_mode == 2)
     {
@@ -164,7 +164,7 @@ double update_link_travel_time_and_cost()
     for (int i = 0; i < g_link_vector.size(); ++i)
     {
         // step 1: travel time based on VDF
-        g_link_vector[i].Calculatedynamic_VDFunction();
+        g_link_vector[i].calculate_dynamic_VDFunction(inner_iteration_number, false, g_link_vector[i].VDF_type_no);
 
         for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); ++tau)
         {
@@ -293,7 +293,7 @@ double g_reset_and_update_link_volume_based_on_ODME_columns(int number_of_links,
     // calcualte deviation for each measurement type
     for (int i = 0; i < number_of_links; ++i)
     {
-        g_link_vector[i].Calculatedynamic_VDFunction();
+        g_link_vector[i].calculate_dynamic_VDFunction(iteration_no,false, g_link_vector[i].VDF_type_no);
 
         if (g_link_vector[i].obs_count >= 1)  // with data
         {
@@ -378,7 +378,7 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
     g_reset_and_update_link_volume_based_on_columns(g_link_vector.size(), inner_iteration_number, false);
 
     // step 4: based on newly calculated path volumn, update volume based travel time, and update volume based resource balance, update gradie
-    update_link_travel_time_and_cost();
+    update_link_travel_time_and_cost(inner_iteration_number);
     // step 0
 
     //step 1: calculate shortest path at inner iteration of column flow updating
@@ -449,6 +449,8 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
                             it->second.path_travel_time = path_travel_time;
                             it->second.path_gradient_cost = path_gradient_cost;
 
+                            it->second.path_gradient_cost_per_iteration_map[inner_iteration_number] = path_gradient_cost;
+
                             if (column_vector_size == 1)  // only one path
                             {
                                 total_system_travel_cost += (it->second.path_gradient_cost * it->second.path_volume);
@@ -481,10 +483,18 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
 
                                     previous_path_volume = it->second.path_volume;
 
+                                    double flow_shift = step_size * it->second.path_gradient_cost_relative_difference;
+
+                                    if (flow_shift > it->second.path_volume*0.5)
+                                    {
+                                        flow_shift = it->second.path_volume * 0.5;
+                                    }
+
                                     //recall that it->second.path_gradient_cost_difference >=0
                                     // step 3.1: shift flow from nonshortest path to shortest path
-                                    it->second.path_volume = max(0.0, it->second.path_volume - step_size * it->second.path_gradient_cost_relative_difference);
+                                    it->second.path_volume = max(0.0, it->second.path_volume - flow_shift);
 
+                                    it->second.path_volume_per_iteration_map[inner_iteration_number] = it->second.path_volume;
                                     //we use min(step_size to ensure a path is not switching more than 1/n proportion of flow
                                     it->second.path_switch_volume = (previous_path_volume - it->second.path_volume);
                                     total_switched_out_path_volume += (previous_path_volume - it->second.path_volume);
@@ -495,6 +505,9 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
                             if (least_gradient_cost_path_seq_no != -1)
                             {
                                 p_column_pool->path_node_sequence_map[least_gradient_cost_path_node_sum_index].path_volume += total_switched_out_path_volume;
+
+                                p_column_pool->path_node_sequence_map[least_gradient_cost_path_node_sum_index].path_volume_per_iteration_map[inner_iteration_number] = p_column_pool->path_node_sequence_map[least_gradient_cost_path_node_sum_index].path_volume;
+
                                 total_system_travel_cost += (p_column_pool->path_node_sequence_map[least_gradient_cost_path_node_sum_index].path_gradient_cost *
                                     p_column_pool->path_node_sequence_map[least_gradient_cost_path_node_sum_index].path_volume);
                             }
@@ -678,6 +691,8 @@ void g_column_pool_route_scheduling(Assignment& assignment, int inner_iteration_
                                         }
 
                                         p_2_stage_column_pool->od_volume += it->second.path_volume;// carry over the switching path flow to the second path volume count
+
+                                        p_2_stage_column_pool->information_type = 1;
                                         it2->second.path_volume += it->second.path_volume;// carry over the switching path flow to the second path volume count
 
                                     
@@ -785,6 +800,7 @@ void g_column_pool_activity_scheduling(Assignment& assignment, int inner_iterati
                                 node_sum+= link_seq_vector[l];
                             }
 
+                           
                                 // add this unique path  // later we can add k activity paths
                                 int path_count = p_column_pool->path_node_sequence_map.size();
                                 p_column_pool->path_node_sequence_map[node_sum].path_seq_no = path_count;

@@ -52,9 +52,9 @@ using std::istringstream;
 
 void Assignment::AllocateLinkMemory4Simulation()
 {
-    g_number_of_simulation_intervals = (g_LoadingEndTimeInMin - g_LoadingStartTimeInMin + _simulation_discharge_period) * 60 / number_of_seconds_per_interval + 2;
+    g_number_of_simulation_intervals = (g_LoadingEndTimeInMin - g_LoadingStartTimeInMin + _simulation_discharge_period_in_min) * 60 / number_of_seconds_per_interval + 2;
 
-    g_number_of_intervals_in_sec = (g_LoadingEndTimeInMin - g_LoadingStartTimeInMin + _simulation_discharge_period) * 60;
+    g_number_of_intervals_in_sec = (g_LoadingEndTimeInMin - g_LoadingStartTimeInMin + _simulation_discharge_period_in_min) * 60;
 
     dtalog.output() << "LoadingStartTimeInMin = " << g_LoadingStartTimeInMin << endl;
     dtalog.output() << "g_LoadingStartTimeInMin = " << g_LoadingEndTimeInMin << endl;
@@ -359,6 +359,7 @@ void Assignment::STTrafficSimulation()
                                 pAgent->agent_id = g_agent_simu_vector.size();
                                 pAgent->departure_time_in_min = time_stamp;
 
+                                pAgent->path_travel_time_in_min = g_LoadingEndTimeInMin - pAgent->departure_time_in_min;  // by default
                                 it->second.agent_simu_id_vector.push_back(pAgent->agent_id);
 
                                 int simulation_time_intervalNo = (int)(pAgent->departure_time_in_min * 60 / number_of_seconds_per_interval);
@@ -474,6 +475,7 @@ void Assignment::STTrafficSimulation()
                 m_LinkCACount[FirstLink] += 1;
 
                 g_link_vector[FirstLink].EntranceQueue.push_back(p_agent->agent_id);
+
 
                 g_link_vector[FirstLink].current_driving_AgentID = p_agent->agent_id;
 
@@ -718,7 +720,7 @@ void Assignment::STTrafficSimulation()
                         //    pNextLink->spatial_capacity_in_vehicles = 1; // for cell based model
                         ////}
 
-                        if (pNextLink->cell_type >= 0 || pNextLink->traffic_flow_code == 2)  // DTA micro cell based simulation
+                        if (1/*pNextLink->cell_type >= 0 || pNextLink->traffic_flow_code == 2*/)  // DTA micro cell based simulation
                         {
                             int current_vehicle_count = m_LinkCACount[next_link_seq_no] - m_LinkCDCount[next_link_seq_no];
                             if (current_vehicle_count >= pNextLink->spatial_capacity_in_vehicles || (t < pNextLink->time_to_be_released))

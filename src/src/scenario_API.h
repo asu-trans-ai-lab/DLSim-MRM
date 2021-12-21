@@ -119,7 +119,7 @@ void g_load_scenario_data(Assignment& assignment)
                 if (!parser.GetValueByFieldName("time_period", time_period))
                 {
                     dtalog.output() << "Error: Field time_window in file scenario.csv cannot be read." << endl;
-                    g_ProgramStop();
+                    g_program_stop();
                     break;
                 }
 
@@ -195,6 +195,12 @@ void g_load_scenario_data(Assignment& assignment)
                 {
                     tau = assignment.demand_period_to_seqno_mapping[demand_period];
                 }
+                //else
+                //{
+                //    dtalog.output() << "demand_period= " << demand_period.c_str() << " in scenario.csv has not been defined in setting.csv." << endl;
+                //    g_program_stop();
+                //}
+
 
                 //
                 if (capacity < g_link_vector[link_seq_no].lane_capacity * g_link_vector[link_seq_no].number_of_lanes * 0.8)

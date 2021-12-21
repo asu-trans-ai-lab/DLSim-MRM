@@ -107,16 +107,21 @@ vector<CAgent_Simu*> g_agent_simu_vector;
 std::vector<CNode> g_node_vector;
 std::vector<CLink> g_link_vector;
 std::vector<COZone> g_zone_vector;
+
 Assignment assignment;
 
 std::map<string, CTMC_Corridor_Info> g_tmc_corridor_vector;
 std::map<string, CInfoCell> g_info_cell_map;
+
+#include "trip_generation.h"
 #include "input.h"
 #include "output.h"
 #include "assignment.h"
 #include "ODME.h"
 #include "scenario_API.h"
+#include "cbi_tool.h"
 
+std::vector<CTMC_Link> g_TMC_vector;
 
 void g_reset_link_volume_in_master_program_without_columns(int number_of_links, int iteration_index, bool b_self_reducing_path_volume)
 {
@@ -181,8 +186,8 @@ void g_assign_computing_tasks_to_memory_blocks(Assignment& assignment)
     // step 2: assign node to thread
     dtalog.output() << "Step 2: Assigning computing tasks to memory blocks..." << endl;
 
-    NetworkForSP* PointerMatrx[_MAX_AGNETTYPES][_MAX_TIMEPERIODS][_MAX_MEMORY_BLOCKS] = {NULL};
-    NetworkForSP* RTPointerMatrx[_MAX_AGNETTYPES][_MAX_TIMEPERIODS][_MAX_MEMORY_BLOCKS] = { NULL };
+    NetworkForSP* PointerMatrx[MAX_AGNETTYPES][MAX_TIMEPERIODS][MAX_MEMORY_BLOCKS] = {NULL};
+    NetworkForSP* RTPointerMatrx[MAX_AGNETTYPES][MAX_TIMEPERIODS][MAX_MEMORY_BLOCKS] = { NULL };
 
     int computing_zone_count = 0;
 
@@ -389,14 +394,14 @@ double NetworkForSP::backtrace_shortest_path_tree(Assignment& assignment, int it
                     if (l_node_size >= temp_path_node_vector_size)
                     {
                         dtalog.output() << "Error: l_node_size >= temp_path_node_vector_size" << endl;
-                        g_ProgramStop();
+                        g_program_stop();
                     }
 
                     // this is valid node
                     if (current_node_seq_no >= 0 && current_node_seq_no < number_of_nodes)
                     {
-                        node_sum += current_node_seq_no;
                         current_link_seq_no = m_link_predecessor[current_node_seq_no];
+                        node_sum += current_node_seq_no * current_link_seq_no;
 
                         // fetch m_link_predecessor to mark the link volume
                         if (current_link_seq_no >= 0 && current_link_seq_no < number_of_links)
@@ -421,6 +426,12 @@ double NetworkForSP::backtrace_shortest_path_tree(Assignment& assignment, int it
                 // we obtain the cost, time, distance from the last tree-k
                 if(assignment.assignment_mode >=1) // column based mode
                 {
+
+                    if (iteration_number_outterloop == 1)
+                    {
+                        int i_debug = 2;
+                    }
+
                     // we cannot find a path with the same node sum, so we need to add this path into the map,
                     if (pColumnVector->path_node_sequence_map.find(node_sum) == assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][m_tau].path_node_sequence_map.end())
                     {
@@ -447,7 +458,7 @@ double NetworkForSP::backtrace_shortest_path_tree(Assignment& assignment, int it
 	return total_origin_least_cost;
 }
 
-void  CLink::Calculatedynamic_VDFunction()
+void  CLink::calculate_dynamic_VDFunction(int inner_iteration_number, bool congestion_bottleneck_sensitivity_analysis_mode, int VDF_type_no)
 {
     RT_travel_time = 0; // reset RT_travel time for each end of simulation iteration 
     for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
@@ -455,75 +466,75 @@ void  CLink::Calculatedynamic_VDFunction()
         float starting_time_slot_no = assignment.g_DemandPeriodVector[tau].starting_time_slot_no;
         float ending_time_slot_no = assignment.g_DemandPeriodVector[tau].ending_time_slot_no;
 
-        travel_time_per_period[tau] = VDF_period[tau].PerformBPR(flow_volume_per_period[tau]);
-
-        // signalized with red_time > 1
-        if (this->timing_arc_flag && this->mvmt_txt_id.length() > 1 && VDF_period[tau].red_time > 1)
+        float volume_to_be_assigned = flow_volume_per_period[tau];
+        if (congestion_bottleneck_sensitivity_analysis_mode == true)
         {
-            // arterial streets with the data from sigal API
-            float hourly_per_lane_volume = flow_volume_per_period[tau] / (max(1.0f, (ending_time_slot_no - starting_time_slot_no)) * 15 / 60 / number_of_lanes);
-            float red_time = VDF_period[tau].red_time;
-            float cycle_length = VDF_period[tau].cycle_length;
-            //we dynamically update cycle length, and green time/red time, so we have dynamically allocated capacity and average delay
-            travel_time_per_period[tau] = VDF_period[tau].PerformSignalVDF(hourly_per_lane_volume, red_time, cycle_length);
-
-            // update capacity using the effective discharge rates, will be passed in to the following BPR function
-            VDF_period[tau].capacity = (1 - red_time / cycle_length) * _default_saturation_flow_rate * number_of_lanes;
+            volume_to_be_assigned = VDF_period[tau].sav;
         }
 
-        // either non-signalized or signalized with red_time < 1 and cycle_length < 30
-        ////if (this->mvmt_txt_id.length() == 0 || (this->mvmt_txt_id.length() > 1 && VDF_period[tau].red_time < 1 && VDF_period[tau].cycle_length < 30))
-        ////{
-        ////    travel_time_per_period[tau] = VDF_period[tau].PerformBPR(flow_volume_per_period[tau]);
-        ////    //VDF_period[tau].PerformBPR_X(flow_volume_per_period[tau]);  // only for freeway segments
-        ////}
+
+        travel_time_per_period[tau] = VDF_period[tau].calculate_travel_time_based_on_VDF(
+            volume_to_be_assigned,
+            VDF_type_no, 
+            this->number_of_lanes,
+            starting_time_slot_no, ending_time_slot_no,
+            assignment.g_DemandPeriodVector[tau].t2_peak_in_hour,
+            this->free_speed, this->kc, this->s3_m, this->vc,
+            this->est_speed, this->est_volume_per_hour_per_lane);
+
+        VDF_period[tau].travel_time_per_iteration_map[inner_iteration_number] = travel_time_per_period[tau];
     }
 }
 
-void  CLink::Calculatedynamic_RTVDFunction()
-{
-    
-//
-//    for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
-//    {
-//  //       signalized with red_time > 1
-//        if (this->movement_str.length() > 1)
-//        {
-////             arterial streets with the data from sigal API
-//            float hourly_per_lane_volume = RT_flow_volume / (max(1.0f, (ending_time_slot_no - starting_time_slot_no)) * 15 / 60 / number_of_lanes);
-//            float red_time = VDF_period[tau].red_time;
-//            float cycle_length = VDF_period[tau].cycle_length;
-//    //        we dynamically update cycle length, and green time/red time, so we have dynamically allocated capacity and average delay
-//            travel_time_per_period[tau] = VDF_period[tau].PerformSignalVDF(hourly_per_lane_volume, red_time, cycle_length);
-//            travel_time_per_period[tau] += VDF_period[tau].PerformBPR(RT_flow_volume);
-//      //       update capacity using the effective discharge rates, will be passed in to the following BPR function
-//            VDF_period[tau].capacity = (1 - red_time / cycle_length) * _default_saturation_flow_rate * number_of_lanes;
-//        }
-//
-////         either non-signalized or signalized with red_time < 1 and cycle_length < 30
-//        if (this->movement_str.length() == 0 || (this->movement_str.length() > 1 && VDF_period[tau].red_time < 1 && VDF_period[tau].cycle_length < 30))
-//        {
-//            travel_time_per_period[tau] = VDF_period[tau].PerformBPR(RT_flow_volume);
-//        }
-//    }
-}
 double network_assignment(int assignment_mode, int iteration_number, int column_updating_iterations, int ODME_iterations, int number_of_memory_blocks)
 {
     int signal_updating_iterations = 0;
 
     // k iterations for column generation
     assignment.g_number_of_column_generation_iterations = iteration_number;
+    assignment.g_number_of_column_updating_iterations = column_updating_iterations;
     // 0: link UE: 1: path UE, 2: Path SO, 3: path resource constraints
     assignment.assignment_mode = assignment_mode;
 
-	assignment.g_number_of_memory_blocks = min( max(1, number_of_memory_blocks), _MAX_MEMORY_BLOCKS);
+	assignment.g_number_of_memory_blocks = min( max(1, number_of_memory_blocks), MAX_MEMORY_BLOCKS);
 	
-
     if (assignment.assignment_mode == 0)
         column_updating_iterations = 0;
 
     // step 1: read input data of network / demand tables / Toll
-    g_ReadInputData(assignment);
+    g_read_input_data(assignment);
+
+
+    if (assignment.assignment_mode == 11)  // cbi mode
+    {
+        bool ReadingDataReady = assignment.map_tmc_reading();
+        g_output_tmc_file(ReadingDataReady);
+        return 1.0;
+    }
+
+    if (assignment.assignment_mode == 12)  // cbsa mode
+    {
+        int inner_iteration_number = 0;
+
+        for (int i = 0; i < g_link_vector.size(); ++i)
+        {
+
+            // will use sav to compute travel time, time dependent speed and volume based on Q_VDF
+             g_link_vector[i].VDF_type_no = 1;
+             
+             for (int time_index = 0; time_index < MAX_TIMEINTERVAL_PerDay; time_index++)
+             {
+                 g_link_vector[i].est_speed[time_index] = -1;
+                 g_link_vector[i].est_volume_per_hour_per_lane[time_index] = -1;
+             }
+             g_link_vector[i].calculate_dynamic_VDFunction(inner_iteration_number, true, g_link_vector[i].VDF_type_no);
+        }
+
+        g_output_dynamic_QVDF_link_performance();
+        return 1.0;
+    }
+    
+
     //g_reload_timing_arc_data(assignment); // no need to load timing data from timing.csv
     g_load_scenario_data(assignment);
     g_ReadDemandFileBasedOnDemandFileList(assignment);
@@ -555,7 +566,7 @@ double network_assignment(int assignment_mode, int iteration_number, int column_
 		double total_system_travel_time = 0;
 		double total_least_system_travel_time = 0;
         // initialization at beginning of shortest path
-		total_system_travel_time = update_link_travel_time_and_cost();
+		total_system_travel_time = update_link_travel_time_and_cost(iteration_number);
 
         if (assignment.assignment_mode == 0)
         {
@@ -672,7 +683,7 @@ double network_assignment(int assignment_mode, int iteration_number, int column_
     start_t = clock();
     g_column_pool_optimization(assignment, column_updating_iterations);
     g_column_pool_route_scheduling(assignment, column_updating_iterations);
-    g_column_pool_activity_scheduling(assignment, column_updating_iterations);  // VMS information updat
+//    g_column_pool_activity_scheduling(assignment, column_updating_iterations);  // VMS information updat
 
     dtalog.output() << endl;
 
@@ -687,7 +698,7 @@ double network_assignment(int assignment_mode, int iteration_number, int column_
         g_reset_link_volume_in_master_program_without_columns(g_link_vector.size(), iteration_number, false);
 
     // initialization at the first iteration of shortest path
-    update_link_travel_time_and_cost();
+    update_link_travel_time_and_cost(iteration_number);
 
     if (assignment.assignment_mode == 2)
     {

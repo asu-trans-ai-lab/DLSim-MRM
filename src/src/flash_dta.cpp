@@ -66,10 +66,16 @@ int main()
                     assignment_mode = 2;
                 else if (assignment_mode_str == "odme")
                     assignment_mode = 3;
+                else if (assignment_mode_str == "qem")  //quick estimatin method 
+                    assignment_mode = 10;
+                else if (assignment_mode_str == "cbi")  //congestion bottleneck identification
+                    assignment_mode = 11;
+                else if (assignment_mode_str == "cbsa")  //congestion bottleneck sensitivity
+                    assignment_mode = 12;
                 else
                 {
                     dtalog.output() << "assignment_mode " << assignment_mode_str.c_str() << " in settings.csv is invalid." << std::endl;
-                    g_ProgramStop();
+                    g_program_stop();
                 }
 
                 // iteration number of reassignment
