@@ -26,8 +26,10 @@
 constexpr auto _PI = 3.1415926;
 // utilities functions
 void g_program_stop();
+void g_program_exit();
 
-double g_calculate_p2p_distance_in_mile_from_latitude_longitude(double p1_x, double p1_y, double p2_x, double p2_y);
+
+double g_calculate_p2p_distance_in_meter_from_latitude_longitude(double p1_x, double p1_y, double p2_x, double p2_y);
 
 
 void fopen_ss(FILE** file, const char* fileName, const char* mode);

@@ -50,7 +50,7 @@ using std::istringstream;
 
 
 
-__int64 g_GetCellID(double x, double y, double grid_resolution)
+__int64 g_get_cell_ID(double x, double y, double grid_resolution)
 {
     __int64 xi;
     xi = floor(x / grid_resolution);
@@ -65,7 +65,7 @@ __int64 g_GetCellID(double x, double y, double grid_resolution)
     return code;
 };
 
-string g_GetCellCode(double x, double y, double grid_resolution, double left, double top)
+string g_get_cell_code(double x, double y, double grid_resolution, double left, double top)
 {
     std::string s("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
     std::string str_letter;
@@ -416,7 +416,7 @@ double NetworkForSP::backtrace_shortest_path_tree(Assignment& assignment, int it
                             }
 
                             //path_travel_time += g_link_vector[current_link_seq_no].travel_time_per_period[tau];
-                            //path_distance += g_link_vector[current_link_seq_no].length;
+                            //path_distance += g_link_vector[current_link_seq_no].link_distance_in_km;
                         }
                     }
                     current_node_seq_no = m_node_predecessor[current_node_seq_no];  // update node seq no
@@ -457,36 +457,99 @@ double NetworkForSP::backtrace_shortest_path_tree(Assignment& assignment, int it
     }
 	return total_origin_least_cost;
 }
-
 void  CLink::calculate_dynamic_VDFunction(int inner_iteration_number, bool congestion_bottleneck_sensitivity_analysis_mode, int VDF_type_no)
 {
     RT_travel_time = 0; // reset RT_travel time for each end of simulation iteration 
-    for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
-    {
-        float starting_time_slot_no = assignment.g_DemandPeriodVector[tau].starting_time_slot_no;
-        float ending_time_slot_no = assignment.g_DemandPeriodVector[tau].ending_time_slot_no;
 
-        float volume_to_be_assigned = flow_volume_per_period[tau];
-        if (congestion_bottleneck_sensitivity_analysis_mode == true)
+    if (VDF_type_no == 0 || VDF_type_no == 1)  // BPR, QVDF
+    {
+        // for each time period
+        for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
         {
-            volume_to_be_assigned = VDF_period[tau].sav;
+            float starting_time_slot_no = assignment.g_DemandPeriodVector[tau].starting_time_slot_no;
+            float ending_time_slot_no = assignment.g_DemandPeriodVector[tau].ending_time_slot_no;
+
+            float volume_to_be_assigned = flow_volume_per_period[tau];
+            if (congestion_bottleneck_sensitivity_analysis_mode == true)
+            {
+                volume_to_be_assigned = VDF_period[tau].sav;
+            }
+
+
+            travel_time_per_period[tau] = VDF_period[tau].calculate_travel_time_based_on_VDF(
+                volume_to_be_assigned,
+                VDF_type_no,
+                this->number_of_lanes,
+                starting_time_slot_no, ending_time_slot_no,
+                assignment.g_DemandPeriodVector[tau].t2_peak_in_hour,
+                this->free_speed, this->kc, this->s3_m, this->vc,
+                this->est_speed, this->est_volume_per_hour_per_lane);
+
+            VDF_period[tau].travel_time_per_iteration_map[inner_iteration_number] = travel_time_per_period[tau];
+        }
+    }
+    else  // VDF_type_no = 2: 
+    {
+        // to do
+        //calculate time-dependent travel time across all periods
+        // and then assign the values to each periodd
+        // for loop
+        // for each time period
+        // initialization 
+        for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
+        {
+            VDF_period[tau].queue_length = 0;
+            VDF_period[tau].arrival_flow_volume = flow_volume_per_period[tau];
+            VDF_period[tau].discharge_rate = VDF_period[tau].period_capacity;
+            VDF_period[tau].avg_waiting_time = 0;
+        }
+        //time-slot based queue evolution
+        for (int tau = 1; tau < assignment.g_number_of_demand_periods; ++tau)
+        {
+            VDF_period[tau].queue_length = max(0, VDF_period[tau - 1].queue_length + VDF_period[tau].arrival_flow_volume - VDF_period[tau].discharge_rate);
+
+            if (inner_iteration_number == 1 && g_node_vector[this->from_node_seq_no].node_id == 1 &&
+                g_node_vector[this->to_node_seq_no].node_id == 3)
+            {
+                int idebug = 1;
+
+            }
         }
 
+        // slot based total waiting time 
+        for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
+        {
+            float prevailing_queue_length = 0;
 
-        travel_time_per_period[tau] = VDF_period[tau].calculate_travel_time_based_on_VDF(
-            volume_to_be_assigned,
-            VDF_type_no, 
-            this->number_of_lanes,
-            starting_time_slot_no, ending_time_slot_no,
-            assignment.g_DemandPeriodVector[tau].t2_peak_in_hour,
-            this->free_speed, this->kc, this->s3_m, this->vc,
-            this->est_speed, this->est_volume_per_hour_per_lane);
+            if (tau >= 1)
+                prevailing_queue_length = VDF_period[tau - 1].queue_length;
 
-        VDF_period[tau].travel_time_per_iteration_map[inner_iteration_number] = travel_time_per_period[tau];
+
+            float total_waiting_time = (prevailing_queue_length + VDF_period[tau].queue_length) / 2.0 *
+                (VDF_period[tau].ending_time_slot_no - VDF_period[tau].starting_time_slot_no) * MIN_PER_TIMESLOT;  // unit min
+
+            VDF_period[tau].avg_waiting_time = total_waiting_time / max(1, VDF_period[tau].arrival_flow_volume);
+            VDF_period[tau].avg_travel_time = VDF_period[tau].FFTT + VDF_period[tau].avg_waiting_time;
+            VDF_period[tau].VOC = (prevailing_queue_length + VDF_period[tau].arrival_flow_volume) / max(0.01, VDF_period[tau].period_capacity);
+
+            this->travel_time_per_period[tau] = VDF_period[tau].avg_waiting_time + VDF_period[tau].FFTT;
+
+            // apply queue lenght at the time period to all the time slots included in this period
+            for (int slot_no = VDF_period[tau].starting_time_slot_no; slot_no < VDF_period[tau].ending_time_slot_no; slot_no++)
+            {
+                this->est_queue_length_per_lane[slot_no] = VDF_period[tau].queue_length / max(1, this->number_of_lanes);
+                this->est_avg_waiting_time_in_min[slot_no] = VDF_period[tau].avg_waiting_time;
+                float number_of_hours = (VDF_period[tau].ending_time_slot_no - VDF_period[tau].starting_time_slot_no) * MIN_PER_TIMESLOT / 60.0;  // unit hour
+                this->est_volume_per_hour_per_lane[slot_no] = VDF_period[tau].arrival_flow_volume / max(0.01,number_of_hours) / max(1, this->number_of_lanes);
+            }
+
+        }
+
     }
+
 }
 
-double network_assignment(int assignment_mode, int iteration_number, int column_updating_iterations, int ODME_iterations, int number_of_memory_blocks)
+double network_assignment(int assignment_mode, int VDF_type, int iteration_number, int column_updating_iterations, int ODME_iterations, int number_of_memory_blocks)
 {
     int signal_updating_iterations = 0;
 
@@ -495,6 +558,7 @@ double network_assignment(int assignment_mode, int iteration_number, int column_
     assignment.g_number_of_column_updating_iterations = column_updating_iterations;
     // 0: link UE: 1: path UE, 2: Path SO, 3: path resource constraints
     assignment.assignment_mode = assignment_mode;
+    assignment.VDF_type = VDF_type;
 
 	assignment.g_number_of_memory_blocks = min( max(1, number_of_memory_blocks), MAX_MEMORY_BLOCKS);
 	
@@ -530,7 +594,7 @@ double network_assignment(int assignment_mode, int iteration_number, int column_
              g_link_vector[i].calculate_dynamic_VDFunction(inner_iteration_number, true, g_link_vector[i].VDF_type_no);
         }
 
-        g_output_dynamic_QVDF_link_performance();
+        g_output_dynamic_link_performance_profile();
         return 1.0;
     }
     
@@ -795,7 +859,7 @@ for (int i = 0; i < g_link_vector.size(); ++i)
                         pLink->RT_travel_time = 9999;
                     }
 
-                    pLink->RT_speed_vector[time_slot_no] = pLink->length / max(0.00001, pLink->RT_travel_time / 60.0);  // mph                }
+                    pLink->RT_speed_vector[time_slot_no] = pLink->link_distance_in_km / max(0.00001, pLink->RT_travel_time / 60.0);  // mph                }
 
 
 

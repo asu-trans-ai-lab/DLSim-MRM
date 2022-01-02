@@ -60,7 +60,7 @@ void g_reset_and_update_link_volume_based_on_columns(int number_of_links, int it
             // used in travel time calculation
             g_link_vector[i].flow_volume_per_period[tau] = 0;
             // reserved for BPR-X
-            g_link_vector[i].queue_length_perslot[tau] = 0;
+            g_link_vector[i].queue_link_distance_in_km_perslot[tau] = 0;
 
             for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
                 g_link_vector[i].volume_per_period_per_at[tau][at] = 0;
@@ -438,7 +438,7 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
                             {
                                 link_seq_no = it->second.path_link_vector[nl];
                                 path_toll += g_link_vector[link_seq_no].VDF_period[tau].toll[at];
-                                path_distance += g_link_vector[link_seq_no].length;
+                                path_distance += g_link_vector[link_seq_no].link_distance_in_km;
                                 link_travel_time = g_link_vector[link_seq_no].travel_time_per_period[tau];
                                 path_travel_time += link_travel_time;
 

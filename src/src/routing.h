@@ -396,7 +396,7 @@ public:
         if (negative_cost_flag == true)
         {
             dtalog.output() << "Negative Cost: SP iteration k =  " << iteration_k << ": origin node: " << g_node_vector[origin_node].node_id << endl;
-            local_debugging_flag = 1;
+            local_debugging_flag = 0;
             negative_cost_label_correcting(processor_id, p_assignment, iteration_k, o_node_index, d_node_no);
             return true;
         }
@@ -513,7 +513,7 @@ public:
                 //the other zones do not have access to the outbound connectors
 
                 // Mark				new_time = m_label_time_array[from_node] + pLink->travel_time_per_period[tau];
-                // Mark				new_distance = m_label_distance_array[from_node] + pLink->length;
+                // Mark				new_distance = m_label_distance_array[from_node] + pLink->link_distance_in_km;
                 float additional_cost = 0;
 
                 if (g_link_vector[link_sqe_no].RT_travel_time > 1)  // used in real time routing only
@@ -630,34 +630,32 @@ public:
             }
        }
 
-        //if (iteration_k==2)  // only one processor
-        //{
-        //    int agent_type = m_agent_type_no; // assigned nodes for computing
-        //    int origin_node = m_origin_node_vector[o_node_index]; // assigned nodes for computing
-        //    int origin_zone = m_origin_zone_seq_no_vector[o_node_index]; // assigned nodes for computing
-        //   
-        //    if(p_assignment->g_origin_demand_array.find(origin_zone)!= p_assignment->g_origin_demand_array.end() && p_assignment->g_origin_demand_array[origin_zone]>=1)
-        //    {
+         //agent_type = m_agent_type_no; // assigned nodes for computing
+         //origin_node = m_origin_node_vector[o_node_index]; // assigned nodes for computing
+         //origin_zone = m_origin_zone_seq_no_vector[o_node_index]; // assigned nodes for computing
+           
+       if (iteration_k == 0)  // only one processor
+       {
+            if(g_zone_vector[origin_zone].zone_id == p_assignment->shortest_path_log_zone_id && p_assignment->g_origin_demand_array.find(origin_zone) != p_assignment->g_origin_demand_array.end())
+            {
 
-        //    std::string s_iteration = std::to_string(iteration_k);
-        //    std::string s_agent_type = p_assignment->g_AgentTypeVector [agent_type].agent_type;
-        //    std::string s_origin_zone = std::to_string(g_zone_vector[origin_zone].zone_id);
-        //
+            std::string s_iteration = std::to_string(iteration_k);
+            std::string s_agent_type = p_assignment->g_AgentTypeVector [agent_type].agent_type;
+            std::string s_origin_zone = std::to_string(g_zone_vector[origin_zone].zone_id);
 
+            for (int i = 0; i < p_assignment->g_number_of_nodes; ++i)
+            {
+                std::string s_node = std::to_string(g_node_vector[i].node_id);
+                std::string map_key;
 
-        //    for (int i = 0; i < p_assignment->g_number_of_nodes; ++i)
-        //    {
-        //        std::string s_node = std::to_string(g_node_vector[i].node_id);
-        //        std::string map_key;
+                map_key = s_iteration+ "," + s_agent_type + "," + s_origin_zone + "," + s_node;
 
-        //        map_key = s_iteration+ "," + s_agent_type + "," + s_origin_zone + "," + s_node;
+                g_node_vector[i].pred_per_iteration_map[map_key] = m_node_predecessor[i];
+                g_node_vector[i].label_cost_per_iteration_map[map_key] = m_node_label_cost[i];
 
-        //        g_node_vector[i].pred_per_iteration_map[map_key] = m_node_predecessor[i];
-        //        g_node_vector[i].label_cost_per_iteration_map[map_key] = m_node_label_cost[i];
-
-        //    }
-        //    }
-        //}
+            }
+            }
+        }
 
         if (d_node_no >= 1)
             return m_node_label_cost[d_node_no];
@@ -789,7 +787,7 @@ public:
                 //the other zones do not have access to the outbound connectors
 
                 // Mark				new_time = m_label_time_array[from_node] + pLink->travel_time_per_period[tau];
-                // Mark				new_distance = m_label_distance_array[from_node] + pLink->length;
+                // Mark				new_distance = m_label_distance_array[from_node] + pLink->link_distance_in_km;
                 float additional_cost = 0;
 
                 if (g_link_vector[link_sqe_no].RT_travel_time > 1)  // used in real time routing only

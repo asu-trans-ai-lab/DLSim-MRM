@@ -172,10 +172,10 @@ public:
 
                 float avg_speed = record_avg_speed(t_in_min);
                 float volume = pLink->get_volume_from_speed(avg_speed, highest_speed);
-                float VHT = volume / 12 * pLink->length / avg_speed;
-                float VMT = volume / 12 * pLink->length;
-                float VDT = volume / 12 * max(0, pLink->length / avg_speed - pLink->length / (max(1, highest_speed)));  //base is free-flow travel time 
-                float VCDT = volume / 12 * max(0, pLink->length / avg_speed - pLink->length / (max(1, pLink->vc)));  // base is vc; speed at capacity
+                float VHT = volume / 12 * pLink->link_distance_in_km / avg_speed;
+                float VMT = volume / 12 * pLink->link_distance_in_km;
+                float VDT = volume / 12 * max(0, pLink->link_distance_in_km / avg_speed - pLink->link_distance_in_km / (max(1, highest_speed)));  //base is free-flow travel time 
+                float VCDT = volume / 12 * max(0, pLink->link_distance_in_km / avg_speed - pLink->link_distance_in_km / (max(1, pLink->vc)));  // base is vc; speed at capacity
                 VHT_sum += VHT * pLink->number_of_lanes;
                 VMT_sum += VMT * pLink->number_of_lanes;
                 VDT_sum += VDT * pLink->number_of_lanes;
@@ -710,7 +710,7 @@ float g_measurement_tstamp_parser(string str, int& day_of_week_flag, int& day_of
 
     const char* string_line = str.data(); //string to char*
 
-    int char_length = strlen(string_line);
+    int char_link_distance_in_km = strlen(string_line);
 
     char ch, buf_hh[32] = { 0 }, buf_mm[32] = { 0 }, buf_ss[32] = { 0 };
 
@@ -724,7 +724,7 @@ float g_measurement_tstamp_parser(string str, int& day_of_week_flag, int& day_of
     int num_of_colons = 0;
     int num_of_underscore = 0;
 
-    int char_length_yymmdd = 10;
+    int char_link_distance_in_km_yymmdd = 10;
     i = 0;
 
     //    sscanf(string_line, "%d/%d/%d", &month, &day, &yyyy );
@@ -741,7 +741,7 @@ float g_measurement_tstamp_parser(string str, int& day_of_week_flag, int& day_of
     /// 
     i = 11;
 
-    while (i < char_length)
+    while (i < char_link_distance_in_km)
     {
         ch = string_line[i++];
 
@@ -758,7 +758,7 @@ float g_measurement_tstamp_parser(string str, int& day_of_week_flag, int& day_of
             buf_ss[buffer_j++] = ch;
         }
 
-        if (i == char_length) //start a new time string
+        if (i == char_link_distance_in_km) //start a new time string
         {
             //HHMM, 0123
             hh1 = buf_hh[0]; //read each first
@@ -881,7 +881,7 @@ void g_output_tmc_file(bool bReadingDataReady)
     if (p_file_tmc_link != NULL)
     {
         fprintf(p_file_tmc_link, "link_id,tmc,tmc_corridor_name,tmc_corridor_id,tmc_road_order,tmc_road_sequence,tmc_road,tmc_direction,tmc_intersection,tmc_highest_speed,link_no,from_node_id,to_node_id,link_type,");
-        fprintf(p_file_tmc_link, "link_type_code, FT, AT, nlanes,length,free_speed,capacity,kc, ");
+        fprintf(p_file_tmc_link, "link_type_code, FT, AT, nlanes,link_distance_in_km,free_speed,capacity,kc, ");
         fprintf(p_file_tmc_link, "AM_vc,AM_QHF,AM_QDF_n,AM_QDF_s,AM_t0, AM_t3, AM_P, AM_Assign_V,AM_Assign_VMT,AM_Assign_VHT, AM_Assign_VDT, AM_Assign_VCDT,AM_D, AM_DC_ratio, AM_mu, AM_vu, AM_vf_reference, AM_v_mean, AM_t2_v, AM_t2_queue, AM_gamma, AM_DTASpeed1, AM_DTAP1, AM_DTATDSpdDiff,");
         fprintf(p_file_tmc_link, "MD_vc,MD_QHF,MD_QDF_n,MD_QDF_s,MD_t0, MD_t3, MD_P, MD_Assign_V,MD_Assign_VMT,MD_Assign_VHT, MD_Assign_VDT, MD_Assign_VCDT,MD_D, MD_DC_ratio, MD_mu, MD_vu, MD_vf_reference, MD_v_mean, MD_t2_v, MD_t2_queue, MD_gamma, MD_DTASpeed1, MD_DTAP1, MD_DTATDSpdDiff,");
         fprintf(p_file_tmc_link, "PM_vc,PM_QHF,PM_QDF_n,PM_QDF_s,PM_t0, PM_t3, PM_P, PM_Assign_V,PM_Assign_VMT,PM_Assign_VHT, PM_Assign_VDT, PM_Assign_VCDT,PM_D, PM_DC_ratio, PM_mu, PM_vu, PM_vf_reference, PM_v_mean, PM_t2_v, PM_t2_queue, PM_gamma,");
@@ -1053,7 +1053,7 @@ void g_output_tmc_file(bool bReadingDataReady)
                 g_link_vector[i].FT,
                 g_link_vector[i].AT,
                 g_link_vector[i].number_of_lanes,
-                g_link_vector[i].length,
+                g_link_vector[i].link_distance_in_km,
                 g_link_vector[i].free_speed,
                 g_link_vector[i].lane_capacity,
                 g_link_vector[i].kc
@@ -1886,7 +1886,7 @@ void g_output_tmc_scenario_files()
                     {
                         int hour = t / 60;
                         EstSpeed[hour] = g_TMC_vector[tmc_index].get_est_hourly_speed(t);
-                        EstTravelTime[hour] = g_link_vector[i].length / max(1, EstSpeed[hour]) * 60;
+                        EstTravelTime[hour] = g_link_vector[i].link_distance_in_km / max(1, EstSpeed[hour]) * 60;
 
                         fprintf(p_file_tmc_link, "%.2f,", EstTravelTime[hour]);
                     }
@@ -1895,7 +1895,7 @@ void g_output_tmc_scenario_files()
                     {
                         int hour = t / 60;
                         PredSpeed[hour] = g_TMC_vector[tmc_index].get_pred_hourly_speed(t);
-                        PredTravelTime[hour] = g_link_vector[i].length / max(1, PredSpeed[hour]) * 60;
+                        PredTravelTime[hour] = g_link_vector[i].link_distance_in_km / max(1, PredSpeed[hour]) * 60;
                         count_total += 1;
 
                         fprintf(p_file_tmc_link, "%.2f,", PredTravelTime[hour]);
@@ -1906,7 +1906,7 @@ void g_output_tmc_scenario_files()
                     // 
                     for (int t = 6 * 60; t < 20 * 60; t += 5)
                     {
-                        fprintf(p_file_tmc_link, "%.1f,", g_link_vector[i].length / max(1, g_TMC_vector[tmc_index].pred_speed[t]) * 60);
+                        fprintf(p_file_tmc_link, "%.1f,", g_link_vector[i].link_distance_in_km / max(1, g_TMC_vector[tmc_index].pred_speed[t]) * 60);
                     }
                 }
                 fprintf(p_file_tmc_link, "\n");

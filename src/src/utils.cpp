@@ -32,6 +32,14 @@ void g_program_stop()
     exit(0);
 }
 
+void g_program_exit()
+{
+    dtalog.output() << "DTALite Program completes. Thanks!" << endl;
+
+    exit(0);
+}
+
+
 void fopen_ss(FILE** file, const char* fileName, const char* mode)
 {
     *file = fopen(fileName, mode);
@@ -130,7 +138,7 @@ vector<float> g_time_parser(string str)
 
     const char* string_line = str.data(); //string to char*
 
-    int char_length = strlen(string_line);
+    int char_link_distance_in_km = strlen(string_line);
 
     char ch, buf_ddhhmm[32] = { 0 }, buf_SS[32] = { 0 }, buf_sss[32] = { 0 };
     char dd1, dd2, hh1, hh2, mm1, mm2, SS1, SS2, sss1, sss2, sss3;
@@ -143,7 +151,7 @@ vector<float> g_time_parser(string str)
 
     //DDHHMM:SS:sss or HHMM:SS:sss
 
-    while (i < char_length)
+    while (i < char_link_distance_in_km)
     {
         ch = string_line[i++];
 
@@ -160,7 +168,7 @@ vector<float> g_time_parser(string str)
             buf_sss[buffer_j++] = ch;
         }
 
-        if (ch == '_' || i == char_length) //start a new time string
+        if (ch == '_' || i == char_link_distance_in_km) //start a new time string
         {
             if (buffer_i == 4) //"HHMM"
             {
@@ -589,18 +597,25 @@ bool g_read_a_line(FILE* f)
     }
 }
 
-double g_calculate_p2p_distance_in_mile_from_latitude_longitude(double p1_x, double p1_y, double p2_x, double p2_y)
+double g_calculate_p2p_distance_in_meter_from_latitude_longitude(double longitud1, double latitud1, double longitud2, double latitud2)
 {
-    double Equatorial_Radius = 3963.19059; // unit: mile
-    double toradians = 3.1415926 / 180.0;
-    double todeg = 180.0 / _PI;
+    double PI = 3.14159265358979323846;
+    double RADIO_TERRESTRE = 6372797.56085;
+    double GRADOS_RADIANES = PI / 180;
 
-    double p2lat = p2_x * toradians;
-    double p2lng = p2_y * toradians;
+    double haversine;
+    double temp;
+    double distancia_puntos;
 
-    double p1lat = p1_x * toradians;
-    double p1lng = p1_y * toradians;
+    latitud1 = latitud1 * GRADOS_RADIANES;
+    longitud1 = longitud1 * GRADOS_RADIANES;
+    latitud2 = latitud2 * GRADOS_RADIANES;
+    longitud2 = longitud2 * GRADOS_RADIANES;
 
-    double distance = acos(sin(p1lat) * sin(p2lat) + cos(p1lat) * cos(p2lat) * cos(p2lng - p1lng)) * Equatorial_Radius;  // unit: mile
-    return distance;
+    haversine = (pow(sin((1.0 / 2) * (latitud2 - latitud1)), 2)) + ((cos(latitud1)) * (cos(latitud2)) * (pow(sin((1.0 / 2) * (longitud2 - longitud1)), 2)));
+    temp = 2 * asin(fmin(1.0, sqrt(haversine)));
+    distancia_puntos = RADIO_TERRESTRE * temp;
+
+    return distancia_puntos;
 }
+

@@ -46,7 +46,7 @@ using std::vector;
 using std::map;
 using std::ifstream;
 using std::ofstream;
-using std::istringstream;
+//using std::istringstream;
 
 class CPeriod_VDF
 {
@@ -54,33 +54,25 @@ public:
     CPeriod_VDF() : n{ 1.28 }, s{ 0.859 }, vc{ 45 }, m{ 0.5 }, peak_load_factor { 1 }, VOC{ 0 }, gamma{ 3.47f }, mu{ 1000 }, PHF{ 3 },
         alpha{ 0.15f }, beta{ 4 }, rho{ 1 }, preload{ 0 }, penalty{ 0 }, LR_price{ 0 }, LR_RT_price{ 0 }, marginal_base{ 1 },
         starting_time_slot_no{ 0 }, ending_time_slot_no{ 0 },
-        cycle_length{ -1 }, red_time{ 0 }, effective_green_time{ 0 }, t0{ 0 }, t3{ 0 }, start_green_time{ -1 }, end_green_time{ -1 }, sav{0}
+        cycle_link_distance_in_km{ -1 }, red_time{ 0 }, effective_green_time{ 0 }, t0{ 0 }, t3{ 0 }, start_green_time{ -1 }, end_green_time{ -1 }, sav{ 0 }, time_period_in_hour{ 1 }
     {
         for (int at = 0; at < MAX_AGNETTYPES; at++)
         {
             toll[at] = 0;
-            pce[at] = 0;
+            pce[at] = 1;
         }
 
-        for (int t = 0; t < MAX_TIMESLOT_PerPeriod; ++t)
-        {
-            Queue[t] = 0;
-            waiting_time[t] = 0;
-            arrival_rate[t] = 0;
-            discharge_rate[t] = 0;
-            travel_time[t] = 0;
-        }
     }
 
     ~CPeriod_VDF()
     {
     }
 
-    //float PerformSignalVDF(float hourly_per_lane_volume, float red, float cycle_length)
+    //float PerformSignalVDF(float hourly_per_lane_volume, float red, float cycle_link_distance_in_km)
     //{
     //    float lambda = hourly_per_lane_volume;
     //    float mu = _default_saturation_flow_rate; //default saturation flow ratesa
-    //    float s_bar = 1.0 / 60.0 * red * red / (2 * cycle_length); // 60.0 is used to convert sec to min
+    //    float s_bar = 1.0 / 60.0 * red * red / (2 * cycle_link_distance_in_km); // 60.0 is used to convert sec to min
     //    float uniform_delay = s_bar / max(1 - lambda / mu, 0.1f);
 
     //    return uniform_delay;
@@ -98,13 +90,14 @@ public:
             return calculate_travel_time_based_on_BPR(volume);
         }
 
-        if (VDF_type_no == 1) // queue-based VDF: QVDF
+        if (VDF_type_no == 1) // queue-based VDF: QVDF, planning level, for the entire planning horizon. e.g. AM or PM
         {
             return calculate_travel_time_based_on_QVDF(volume, lanes, starting_time_slot_no, ending_time_slot_no, t2, vf, kc, s3_m, vc, est_speed, est_volume_per_hour_per_lane);
-
-
         }
 
+        if (VDF_type_no == 2) // queue-based VDF: QVDF, planning level, for the entire planning horizon. e.g. AM or PM
+        {
+        }
         return FFTT;
     }
 
@@ -164,15 +157,15 @@ public:
 
         // take nonnegative values
         volume = max(0.0, volume);
-            VOC = volume / max(0.001, peak_load_factor) / max(0.00001, capacity);
-            avg_travel_time = FFTT + FFTT * alpha * pow((volume + preload) / max(0.00001, capacity), beta);
+            VOC = volume / max(0.001, peak_load_factor) / max(0.00001, period_capacity);
+            avg_travel_time = FFTT + FFTT * alpha * pow((volume + preload) / max(0.00001, period_capacity), beta);
             total_travel_time = (volume + preload) * avg_travel_time;
-            marginal_base = FFTT * alpha * beta * pow((volume + preload) / max(0.00001, capacity), beta - 1);
+            marginal_base = FFTT * alpha * beta * pow((volume + preload) / max(0.00001, period_capacity), beta - 1);
 
-            if (cycle_length > 1)
+            if (cycle_link_distance_in_km > 1)
             {
                 if (volume > 10)
-                    avg_travel_time += cycle_length / 60.0 / 2.0; // add additional random delay due to signalized intersection by 
+                    avg_travel_time += cycle_link_distance_in_km / 60.0 / 2.0; // add additional random delay due to signalized intersection by 
             }
             return avg_travel_time;
             // volume --> avg_traveltime
@@ -185,7 +178,7 @@ public:
                 // take nonnegative values
             volume = max(0.0, volume);
 
-            VOC = volume / max(0.001, peak_load_factor) / max(0.00001, capacity);
+            VOC = volume / max(0.001, peak_load_factor) / max(0.00001, period_capacity);
 
             float assign_period_start_time_in_hour = starting_time_slot_no* MIN_PER_TIMESLOT/60;
             float assign_period_end_time_in_hour = ending_time_slot_no * MIN_PER_TIMESLOT / 60;
@@ -202,7 +195,7 @@ public:
             double avg_speed = pow((coef_b + pow(coef_b * coef_b - 4.0 * coef_a * coef_c, 0.5)) / (2.0 * coef_a), 2.0 / s3_m);    //under uncongested condition
             avg_travel_time = FFTT * (vf / max(0.0001, avg_speed));
            // work on congested condition
-           double DCRatio = D/capacity;  // inflow demand to capacity ratio
+           double DCRatio = D/period_capacity;  // inflow demand to period_capacity ratio
            double P = pow(DCRatio, n);
            double mu = pow(DCRatio, n * (-1)) * D;
            double vt2 = vc / pow(P, s); //vt2=vc/P^s   
@@ -371,7 +364,7 @@ public:
 
 
     double m;
-    // we should also pass uncongested_travel_time as length/(speed_at_capacity)
+    // we should also pass uncongested_travel_time as link_distance_in_km/(speed_at_capacity)
     double VOC;
     //updated BPR-X parameters
     double gamma;
@@ -407,7 +400,7 @@ public:
     // in 15 min slot
     int starting_time_slot_no;
     int ending_time_slot_no;
-    float cycle_length;
+    float cycle_link_distance_in_km;
     float red_time;
     float effective_green_time;
     int start_green_time;
@@ -418,7 +411,8 @@ public:
     bool bValidQueueData;
     string period;
 
-    double capacity;  // link based capacity
+    double period_capacity;  // link based period_capacity
+    double time_period_in_hour;
     double FFTT;
 
     double congestion_period_P;
@@ -427,17 +421,18 @@ public:
 
     //output
     double avg_delay;
-    double avg_travel_time = 0;
-    double avg_waiting_time = 0;
-    double total_travel_time = 0;
+    double avg_travel_time;
+    double total_travel_time;
 
-    // t starting from starting_time_slot_no if we map back to the 24 hour horizon
-    float Queue[MAX_TIMESLOT_PerPeriod];
-    float waiting_time[MAX_TIMESLOT_PerPeriod];
-    float arrival_rate[MAX_TIMESLOT_PerPeriod];
-
-    float discharge_rate[MAX_TIMESLOT_PerPeriod];
-    float travel_time[MAX_TIMESLOT_PerPeriod];
+    //// t starting from starting_time_slot_no if we map back to the 24 hour horizon
+    float queue_length;
+    float arrival_flow_volume;
+    float discharge_rate;  // period based
+    float avg_waiting_time;
+    float travel_time;
 
     std::map<int, float> travel_time_per_iteration_map;
 };
+
+
+

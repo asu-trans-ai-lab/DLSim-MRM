@@ -6,24 +6,23 @@
 constexpr auto MAX_LABEL_COST = 1.0e+15;
 constexpr auto _INFO_ZONE_ID = 100000;
 
-constexpr auto MAX_AGNETTYPES = 7; //because of the od demand store format,the MAX_demandtype must >=g_DEMANDTYPES.size()+1;
-constexpr auto MAX_TIMEPERIODS = 5; // time period set to 4: mid night, morning peak, mid-day and afternoon peak;
+constexpr auto MAX_AGNETTYPES = 10; //because of the od demand store format,the MAX_demandtype must >=g_DEMANDTYPES.size()+1;
+constexpr auto MAX_TIMEPERIODS = 20; // time period set to 4: mid night, morning peak, mid-day and afternoon peak;
 constexpr auto MAX_MEMORY_BLOCKS = 100;
 
 constexpr auto MAX_LINK_SIZE_IN_A_PATH = 10000;		// lu
-constexpr auto MAX_LINK_SIZE_FOR_A_NODE = 500;
-
+constexpr auto MAX_LINK_SIZE_FOR_A_NODE = 10000;
 constexpr auto MAX_TIMESLOT_PerPeriod = 100; // max 96 15-min slots per day
 constexpr auto MAX_TIMEINTERVAL_PerDay = 300; // max 96*3 5-min slots per day
 constexpr auto MAX_DAY_PerYear = 360; // max 96*3 5-min slots per day
 constexpr auto _default_saturation_flow_rate = 1530;
 
-constexpr auto MIN_PER_TIMESLOT = 15;
+constexpr auto MIN_PER_TIMESLOT = 5;
 constexpr auto _simulation_discharge_period_in_min = 60;
 
 /* make sure we change the following two parameters together*/
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-constexpr auto number_of_seconds_per_interval = 0.25;  // consistent with the cell length of 7 meters
+constexpr auto number_of_seconds_per_interval = 0.25;  // consistent with the cell link_distance_in_km of 7 meters
 constexpr auto number_of_simu_interval_reaction_time = 4;  // reaction time as 1 second, 4 simu intervals, CAV: 0.5 seconds
 
 constexpr auto number_of_simu_intervals_in_min = 240; // 60/0.25 number_of_seconds_per_interval
@@ -248,7 +247,7 @@ void Deallocate4DDynamicArray(T**** dArray, int nM, int nX, int nY)
 
 class CDemand_Period {
 public:
-    CDemand_Period() : demand_period{ 0 }, starting_time_slot_no{ 0 }, ending_time_slot_no{ 0 }, m_RandomSeed{ 101 }, t2_peak_in_hour {0}
+    CDemand_Period() : demand_period{ 0 }, starting_time_slot_no{ 0 }, ending_time_slot_no{ 0 }, m_RandomSeed{ 101 }, t2_peak_in_hour{ 0 }, time_period_in_hour{ 1 }
     {
     }
 
@@ -305,6 +304,7 @@ public:
     string demand_period;
     int starting_time_slot_no;
     int ending_time_slot_no;
+    float time_period_in_hour;
     float t2_peak_in_hour;
     string time_period;
     int demand_period_id;
@@ -434,8 +434,10 @@ public:
 
     std::vector<int> path_link_STL_vector;
     int path_seq_no;
+    string path_id;
     // path volume
     double path_volume;
+    std::vector<float> departure_time_in_min;
     int subarea_output_flag;
     int measurement_flag;
     double path_switch_volume;
@@ -467,7 +469,7 @@ public:
     {
     }
 
-    int path_id;
+    string path_id;
     int node_sum;
     float travel_time;
     float distance;
@@ -619,10 +621,11 @@ public:
 class Assignment {
 public:
     // default is UE
-    Assignment() : assignment_mode{ 0 }, g_number_of_memory_blocks{ 8 }, g_number_of_threads{ 1 }, g_link_type_file_loaded{ true }, g_agent_type_file_loaded{ false },
+    Assignment() : assignment_mode{ 0 }, VDF_type{ 0 }, g_number_of_memory_blocks{ 8 }, g_number_of_threads{ 1 }, g_link_type_file_loaded{ true }, g_agent_type_file_loaded{ false },
         total_demand_volume{ 0.0 }, g_column_pool{ nullptr }, g_number_of_in_memory_simulation_intervals{ 500 },
         g_number_of_column_generation_iterations{ 20 }, g_number_of_column_updating_iterations{ 0 }, g_number_of_demand_periods{ 24 }, g_number_of_links{ 0 }, g_number_of_timing_arcs{ 0 },
-        g_number_of_nodes{ 0 }, g_number_of_zones{ 0 }, g_number_of_agent_types{ 0 }, debug_detail_flag{ 1 }, path_output{ 1 }, trajectory_output{ 1 }, major_path_volume_threshold{ 0.000001 }, trajectory_sampling_rate{ 1.0 }, dynamic_link_performance_sampling_interval_in_min{ 60 }, dynamic_link_performance_sampling_interval_hd_in_min{ 15 }, trajectory_diversion_only{ 0 }, m_GridResolution{ 0.01 }
+        g_number_of_nodes{ 0 }, g_number_of_zones{ 0 }, g_number_of_agent_types{ 0 }, debug_detail_flag{ 1 }, path_output{ 1 }, trajectory_output{ 1 }, major_path_volume_threshold{ 0.000001 }, trajectory_sampling_rate{ 1.0 }, dynamic_link_performance_sampling_interval_in_min{ 60 }, dynamic_link_performance_sampling_interval_hd_in_min{ 15 }, trajectory_diversion_only{ 0 }, m_GridResolution{ 0.01 }, 
+        shortest_path_log_zone_id { -1 }
     {
     }
 
@@ -676,9 +679,12 @@ public:
     std::map<int, int> zone_id_2_node_no_mapping;  // this is used to mark if this zone_id has been identified or not
     std::map<int, _int64> zone_id_2_cell_id_mapping;  // this is used to mark if this zone_id has been identified or not
     std::map<_int64, int> cell_id_mapping;  // this is used to mark if this cell_id has been identified or not
+    std::map<_int64, string> cell_id_2_cell_code_mapping;  // this is used to mark if this cell_id has been identified or not
+
 
     double m_GridResolution;
     int assignment_mode;
+    int VDF_type;
     int g_number_of_memory_blocks;
     int g_number_of_threads;
     int path_output;
@@ -689,6 +695,7 @@ public:
     float dynamic_link_performance_sampling_interval_hd_in_min;
 
     float major_path_volume_threshold;
+    int shortest_path_log_zone_id;
 
     bool g_link_type_file_loaded;
     bool g_agent_type_file_loaded;
@@ -726,6 +733,7 @@ public:
 
     std::map<int, double> zone_id_X_mapping;
     std::map<int, double> zone_id_Y_mapping;
+
 
     std::vector<CDemand_Period> g_DemandPeriodVector;
     int g_LoadingStartTimeInMin;
@@ -780,7 +788,7 @@ public:
     // construction
     CLink() :main_node_id{ -1 }, obs_count{ -1 }, upper_bound_flag{ 0 }, est_count_dev{ 0 }, free_speed{ 0 },
         BWTT_in_simulation_interval{ 100 }, zone_seq_no_for_outgoing_connector{ -1 }, number_of_lanes{ 1 }, lane_capacity{ 1999 },
-        length{ 1 }, free_flow_travel_time_in_min{ 1 }, link_spatial_capacity{ 100 }, 
+        link_distance_in_km{ 1 }, free_flow_travel_time_in_min{ 1 }, link_spatial_capacity{ 100 }, 
         timing_arc_flag{ false }, traffic_flow_code{ 0 }, spatial_capacity_in_vehicles{ 999999 }, link_type{ 2 }, subarea_id{ -1 }, RT_flow_volume{ 0 },
         cell_type{ -1 }, saturation_flow_rate{ 1800 }, dynamic_link_reduction_start_time_slot_no{ 99999 }, b_automated_generated_flag{ false }, time_to_be_released{ -1 },
         FT{ 1 }, AT{ 1 }, s3_m{ 4 }, tmc_road_order{ 0 }, VDF_type{ "BPR" }, VDF_type_no{ 0 }
@@ -788,7 +796,7 @@ public:
         for (int tau = 0; tau < MAX_TIMEPERIODS; ++tau)
         {
             flow_volume_per_period[tau] = 0;
-            queue_length_perslot[tau] = 0;
+            queue_link_distance_in_km_perslot[tau] = 0;
             travel_time_per_period[tau] = 0;
             TDBaseTT[tau] = 0;
             TDBaseCap[tau] = 0;
@@ -820,7 +828,7 @@ public:
 
     float get_speed(int tau)
     {
-        return length / max(travel_time_per_period[tau], 0.0001) * 60;  // per hour
+        return link_distance_in_km / max(travel_time_per_period[tau], 0.0001) * 60;  // per hour
     }
 
     void calculate_marginal_cost_for_agent_type(int tau, int agent_type_no, float PCE_agent_type)
@@ -860,6 +868,10 @@ public:
 
     float est_speed[MAX_TIMEINTERVAL_PerDay];
     float est_volume_per_hour_per_lane[MAX_TIMEINTERVAL_PerDay];
+
+    float est_avg_waiting_time_in_min[MAX_TIMEINTERVAL_PerDay]; // at link level
+    float est_queue_length_per_lane[MAX_TIMEINTERVAL_PerDay];
+
 
     float get_est_hourly_speed(int time_in_min)
     {
@@ -911,7 +923,8 @@ public:
     std::map <int, bool> dynamic_link_closure_map;
     std::map <int, string> dynamic_link_closure_type_map;
 
-    double length;
+    double length_in_meter;
+    double link_distance_in_km;
     double free_flow_travel_time_in_min;
     double free_speed;
 
@@ -1012,7 +1025,7 @@ public:
 
     int cell_type;
     string mvmt_txt_id;
-    string path_code_str;
+    string link_code_str;
     string tmc_corridor_name;
     string link_type_name;
     string link_type_code;
@@ -1039,7 +1052,7 @@ public:
 
     double  volume_per_period_per_at[MAX_TIMEPERIODS][MAX_AGNETTYPES];
 
-    double  queue_length_perslot[MAX_TIMEPERIODS];  // # of vehicles in the vertical point queue
+    double  queue_link_distance_in_km_perslot[MAX_TIMEPERIODS];  // # of vehicles in the vertical point queue
     double travel_time_per_period[MAX_TIMEPERIODS];
     double RT_travel_time;
 
@@ -1086,7 +1099,7 @@ public:
     std::list<int> EntranceQueue;
     // link-out queue of each link
     std::list<int> ExitQueue;
-    int current_driving_AgentID;
+
     int win_count;
     int lose_count;
 
@@ -1098,7 +1111,7 @@ public:
 class CNode
 {
 public:
-    CNode() : zone_id{ -1 }, zone_org_id{ -1 }, prohibited_movement_size{ 0 }, node_seq_no{ -1 }, subarea_id{ -1 }, is_activity_node{ 0 }, is_information_zone{ 0 }, agent_type_no{ -1 }
+    CNode() : zone_id{ -1 }, zone_org_id{ -1 }, prohibited_movement_size{ 0 }, node_seq_no{ -1 }, subarea_id{ -1 }, is_activity_node{ 0 }, is_information_zone{ 0 }, agent_type_no{ -1 }, is_boundary{ 0 }, access_distance{ 0.04 }
     {
     }
 
@@ -1107,9 +1120,11 @@ public:
     int zone_id;
     __int64 cell_id;
     string cell_str;
+
+    
     // original zone id for non-centriod nodes
     int zone_org_id;
-
+    float access_distance;
     string node_type;
     string agent_type_str;
     int subarea_id;
@@ -1121,6 +1136,7 @@ public:
     int node_id;
 
     int is_activity_node;
+    int is_boundary;
     int is_information_zone;
     int agent_type_no;
 
@@ -1237,11 +1253,20 @@ public:
         est_production{ 0 }, est_attraction{ 0 },
         est_production_dev{ 0 }, est_attraction_dev{ 0 }, b_real_time_information {false}
     {
+
+        for (int a = 0; a < MAX_AGNETTYPES; a++)
+        {
+            gravity_production[a] = 0;
+            gravity_attraction[a] = 0;
+        }
+
     }
 
     _int64 cell_id;
+    string cell_code;
     double cell_x;
     double cell_y;
+
     bool b_real_time_information;
     float obs_production;
     float obs_attraction;
@@ -1334,7 +1359,7 @@ extern std::vector<CNode> g_node_vector;
 extern std::vector<CLink> g_link_vector;
 
 extern std::map<int, DTAVehListPerTimeInterval> g_AgentTDListMap;
-extern vector<CAgent_Simu*> g_agent_simu_vector;;
+extern vector<CAgent_Simu*> g_agent_simu_vector;
 
 extern std::map<string, CTMC_Corridor_Info> g_tmc_corridor_vector;
 extern std::map<string, CInfoCell> g_info_cell_map;

@@ -189,17 +189,17 @@ void Assignment::AllocateLinkMemory4Simulation()
                 }
             }
 
-            int number_of_cycles = (g_LoadingEndTimeInMin - g_LoadingStartTimeInMin) * 60 / max(1, g_link_vector[l].VDF_period[0].cycle_length);  // unit: seconds;
+            int number_of_cycles = (g_LoadingEndTimeInMin - g_LoadingStartTimeInMin) * 60 / max(1, g_link_vector[l].VDF_period[0].cycle_link_distance_in_km);  // unit: seconds;
 
-            int cycle_length = g_link_vector[l].VDF_period[0].cycle_length;
+            int cycle_link_distance_in_km = g_link_vector[l].VDF_period[0].cycle_link_distance_in_km;
             int start_green_time = g_link_vector[l].VDF_period[0].start_green_time;
             int end_green_time = g_link_vector[l].VDF_period[0].end_green_time;
 
             if (end_green_time < start_green_time)
             {
-                end_green_time += cycle_length;  // consider a looped end green time notation, e.g. 60-10 for cl = 100, then end green time should be 110. 
+                end_green_time += cycle_link_distance_in_km;  // consider a looped end green time notation, e.g. 60-10 for cl = 100, then end green time should be 110. 
             }
-            dtalog.output() << "signal timing data: link: cycle_length = " << cycle_length <<
+            dtalog.output() << "signal timing data: link: cycle_link_distance_in_km = " << cycle_link_distance_in_km <<
                 ",start_green_time = " << start_green_time <<
                 ",end_green_time = " << end_green_time <<
                 endl;
@@ -209,7 +209,7 @@ void Assignment::AllocateLinkMemory4Simulation()
                 int count = 0;
 
                 // relative time horizon
-                for (int t = cycle_no * cycle_length + start_green_time; t <= cycle_no * cycle_length + end_green_time; t += 1)
+                for (int t = cycle_no * cycle_link_distance_in_km + start_green_time; t <= cycle_no * cycle_link_distance_in_km + end_green_time; t += 1)
                 {
                     // activate capacity for this time duration
                     m_LinkOutFlowCapacity[l][t] = g_link_vector[l].saturation_flow_rate * g_link_vector[l].number_of_lanes / 3600.0;
@@ -281,6 +281,11 @@ void Assignment::DeallocateLinkMemory4Simulation()
 
 void Assignment::STTrafficSimulation()
 {
+
+    ofstream simu_log_file;
+    simu_log_file.open("model_simu_log.txt");
+    simu_log_file << "simulation log file.\n";
+
     //given p_agent->path_link_seq_no_vector path link sequence no for each agent
     int TotalCumulative_Arrival_Count = 0;
     int TotalCumulative_Departure_Count = 0;
@@ -301,6 +306,10 @@ void Assignment::STTrafficSimulation()
     float path_distance = 0;
     float path_travel_time = 0;
     float time_stamp = 0;
+
+    int trace_agent_id = 1105;  //default can be -1
+    int trace_link_no = -1;  //default can be -1
+    int trace_node_no = -100;  //default can be -1
 
     std::map<int, CColumnPath>::iterator it, it_begin, it_end;
 
@@ -364,10 +373,18 @@ void Assignment::STTrafficSimulation()
 
                                 int simulation_time_intervalNo = (int)(pAgent->departure_time_in_min * 60 / number_of_seconds_per_interval);
 
+                                if (simulation_time_intervalNo < 0)  // reset to a zero index departure time interval
+                                {
+                                    simulation_time_intervalNo = 0;
+                                    int idebug = 1;
+                                }
+
                                 if (simulation_time_intervalNo > 1440 * 60 * 4)
                                 {
                                     int idebug = 1;
                                 }
+
+
                                 g_AgentTDListMap[simulation_time_intervalNo].m_AgentIDVector.push_back(pAgent->agent_id);
 
                                 for (int nl = 0; nl < it->second.m_link_size; ++nl)  // arc a
@@ -414,7 +431,6 @@ void Assignment::STTrafficSimulation()
         m_LinkCACount[li] = 0;
         m_LinkCDCount[li] = 0;
 
-        g_link_vector[li].current_driving_AgentID = -1;
         g_link_vector[li].win_count = 0;
         g_link_vector[li].lose_count = 0;
         g_link_vector[li].time_to_be_released = -1;
@@ -459,9 +475,15 @@ void Assignment::STTrafficSimulation()
 
 
         if (t % (number_of_simu_interval_per_min * 10) == 0)
+        {
             dtalog.output() << "simu time= " << t / number_of_simu_interval_per_min << " min, CA = " << TotalCumulative_Arrival_Count << " CD=" << TotalCumulative_Departure_Count
-            << ", speed=" << network_wide_speed << ", travel time = " << network_wide_travel_time
-            << endl;
+                << ", speed=" << network_wide_speed << ", travel time = " << network_wide_travel_time
+                << endl;
+
+            simu_log_file << "simu time= " << t / number_of_simu_interval_per_min << " min, CA = " << TotalCumulative_Arrival_Count << " CD=" << TotalCumulative_Departure_Count
+                << ", speed=" << network_wide_speed << ", travel time = " << network_wide_travel_time
+                << endl;
+        }
 
         if (g_AgentTDListMap.find(t) != g_AgentTDListMap.end())
         {
@@ -477,7 +499,11 @@ void Assignment::STTrafficSimulation()
                 g_link_vector[FirstLink].EntranceQueue.push_back(p_agent->agent_id);
 
 
-                g_link_vector[FirstLink].current_driving_AgentID = p_agent->agent_id;
+                if (trace_agent_id == agent_id)
+                {
+                    simu_log_file << "trace tag 1: simu time= " << t / number_of_simu_interval_per_min << " min, , traced vehicle enters the network = "  << endl;
+                }
+
 
                 TotalCumulative_Arrival_Count++;
             }
@@ -492,9 +518,20 @@ void Assignment::STTrafficSimulation()
             while (pLink->EntranceQueue.size() > 0)
             {
                 int agent_id = pLink->EntranceQueue.front();
+
                 pLink->EntranceQueue.pop_front();
                 pLink->ExitQueue.push_back(agent_id);
                 CAgent_Simu* p_agent = g_agent_simu_vector[agent_id];
+                if (trace_agent_id == agent_id)
+                {
+                    simu_log_file << "trace tag 2: simu time interval = " << t << " min, , traced vehicle moves from entrance queue to exit queue on link = "
+                        << g_node_vector[pLink->from_node_seq_no].node_id << " -> " << g_node_vector[pLink->to_node_seq_no].node_id <<
+                        " on its link seq.no " << p_agent->m_current_link_seq_no << endl;
+
+                    trace_link_no = li;
+                    trace_node_no = g_node_vector[pLink->to_node_seq_no].node_seq_no;
+                }
+
                 int arrival_time_in_simu_interval = p_agent->m_Veh_LinkArrivalTime_in_simu_interval[p_agent->m_current_link_seq_no];
                 int link_travel_time_in_simu_interavls = max(1, g_link_vector[li].free_flow_travel_time_in_min * number_of_simu_intervals_in_min);
                 p_agent->m_Veh_LinkDepartureTime_in_simu_interval[p_agent->m_current_link_seq_no] = arrival_time_in_simu_interval + g_link_vector[li].free_flow_travel_time_in_min * number_of_simu_intervals_in_min;
@@ -510,10 +547,24 @@ void Assignment::STTrafficSimulation()
         for (int li = 0; li < link_size; ++li)
         {
             CLink* pLink = &(g_link_vector[li]);
+            int queue_position_no = 0;
             for (auto it = pLink->ExitQueue.begin(); it != pLink->ExitQueue.end(); ++it)
             {
                 int agent_id = (*it);
                 CAgent_Simu* p_agent = g_agent_simu_vector[agent_id];
+
+                if (trace_agent_id == agent_id)
+                {
+                    simu_log_file << "trace tag 2.5: simu time= " << t / number_of_simu_interval_per_min << " min, , traced vehicle is waiting at the exit queue on link = "
+                        << g_node_vector[pLink->from_node_seq_no].node_id << " -> " << g_node_vector[pLink->to_node_seq_no].node_id <<
+                        " on its link seq.no " << p_agent->m_current_link_seq_no <<
+                        " queue pos.no " << queue_position_no <<
+                        " of queue size = " << pLink->ExitQueue.size() << endl;
+
+                    trace_link_no = li;
+                }
+
+                queue_position_no++;
 
                 if (p_agent->PCE_unit_size >= 2)
                 {
@@ -545,9 +596,10 @@ void Assignment::STTrafficSimulation()
 #pragma omp parallel for  // parallel computing for each node
         for (int node = 0; node < node_size; ++node)  // for each node
         {
-            if (g_node_vector[node].node_id == 2347 && t / 240 >= 18)
+            if (node== trace_node_no)
             {
-                int debug = 1;
+                simu_log_file << "trace tag 3F_1: simu time int = " << t  << ", , check node incoming mode "
+                    << g_node_vector[node].node_id <<  endl;
             }
 
             bool node_resource_competing_mode = false;
@@ -568,10 +620,16 @@ void Assignment::STTrafficSimulation()
                     // allow mainline to use the remaining flow
                     pLink = &(g_link_vector[link]);
 
-                    if (pLink->current_driving_AgentID < 0)  // no driving vehicle in this cell, no need to check, this will skip the heavy duty STL step related 
+                    if (node == trace_node_no)
                     {
-                        continue;
+                        simu_log_file << "trace tag 3F_2: simu time int = " << t << ", , check node incoming mode "
+                            << g_node_vector[node].node_id << ",i= " << i << ", link id"
+                            << g_node_vector[pLink->from_node_seq_no].node_id << " -> " << g_node_vector[pLink->to_node_seq_no].node_id
+
+                            << endl;
                     }
+
+
 
                     if (pLink->ExitQueue.size() >= 1)
                     {
@@ -580,7 +638,24 @@ void Assignment::STTrafficSimulation()
                         int next_link_seq_no = p_agent->path_link_seq_no_vector[p_agent->m_current_link_seq_no + 1];
                          pNextLink = &(g_link_vector[next_link_seq_no]);
 
+                         if (trace_agent_id == agent_id)
+                         {
+                             simu_log_file << "trace tag 3: simu time= " << t / number_of_simu_interval_per_min << " min, , traced vehicle wants to transfer from link = "
+                                 << g_node_vector[pLink->from_node_seq_no].node_id << " -> " << g_node_vector[pLink->to_node_seq_no].node_id <<
+                                 " on its link seq.no " << p_agent->m_current_link_seq_no << " to the next link. " << endl;
+                         }
+
                         int current_vehicle_count = m_LinkCACount[next_link_seq_no] - m_LinkCDCount[next_link_seq_no];
+
+                        if (trace_agent_id == agent_id)
+                        {
+                            simu_log_file << "trace tag 3.5: simu time= " << t*1.0 / number_of_simu_interval_per_min << " min, , traced vehicle checks next link = "
+                                << g_node_vector[pNextLink->from_node_seq_no].node_id << " -> " << g_node_vector[pNextLink->to_node_seq_no].node_id <<
+                                ", cell type = " << pNextLink->cell_type << ", current_vehicle_count = " << current_vehicle_count <<
+                                ",pNextLink->spatial_capacity_in_vehicles= " << pNextLink->spatial_capacity_in_vehicles << endl;
+
+                        }
+
                         if (pNextLink->cell_type >= 0 && current_vehicle_count < pNextLink->spatial_capacity_in_vehicles)  // only apply for cell mode
                         {
                             g_node_vector[node].next_link_for_resource_request[next_link_seq_no] = 1;
@@ -592,13 +667,23 @@ void Assignment::STTrafficSimulation()
 
                 if (incoming_link_request_count >= 2)
                 {
-                    if (g_node_vector[node].next_link_for_resource_request.size() == 1)
+                    if (g_node_vector[node].next_link_for_resource_request.size() >= 1)
                     {
                         //                if(g_node_vector[node].node_id == 2347 && t / 240 >= 18)
                         node_resource_competing_mode = true;
 
                     }
                 }
+
+                if (node == trace_node_no)
+                {
+                    simu_log_file << "trace tag 3F_2: simu time= " << t * 1.0 / number_of_simu_interval_per_min << " min, , check node incoming mode "
+                        << g_node_vector[node].node_id
+                        << "next_link_for_resource_request size = " << g_node_vector[node].next_link_for_resource_request.size()
+                        << "node_resource_competing_mode = " << node_resource_competing_mode
+                        << endl;
+                }
+
                 // determine FIFO link with earliest departure time request
                 if (node_resource_competing_mode)
                 {
@@ -610,15 +695,44 @@ void Assignment::STTrafficSimulation()
                         // equal change, regardless of # of lanes or main line vs. ramp, but one can use service arc, to control the effective capacity rates, e.g. through a metered ramp, to
                         // allow mainline to use the remaining flow
                         pLink = &(g_link_vector[link]);
+
+                        if (trace_link_no == link)
+                        {
+                                simu_log_file << "trace tag 3.6E: simu time= " << t * 1.0 / number_of_simu_interval_per_min << " min, , traced vehicle uses FIFO rule on link "
+                                    << g_node_vector[pLink->from_node_seq_no].node_id << " -> " << g_node_vector[pLink->to_node_seq_no].node_id <<
+                                    " queue size = " << pLink->ExitQueue.size() << endl;
+                        }
                         if (pLink->cell_type >= 0 && pLink->ExitQueue.size() >= 1)
                         {
                             int agent_id = pLink->ExitQueue.front();
                             CAgent_Simu* p_agent = g_agent_simu_vector[agent_id];
                             if (p_agent->m_Veh_LinkDepartureTime_in_simu_interval[p_agent->m_current_link_seq_no] < earlest_departure_time_interval)
                             {
+
+                                if (trace_agent_id == agent_id)
+                                {
+                                    simu_log_file << "trace tag 3.6A: simu time= " << t * 1.0 / number_of_simu_interval_per_min << " min, , traced vehicle uses FIFO rule on link "
+                                        << g_node_vector[pLink->from_node_seq_no].node_id << " -> " << g_node_vector[pLink->to_node_seq_no].node_id <<
+                                        " expectd departure time = " << p_agent->m_Veh_LinkDepartureTime_in_simu_interval[p_agent->m_current_link_seq_no]<< 
+                                        endl;
+                                }
+
                                 earlest_departure_time_interval = p_agent->m_Veh_LinkDepartureTime_in_simu_interval[p_agent->m_current_link_seq_no];
                                 incoming_link_index_FIFO = i;  // i is the link index in the vector of m_incoming_link_seq_no_vector of node
                             }
+                            else
+                            {
+                                if (trace_agent_id == agent_id)
+                                {
+                                    simu_log_file << "trace tag 3.6B: simu time= " << t * 1.0 / number_of_simu_interval_per_min << " min, , traced vehicle fails to use FIFO rule on link "
+                                        << g_node_vector[pLink->from_node_seq_no].node_id << " -> " << g_node_vector[pLink->to_node_seq_no].node_id <<
+                                        " expectd departure time = " << p_agent->m_Veh_LinkDepartureTime_in_simu_interval[p_agent->m_current_link_seq_no] <<
+                                        " while " <<
+                                        " earlest_departure_time_interval = " << earlest_departure_time_interval <<endl;
+                                }
+
+                            }
+
                         }
                     }
                 }
@@ -626,6 +740,15 @@ void Assignment::STTrafficSimulation()
 
             }
             // for each incoming link
+
+            if (node == trace_node_no)
+            {
+                simu_log_file << "trace tag 3F: simu time= " << t * 1.0 / number_of_simu_interval_per_min << " min, , check node incoming mode "
+                    << g_node_vector[node].node_id
+                    << "incoming_link_index_FIFO = " << incoming_link_index_FIFO
+                    << endl;
+            }
+
             for (int i = 0; i < g_node_vector[node].m_incoming_link_seq_no_vector.size(); ++i)
             {
                 int incoming_link_index = i;
@@ -647,13 +770,20 @@ void Assignment::STTrafficSimulation()
                 // allow mainline to use the remaining flow
                 CLink* pLink = &(g_link_vector[link]);
 
+                if (node == trace_node_no)
+                {
+                    simu_log_file << "trace tag 3F: simu time= " << t * 1.0 / number_of_simu_interval_per_min << " min, , check node incoming mode "
+                        << g_node_vector[node].node_id
+                        << ", check link" << g_node_vector[pLink->from_node_seq_no].node_id << " -> " << g_node_vector[pLink->to_node_seq_no].node_id << endl;
+
+                }
+
+
                 // check if the current link has sufficient capacity
                 // most critical and time-consuming task, check link outflow capacity
 
                 int time_in_sec = t * number_of_seconds_per_interval;
 
-                if (cell_based_simulation_mode && pLink->current_driving_AgentID < 0)  // no driving vehicle in this cell, no need to check, this will skip the heavy duty STL step related 
-                    continue;
 
                 while (m_LinkOutFlowCapacity[link][time_in_sec] >= 1 && pLink->ExitQueue.size() >= 1)
                 {
@@ -666,11 +796,10 @@ void Assignment::STTrafficSimulation()
                         break;
                     }
 
-                    if (p_agent->m_current_link_seq_no == p_agent->path_link_seq_no_vector.size() - 2)  //-2 do not consider virtual destnation arc
+                    if (p_agent->m_current_link_seq_no == p_agent->path_link_seq_no_vector.size() - 2)  //-2 do not consider virtual destination arc
                     {
                         // end of path
                         pLink->ExitQueue.pop_front();
-                        pLink->current_driving_AgentID = -1;
 
                         p_agent->m_bCompleteTrip = true;
                         m_LinkCDCount[link] += 1;
@@ -687,7 +816,7 @@ void Assignment::STTrafficSimulation()
                         {
                             int link_seq_no = p_agent->path_link_seq_no_vector[link_s];
                             //path_toll += g_link_vector[link_seq_no].VDF_period[p_agent->tau].toll[at];
-                            p_agent->path_distance += g_link_vector[link_seq_no].length;
+                            p_agent->path_distance += g_link_vector[link_seq_no].link_distance_in_km;
                         }
 
 #pragma omp critical
@@ -715,7 +844,7 @@ void Assignment::STTrafficSimulation()
                             int debug = 1;
                         }
                         //// spatial queue
-                        ////if(pNextLink->length <=0.008)  // cell based link
+                        ////if(pNextLink->link_distance_in_km <=0.008)  // cell based link
                         ////{ 
                         //    pNextLink->spatial_capacity_in_vehicles = 1; // for cell based model
                         ////}
@@ -735,7 +864,7 @@ void Assignment::STTrafficSimulation()
                                     pLink->lose_count++;
                                     if (debug_node_resource_competing_mode)
                                     {
-                                        dtalog.output() << "lose: the next link is blocked at time  = " << t << ", from link" << g_node_vector[pLink->from_node_seq_no].node_id << " -> " << g_node_vector[pLink->to_node_seq_no].node_id
+                                        simu_log_file << "lose: the next link is blocked at time  = " << t * 1.0 << ", from link" << g_node_vector[pLink->from_node_seq_no].node_id << " -> " << g_node_vector[pLink->to_node_seq_no].node_id
                                             << " to link" << g_node_vector[pNextLink->from_node_seq_no].node_id << " -> " << g_node_vector[pNextLink->to_node_seq_no].node_id
                                             << " time request " << p_agent->m_Veh_LinkDepartureTime_in_simu_interval[p_agent->m_current_link_seq_no]
                                             << endl;
@@ -776,7 +905,17 @@ void Assignment::STTrafficSimulation()
                         //                }
 
                         pLink->ExitQueue.pop_front();
-                        pLink->current_driving_AgentID = -1;
+
+                        //if(pLink->ExitQueue.size() !=0 || pLink->EntranceQueue.size() != 0)
+                        //{
+                        //    simu_log_file << "Error at time = " << t << " , link = "
+                        //        << g_node_vector[pLink->from_node_seq_no].node_id << " -> " << g_node_vector[pLink->to_node_seq_no].node_id <<
+
+                        //        << "ExitQueue.size() = " << pLink->ExitQueue.size()
+                        //        << "EntranceQueue.size() = " << pLink->EntranceQueue.size() 
+                        //        << "spatial queue capacity =  " << pLink->spatial_capacity_in_vehicles << endl;
+                        //}
+
                         pLink->time_to_be_released = t + p_agent->time_headway;
 
                         // back trace the resourece use vector right after the vehicle moves to the next link
@@ -799,9 +938,16 @@ void Assignment::STTrafficSimulation()
 
                         }
 
+                        if (trace_agent_id == agent_id)
+                        {
+                            simu_log_file << "trace tag 4: simu time interval = " << t << " , traced vehicle transfers from link = "
+                                << g_node_vector[pLink->from_node_seq_no].node_id << " -> " << g_node_vector[pLink->to_node_seq_no].node_id <<
+                                "  to next lnk " <<
+                                g_node_vector[pNextLink->from_node_seq_no].node_id << " -> " << g_node_vector[pNextLink->to_node_seq_no].node_id << endl;
+                        }
 
                         pNextLink->EntranceQueue.push_back(agent_id);
-                        pNextLink->current_driving_AgentID = agent_id;
+
 
                         p_agent->m_Veh_LinkDepartureTime_in_simu_interval[p_agent->m_current_link_seq_no] = t;
                         p_agent->m_Veh_LinkArrivalTime_in_simu_interval[p_agent->m_current_link_seq_no + 1] = t;
@@ -827,6 +973,9 @@ void Assignment::STTrafficSimulation()
             }
         } // conditions
     }  // departure time events
+
+    simu_log_file.close();
+
 }
 
 // FILE* g_pFileOutputLog = nullptr;
