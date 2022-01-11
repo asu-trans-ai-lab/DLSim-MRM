@@ -1,0 +1,106 @@
+1. NETWORK.
+use osm2gmns, net2cell to generate cell based micro network
+complete network
+
+
+1.1. length in meter -> km, free_speed, VDF_fftt, capacity.
+1.2. lane changing arc penalty, 
+1.3. node zone_id 
+1.4 use model cell_code to select subarea node.csv and link.csv
+select a subset of nodes within the defined cell_codes, e.g. A3,A4, B3,B4. 
+use VLOOKUP to screen the nodes and from_node_id, to_node_id, links.csv 
+
+2.DEMAND; trace2route to generate cell based path based on macro network data.
+2.1. obtain input_agent.csv from the macroscopic network or GPS traces 
+output the map matched path sequence in output_agent.csv
+2.2. rename it to input_path.csv add path_id field, according to settings.csv 
+add fields, o_zone_id, d_zone_id as the node numbers
+2.3. return to node.csv add values for zone_id for those selected origin and destination nodes in input_path.csv
+
+requirements, users need to have a clear understanding of all required fields in node.csv, link.csv
+input_path.csv and settings.csv
+
+that is, DTALite computes shortest path trees for all zone-to-zone pairs, other than node-to-node pairs
+
+
+3. SIGNAL: compared to vissim, we already have signal control (vol2timing) modules to read the signal timing. 
+
+link.csv main_node_id, movement. 
+read timing.csv to simulate signal timing. 
+
+4. work on cell-based
+path and use 0.1 sec as simulation interval.
+
+use simple spatial queue (CA), but need a simple strategy to consider reaction time tau
+consider time-dependent speed reduction
+
+run DTALite.exe 
+read log.txt
+Step 1: Reading input data
+_____________
+Step 1.1: Reading section [demand_period] in setting.csv...
+final cumulative profile ratio0
+number of demand periods = 1
+Step 1.2: Reading section [link_type] in setting.csv...
+important: traffic_flow_code on link type 1 is 0
+important: traffic_flow_code on link type 3 is 0
+important: traffic_flow_code on link type 4 is 0
+important: traffic_flow_code on link type 5 is 0
+important: traffic_flow_code on link type 6 is 0
+important: traffic_flow_code on link type 11 is 0
+number of link types = 7
+Step 1.3: Reading section [agent_type] in setting.csv...
+number of agent typess = 5
+Step 1.4: Reading node data in node.csv...
+number of nodes = 3942
+number of zones = 6
+number of info zones = 0
+Step QEM mode for creating node 2 zone mapping
+Step 1.4.2: Grid Resolution 0.002
+Step 1.5: Initializing O-D zone vector...
+adding 0info zones 
+number of zones = 6
+Step 1.6: Reading link data in link.csv... 
+number of links = 8661
+number of links =8673
+Step 1.7: Reading service arc in timing.csv...
+
+
+Step 5: Simulation for traffic assignment..
+LoadingStartTimeInMin = 360
+g_LoadingStartTimeInMin = 370
+number_of_simulation_intervals = 4202
+
+number of simulation zones:6
+simu time= 0 min, CA = 0 CD=0
+simu time= 10 min, CA = 106 CD=0
+simu time= 20 min, CA = 157 CD=97
+simu time= 30 min, CA = 157 CD=97
+simu time= 40 min, CA = 157 CD=105
+simu time= 50 min, CA = 157 CD=157
+simu time= 60 min, CA = 157 CD=157
+simu time= 70 min, CA = 157 CD=157
+
+
+5. check different levels of input and output
+
+a. node, link.
+b. input_path. timing.csv, settings.csv
+c. link_performance, td_link_performance, link volume, aggregated speed, 
+d. path.csv: assignment or given input (visualized in nexta ->agent diaglog)
+e. agent.csv with different vehicles with different departure times from simulation step (visualized in nexta ->agent dialog)
+f. trajectory.csv
+
+f. prepare image.bmp from QGIS. load node.csv -> use Google sat images. ->expert map to image
+
+6. use nexta to load node.csv
+
+
+7. to do. PRIORITY AND CONFLICT AREA add node based logic to consider capacity request and allocation for agents from incoming links, with priority of different types of agents,
+pax, bike, cars, trucks. buses. 
+https://www.sciencedirect.com/science/article/pii/S0968090X16302510
+
+
+8. trajectory optimization
+
+
