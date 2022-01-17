@@ -10,8 +10,19 @@
 Figure 1: Different levels of sample road networks for Phoenix, AZ.
 
 
+## Remarks:
 
-## Introductory Videos & Slides
+### Developers:
+
+Dr. Cafer Avci
+
+Jiawei (Jay) LU
+
+Dr. Peiheng Li
+
+Dr. Xuesong (Simon) Zhou
+
+### Introductory Videos & Slides
 
 [Recent Advances](https://www.youtube.com/watch?v=dj6c6h4mWfI) by Dr. Cafer Avci
 
