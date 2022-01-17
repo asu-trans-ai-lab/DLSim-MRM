@@ -90,9 +90,9 @@ Levels of modeling elements:
 
 ## Appendices
 
-[[FAQ]]
+[FAQ](https://github.com/asu-trans-ai-lab/DLSim/wiki/Frequently-Asked-Questions)
 
-[[ChangeLog]]
+[ChangeLog](https://github.com/asu-trans-ai-lab/DLSim/wiki/ChangeLog)
 
 [Streamlined-Workflow](https://github.com/asu-trans-ai-lab/DLSim/wiki/Streamlined-Workflow)
 
