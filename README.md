@@ -14,13 +14,13 @@ Figure 1: Different levels of sample road networks for Phoenix, AZ.
 
 ### Developers:
 
-Dr. Cafer Avci
+[Dr. Cafer Avci](https://github.com/caferavci)
 
-Jiawei (Jay) LU
+[Jiawei (Jay) LU](https://github.com/jiawlu)
 
-Dr. Peiheng Li
+[Dr. Peiheng Li](https://github.com/jdlph/Path4GMNS)
 
-Dr. Xuesong (Simon) Zhou
+[Dr. Xuesong (Simon) Zhou](https://github.com/xzhou99)
 
 ### Introductory Videos & Slides
 
