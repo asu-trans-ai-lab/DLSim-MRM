@@ -64,7 +64,7 @@ Levels of modeling elements:
 | E1 | Link output | link_performance.csv | Macro |
 | E2 | Route assignment output | Route_assignment.csv | Macro|
 | E3 | Agent output | agent.csv | Agent |
-| E4 | Trajectory output | trajectory.csv, trace.csv | -Micro |
+| E4 | Trajectory output | trajectory.csv, trace.csv | Micro |
 
 
 ## A. Network Generation
