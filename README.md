@@ -111,4 +111,5 @@ Levels of modeling elements:
 
 [Streamlined-Workflow](https://github.com/asu-trans-ai-lab/DLSim/wiki/Streamlined-Workflow)
 
-
+## License
+[License](https://github.com/asu-trans-ai-lab/DLSim)
