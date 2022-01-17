@@ -1,87 +1,99 @@
 # DLSim
 
-This site mains the source code and Windows-based release for DLSim package. DLSim is an open-source AMS library for efficiently macroscopic and mesoscopic traffic simulation tool based on [General Modeling Network Specification (GMNS)](https://github.com/zephyr-data-specs/GMNS) format. 
+"Dynamic Traffic Simulation Packager" (DLSIM) is an open source, high-fidelity multi-resolution (i.e., macroscopic, mesoscopic, and microscopic simulation) traffic simulation package which users jointly apply varying temporal and spatial resolutions to solve a single question or set of questions that mirror the physical world with complex intersections. Users can perform traffic assignments and feed results from one model to another while maintaining consistency between the model assumptions. DLSIM typically takes the following steps for simulation, as shown in Figure 1:
+1.	Use demand forecasting models to determine overall trip patterns in a regional network, including trip generation, trip distribution, mode split, and initial O-D matrices.
+2.	Use mesoscopic simulation-based dynamic traffic assignment (DTA) to realistically assign traffic to the network by accounting for strategic traveler behavior. 
+3.	Use microscopic analysis of traffic at the corridor level or subnetwork level.
+
+![alt text](https://github.com/asu-trans-ai-lab/DLSim/blob/main/media/Multiresolution2.jpg)
+
+Figure 1: Different levels of sample road networks for Phoenix, AZ.
 
 
-## Remarks:
 
-### Developers:
-
-Dr. Cafer Avci
-
-Jiawei (Jay) LU
-
-Dr. Peiheng Li
-
-Dr. Xuesong (Simon) Zhou
-
-### Short Introductory Video on YouTube
+## Introductory Videos & Slides
 
 [Recent Advances](https://www.youtube.com/watch?v=dj6c6h4mWfI) by Dr. Cafer Avci
 
- ### Mini-Lesson on the Internal Algorithmic Details
+Tutorials in [*ASU Transportation AI Lab](https://www.youtube.com/channel/UCpwXRD0kEkR5iQ77iCXCNuQ/videos) by Dr. Xuesong (Simon) Zhou
 
-[Mini-lessson](https://www.youtube.com/watch?v=rorZAhNNOf0&feature=youtu.be) by Dr. Cafer Avci and Dr. Xuesong (Simon) Zhou : What is the best way to learn dynamic traffic simulation and network assignment for a beginner? Do you want to integrate a powerful traffic simulator in your deep learning framework? We would like to offer a collaborative learning experience through 500 lines of python codes and real-life data sets. This is part of our mini-lessons through teaching dialog.
+[[In-Depth Video Discussions]]
 
-## More Details in our Wiki Section
+[[Slides introducing DLSIM]]
 
-[Wiki Home](https://github.com/asu-trans-ai-lab/DLSim/wiki)
+## Theory
+[DLSIM-Theory](https://github.com/asu-trans-ai-lab/DLSim/wiki/DLSIM-Theory)
 
-Tutorials - Learning oriented
+[Data flow chart](https://github.com/asu-trans-ai-lab/DLSim/wiki/data-flow-chart)
 
-* [Getting Started](https://github.com/asu-trans-ai-lab/DLSim/wiki/getting_started)
-* [Data flow chart](https://github.com/asu-trans-ai-lab/DLSim/wiki/data-flow-chart)
-* [Tutorials](https://github.com/asu-trans-ai-lab/DLSim/wiki/tutorials)
+[User Guide](https://github.com/asu-trans-ai-lab/DLSim/wiki/User-Guide)
 
-How-to Guide - Problem oriented
+## Tutorials
 
-* [DLSIM-Theory](https://github.com/asu-trans-ai-lab/DLSim/wiki/DLSIM-Theory)
-* [User Guide](https://github.com/asu-trans-ai-lab/DLSim/wiki/User-Guide)
-* [Test data sets](https://github.com/asu-trans-ai-lab/DLSim/wiki/test-data-sets)
-* [Incident and Workzone](https://github.com/asu-trans-ai-lab/DLSim/wiki/workzone)
-* [Traffic-Signal-Timing-Modeling](https://github.com/asu-trans-ai-lab/DLSim/wiki/Traffic-Signal-Timing-Modeling)
-* [Real time information](https://github.com/asu-trans-ai-lab/DLSim/wiki/realtimeinformation)
-* [Variable Message Signs](https://github.com/asu-trans-ai-lab/DLSim/wiki/VMS)
-* [Price and credit](https://github.com/asu-trans-ai-lab/DLSim/wiki/LR_Price)
-* [Activity chain and path](https://github.com/asu-trans-ai-lab/DLSim/wiki/activity_path)
-* [[Tips & Tricks]]
-* [[Frequently Asked Questions]]
-* [[Error Messages]]
+[DDI Simulation](https://github.com/asu-trans-ai-lab/DLSim/wiki/DDI-tutorial )
 
-References - Information oriented
+[I-10 Corridor Simulation](https://github.com/asu-trans-ai-lab/DLSim/wiki/I10-corridor)
 
-* [[Programming Guide]]
+[3 Corridor Simulation](https://github.com/asu-trans-ai-lab/DLSim/wiki/3-corridor)
 
-Discussions - Understanding oriented 
+[Vehicle Routing](https://github.com/asu-trans-ai-lab/DLSim/wiki/vehicle-routing)
 
-* Tutorials in [*ASU Transportation AI Lab](https://www.youtube.com/channel/UCpwXRD0kEkR5iQ77iCXCNuQ/videos) by Dr. Xuesong (Simon) Zhou
-* [*recent advances](https://www.youtube.com/watch?v=dj6c6h4mWfI&t=4s) by Dr. Cafer Avci
-* [Streamlined-Workflow](https://github.com/asu-trans-ai-lab/DLSim/wiki/Streamlined-Workflow)
-* [[Slides introducing DLSIM]]
-* [[In-Depth Video Discussions]]
+## Levels of DLSIM:
+Levels of modeling elements:
 
-## References
 
-**1. Parallel computing algorithms:** Qu, Y., & Zhou, X. (2017). Large-scale dynamic transportation network simulation: A space-time-event parallel computing approach. Transportation research part c: Emerging technologies, 75, 1-16.
+|Category | Element | GMNS File Names | Learning Goals |
+| --- | --- | --- | --- |
+| A | Network | node.csv, link.csv | Free-flow speed, capacity, multiresolution network  |
+| B | Demand | input_path.csv | Zone structure, OD demand matrix mapping to road network  |
+| C | Signal | Timing in link.csv | Micro |
+| D | Scenario | setting.csv |  |
+| E1 | Link output | link_performance.csv | Macro |
+| E2 | Route assignment output | Route_assignment.csv | Macro|
+| E3 | Agent output | agent.csv | Agent |
+| E4 | Trajectory output | trajectory.csv, trace.csv | -Micro |
 
-**2. OD demand estimation:** Lu, C. C., Zhou, X., & Zhang, K. (2013). Dynamic origin–destination demand flow estimation under congested traffic conditions. Transportation Research Part C: Emerging Technologies, 34, 16-37.
 
-**3. Simplified emission estimation model:** Zhou, X., Tanvir, S., Lei, H., Taylor, J., Liu, B., Rouphail, N. M., & Frey, H. C. (2015). Integrating a simplified emission estimation model and mesoscopic dynamic traffic simulator to efficiently evaluate emission impacts of traffic management strategies. Transportation Research Part D: Transport and Environment, 37, 123-136.
+## A. Network Generation
 
-**4. Eco-system optimal time-dependent flow assignment:** Lu, C. C., Liu, J., Qu, Y., Peeta, S., Rouphail, N. M., & Zhou, X. (2016). Eco-system optimal time-dependent flow assignment in a congested network. Transportation Research Part B: Methodological, 94, 217-239.
+[Network basics](https://github.com/asu-trans-ai-lab/DLSim/wiki/network-basics)
 
-**5. Transportation-induced population exposure assessment:** Vallamsundar, S., Lin, J., Konduri, K., Zhou, X., & Pendyala, R. M. (2016). A comprehensive modeling framework for transportation-induced population exposure assessment. Transportation Research Part D: Transport and Environment, 46, 94-113.
+[Network generation with osm2gmns](https://github.com/asu-trans-ai-lab/DLSim/wiki/network-generation)
 
-**6. Integrated ABM and DTA:** Xiong, C., Shahabi, M., Zhao, J., Yin, Y., Zhou, X., & Zhang, L. (2020). An integrated and personalized traveler information and incentive scheme for energy efficient mobility systems. Transportation Research Part C: Emerging Technologies, 113, 57-73.
+[Modification of networks](https://github.com/asu-trans-ai-lab/DLSim/wiki/network-modification)
 
-**7. State-wide transportation modeling:** Zhang. L. (2017) Maryland SHRP2 C10 Implementation Assistance – MITAMS: Maryland Integrated Analysis Modeling System, Maryland State Highway Administration
+[Visualization of networks with NeXTA](https://github.com/asu-trans-ai-lab/DLSim/wiki/network-visualization)
 
-**8. Workzone applications:** Schroeder, B, et al. Work zone traffic analysis & impact assessment. (2014) FHWA/NC/2012-36. North Carolina. Dept. of Transportation. Research and Analysis Group.
+## B. Demand Generation
 
-**9. Car Following Behavior:** Wei, Y., Avcı, C., Liu, J., Belezamo, B., Aydın, N., Li, P. T., & Zhou, X. (2017). Dynamic programming-based multi-vehicle longitudinal trajectory optimization with simplified car following models. Transportation research part B: methodological, 106, 102-129.
+[Trip generation](https://github.com/asu-trans-ai-lab/DLSim/wiki/trip-generation)
 
-## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+[OD demand estimation](https://github.com/asu-trans-ai-lab/DLSim/wiki/OD-demand-estimation)
 
-## License
-[License](https://github.com/asu-trans-ai-lab/DLSim)
+## C. Traffic Signal Modelling
+
+[Traffic-Signal-Timing-Modeling](https://github.com/asu-trans-ai-lab/DLSim/wiki/Traffic-Signal-Timing-Modeling)
+
+## D. Scenario Management
+
+[Settings of DLSIM](https://github.com/asu-trans-ai-lab/DLSim/wiki/Settings)
+
+## E. Output
+
+[E1. Link Output](https://github.com/asu-trans-ai-lab/DLSim/wiki/link-output)
+
+[E2. Route Assignment Output](https://github.com/asu-trans-ai-lab/DLSim/wiki/route-assignment-output)
+
+[E3. Agent Output](https://github.com/asu-trans-ai-lab/DLSim/wiki/agent-output)
+
+[E4. Trajectory Output](https://github.com/asu-trans-ai-lab/DLSim/wiki/trajectory-output )
+
+## Appendices
+
+[[FAQ]]
+
+[[ChangeLog]]
+
+[Streamlined-Workflow](https://github.com/asu-trans-ai-lab/DLSim/wiki/Streamlined-Workflow)
+
+
