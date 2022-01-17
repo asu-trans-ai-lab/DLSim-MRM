@@ -24,6 +24,8 @@ Tutorials in [*ASU Transportation AI Lab](https://www.youtube.com/channel/UCpwXR
 ## Theory
 [DLSIM-Theory](https://github.com/asu-trans-ai-lab/DLSim/wiki/DLSIM-Theory)
 
+[In-Depth Learning from References](https://github.com/asu-trans-ai-lab/DLSim/wiki/References)
+
 [Data flow chart](https://github.com/asu-trans-ai-lab/DLSim/wiki/data-flow-chart)
 
 [User Guide](https://github.com/asu-trans-ai-lab/DLSim/wiki/User-Guide)
