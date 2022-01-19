@@ -125,7 +125,9 @@ void g_load_scenario_data(Assignment& assignment)
 
                 vector<float> global_minute_vector;
 
-                //input_string includes the start and end time of a time period with hhmm format
+                //input_string includes the start and end time of a time period with 
+                
+               
                 global_minute_vector = g_time_parser(time_period); //global_minute_vector incldue the starting and ending time
                 if (global_minute_vector.size() == 2)
                 {

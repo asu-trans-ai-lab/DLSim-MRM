@@ -189,17 +189,17 @@ void Assignment::AllocateLinkMemory4Simulation()
                 }
             }
 
-            int number_of_cycles = (g_LoadingEndTimeInMin - g_LoadingStartTimeInMin) * 60 / max(1, g_link_vector[l].VDF_period[0].cycle_link_distance_in_km);  // unit: seconds;
+            int number_of_cycles = (g_LoadingEndTimeInMin - g_LoadingStartTimeInMin) * 60 / max(1, g_link_vector[l].VDF_period[0].cycle_link_distance_VDF);  // unit: seconds;
 
-            int cycle_link_distance_in_km = g_link_vector[l].VDF_period[0].cycle_link_distance_in_km;
+            int cycle_link_distance_VDF = g_link_vector[l].VDF_period[0].cycle_link_distance_VDF;
             int start_green_time = g_link_vector[l].VDF_period[0].start_green_time;
             int end_green_time = g_link_vector[l].VDF_period[0].end_green_time;
 
             if (end_green_time < start_green_time)
             {
-                end_green_time += cycle_link_distance_in_km;  // consider a looped end green time notation, e.g. 60-10 for cl = 100, then end green time should be 110. 
+                end_green_time += cycle_link_distance_VDF;  // consider a looped end green time notation, e.g. 60-10 for cl = 100, then end green time should be 110. 
             }
-            dtalog.output() << "signal timing data: link: cycle_link_distance_in_km = " << cycle_link_distance_in_km <<
+            dtalog.output() << "signal timing data: link: cycle_link_distance_VDF = " << cycle_link_distance_VDF <<
                 ",start_green_time = " << start_green_time <<
                 ",end_green_time = " << end_green_time <<
                 endl;
@@ -209,7 +209,7 @@ void Assignment::AllocateLinkMemory4Simulation()
                 int count = 0;
 
                 // relative time horizon
-                for (int t = cycle_no * cycle_link_distance_in_km + start_green_time; t <= cycle_no * cycle_link_distance_in_km + end_green_time; t += 1)
+                for (int t = cycle_no * cycle_link_distance_VDF + start_green_time; t <= cycle_no * cycle_link_distance_VDF + end_green_time; t += 1)
                 {
                     // activate capacity for this time duration
                     m_LinkOutFlowCapacity[l][t] = g_link_vector[l].saturation_flow_rate * g_link_vector[l].number_of_lanes / 3600.0;
@@ -307,7 +307,7 @@ void Assignment::STTrafficSimulation()
     float path_travel_time = 0;
     float time_stamp = 0;
 
-    int trace_agent_id = 1105;  //default can be -1
+    int trace_agent_id = 0;  //default can be -1
     int trace_link_no = -1;  //default can be -1
     int trace_node_no = -100;  //default can be -1
 
@@ -337,20 +337,41 @@ void Assignment::STTrafficSimulation()
                             path_distance = 0;
                             path_travel_time = 0;
 
-                            int VehicleSize = (it->second.path_volume + 0.5);
+                            int VehicleSize = (it->second.path_volume + 0.5);  // total number of vehicles
+                            CDeparture_time_Profile dep_time_element; 
+                            if(p_column_pool->departure_time_profile_no < assignment.g_DepartureTimeProfileVector.size())
+                            {
+                            dep_time_element = assignment.g_DepartureTimeProfileVector[p_column_pool->departure_time_profile_no];
+                            }
+                            else
+                            {
+                                dtalog.output() << "error in departure_time_profile_no=  " << p_column_pool->departure_time_profile_no << endl;
+                                dtalog.output() << "size of g_DepartureTimeProfileVector = " << assignment.g_DepartureTimeProfileVector.size() << endl;
+                                g_program_stop();
 
-                            for (int v = 0; v < VehicleSize; ++v)
+                            }
+
+                            for (int v = 0; v < VehicleSize; ++v)  
                             {
 
-                                int slot_no = assignment.g_DemandPeriodVector[tau].get_time_slot_no();
+
+                                int slot_no = dep_time_element.get_time_slot_no(v, VehicleSize);
 
                                 if (it->second.path_volume < 1)
-                                    time_stamp = (slot_no - assignment.g_DemandPeriodVector[tau].starting_time_slot_no) * MIN_PER_TIMESLOT + g_agent_simu_vector.size() % 15 / 15.0 * 1.0 * MIN_PER_TIMESLOT;
+                                    time_stamp = (slot_no - dep_time_element.starting_time_slot_no) * MIN_PER_TIMESLOT + g_agent_simu_vector.size() % 5 / 5.0 * 1.0 * MIN_PER_TIMESLOT;
                                 else
-                                    time_stamp = (slot_no - assignment.g_DemandPeriodVector[tau].starting_time_slot_no) * MIN_PER_TIMESLOT + v * 1.0 / it->second.path_volume * MIN_PER_TIMESLOT;
+                                    time_stamp = (slot_no - dep_time_element.starting_time_slot_no) * MIN_PER_TIMESLOT + v * 1.0 / it->second.path_volume * MIN_PER_TIMESLOT;
+
+
 
                                 if (it->second.m_link_size == 0)   // only load agents with physical path
                                     continue;
+
+                                if (g_agent_simu_vector.size() < 10)
+                                {
+                                    dtalog.output() << "generate vehicle: slot_no = " << slot_no << ",t = " << time_stamp << ":" << time_stamp / 60 << " min, vehicle id = " << g_agent_simu_vector.size() << " with path node size = "
+                                        << it->second.m_link_size << endl;
+                                }
 
                                 CAgent_Simu* pAgent = new CAgent_Simu();
 
@@ -383,6 +404,8 @@ void Assignment::STTrafficSimulation()
                                 {
                                     int idebug = 1;
                                 }
+
+//                              dtalog.output() << "generate vehicle: t = " << simulation_time_intervalNo << ":" << simulation_time_intervalNo / 4.0 / 60 << " min, vehicle id = " << pAgent->agent_id<< endl;
 
 
                                 g_AgentTDListMap[simulation_time_intervalNo].m_AgentIDVector.push_back(pAgent->agent_id);
@@ -437,11 +460,22 @@ void Assignment::STTrafficSimulation()
 
     }
 
+     //std::map<int, DTAVehListPerTimeInterval>::iterator it_agent;
+
+     //for (it_agent = g_AgentTDListMap.begin(); it_agent != g_AgentTDListMap.end(); ++it_agent)
+     //{
+     //    dtalog.output() << "t = " << it_agent->first << ":" << it_agent->first/4.0/60 <<" min," << it_agent->second.m_AgentIDVector.size() << endl;
+     //}
+    
 
     bool bRealTimeInformationActivated = false;
     // first loop for time t
     for (int t = 0; t < g_number_of_simulation_intervals; ++t)
     {
+        if (t == 42000)
+        {
+            int idebug = 2;
+        }
 
         if (t % number_of_simu_intervals_in_min == 0)  // every min
         {
@@ -458,7 +492,7 @@ void Assignment::STTrafficSimulation()
 
         if (t % (int(number_of_in_min_for_RTSP * 60 / number_of_seconds_per_interval)) == 0)
         {
-            int slot_no = (t * number_of_seconds_per_interval / 60 + g_LoadingStartTimeInMin) / 15;
+            int slot_no = (t * number_of_seconds_per_interval / 60 + g_LoadingStartTimeInMin) / MIN_PER_TIMESLOT;
             if (RTSP_RealTimeShortestPathFinding(slot_no, t) == true)
                 bRealTimeInformationActivated = true;
         }
@@ -816,7 +850,7 @@ void Assignment::STTrafficSimulation()
                         {
                             int link_seq_no = p_agent->path_link_seq_no_vector[link_s];
                             //path_toll += g_link_vector[link_seq_no].VDF_period[p_agent->tau].toll[at];
-                            p_agent->path_distance += g_link_vector[link_seq_no].link_distance_in_km;
+                            p_agent->path_distance += g_link_vector[link_seq_no].link_distance_VDF;
                         }
 
 #pragma omp critical
@@ -844,7 +878,7 @@ void Assignment::STTrafficSimulation()
                             int debug = 1;
                         }
                         //// spatial queue
-                        ////if(pNextLink->link_distance_in_km <=0.008)  // cell based link
+                        ////if(pNextLink->link_distance_VDF <=0.008)  // cell based link
                         ////{ 
                         //    pNextLink->spatial_capacity_in_vehicles = 1; // for cell based model
                         ////}

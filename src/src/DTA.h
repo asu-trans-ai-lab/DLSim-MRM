@@ -10,9 +10,9 @@ constexpr auto MAX_AGNETTYPES = 10; //because of the od demand store format,the 
 constexpr auto MAX_TIMEPERIODS = 20; // time period set to 4: mid night, morning peak, mid-day and afternoon peak;
 constexpr auto MAX_MEMORY_BLOCKS = 100;
 
-constexpr auto MAX_LINK_SIZE_IN_A_PATH = 10000;		// lu
+constexpr auto MAX_LINK_SIZE_IN_A_PATH = 10000;		
 constexpr auto MAX_LINK_SIZE_FOR_A_NODE = 10000;
-constexpr auto MAX_TIMESLOT_PerPeriod = 100; // max 96 15-min slots per day
+constexpr auto MAX_TIMESLOT_PerPeriod = 300; // max 96 5-min slots per day
 constexpr auto MAX_TIMEINTERVAL_PerDay = 300; // max 96*3 5-min slots per day
 constexpr auto MAX_DAY_PerYear = 360; // max 96*3 5-min slots per day
 constexpr auto _default_saturation_flow_rate = 1530;
@@ -22,7 +22,7 @@ constexpr auto _simulation_discharge_period_in_min = 60;
 
 /* make sure we change the following two parameters together*/
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-constexpr auto number_of_seconds_per_interval = 0.25;  // consistent with the cell link_distance_in_km of 7 meters
+constexpr auto number_of_seconds_per_interval = 0.25;  // consistent with the cell link_distance_VDF of 7 meters
 constexpr auto number_of_simu_interval_reaction_time = 4;  // reaction time as 1 second, 4 simu intervals, CAV: 0.5 seconds
 
 constexpr auto number_of_simu_intervals_in_min = 240; // 60/0.25 number_of_seconds_per_interval
@@ -247,15 +247,31 @@ void Deallocate4DDynamicArray(T**** dArray, int nM, int nX, int nY)
 
 class CDemand_Period {
 public:
-    CDemand_Period() : demand_period{ 0 }, starting_time_slot_no{ 0 }, ending_time_slot_no{ 0 }, m_RandomSeed{ 101 }, t2_peak_in_hour{ 0 }, time_period_in_hour{ 1 }
+    CDemand_Period() : demand_period{ 0 }, starting_time_slot_no{ 0 }, ending_time_slot_no{ 0 }, t2_peak_in_hour{ 0 }, time_period_in_hour{ 1 }
     {
     }
 
     int get_time_horizon_in_min()
     {
-        return (ending_time_slot_no - starting_time_slot_no) * 15;
+        return (ending_time_slot_no - starting_time_slot_no) * MIN_PER_TIMESLOT;
     }
 
+
+    string demand_period;
+    int starting_time_slot_no;
+    int ending_time_slot_no;
+    float time_period_in_hour;
+    float t2_peak_in_hour;
+    string time_period;
+    int demand_period_id;
+};
+
+class CDeparture_time_Profile {
+public:
+    CDeparture_time_Profile() : m_RandomSeed{ 101 }
+    {
+    
+    }
     unsigned int m_RandomSeed;
 
     float GetRandomRatio()
@@ -268,11 +284,17 @@ public:
 
     void compute_cumulative_profile(int starting_slot_no, int ending_slot_no)
     {
+        for (int s = 0; s <= 96 * 3; s++)
+        {
+            cumulative_departure_time_ratio[s] = 0;
+        }
+
         float total_ratio = 0;
         for (int s = starting_slot_no; s < ending_slot_no; s++)
         {
             total_ratio += departure_time_ratio[s];
         }
+
         if (total_ratio < 0.000001)
             total_ratio = 0.000001;
 
@@ -284,35 +306,40 @@ public:
             cumulative_departure_time_ratio[s] = cumulative_ratio;
             dtalog.output() << "cumulative profile ratio at slot  " << s << " = " << cumulative_departure_time_ratio[s] << endl;
         }
-        dtalog.output() << "final cumulative profile ratio" << cumulative_departure_time_ratio[ending_slot_no - 1] << endl;
+        dtalog.output() << "final cumulative profile ratio = " << cumulative_departure_time_ratio[ending_slot_no - 1] << endl;
 
     }
-    int get_time_slot_no()
+    int get_time_slot_no(int agent_seq_no, int agent_size)
     {
-        float r = GetRandomRatio();
+        float r = 0;
+        if (agent_size >= 10)  // large number of agents, then use pure uniform sequence
+           r = agent_seq_no * 1.0 / agent_size ; // r is between 0 and 1
+        else
+           r = GetRandomRatio();  // small sample case
+
         for (int s = starting_time_slot_no; s < ending_time_slot_no; s++)
         {
             if (r < cumulative_departure_time_ratio[s])
+            {
+            //    dtalog.output() << "s=" << s << ",ending_time_slot_no = " << ending_time_slot_no << endl;
+
                 return s;
+            }
         }
         return starting_time_slot_no;  // first time slot as the default value
     }
 
+    int starting_time_slot_no;
+    int ending_time_slot_no;
     float departure_time_ratio[MAX_TIMESLOT_PerPeriod];
     float cumulative_departure_time_ratio[MAX_TIMESLOT_PerPeriod];
 
-    string demand_period;
-    int starting_time_slot_no;
-    int ending_time_slot_no;
-    float time_period_in_hour;
-    float t2_peak_in_hour;
-    string time_period;
-    int demand_period_id;
 };
 
 class CAgent_type {
 public:
-    CAgent_type() : agent_type_no{ 1 }, value_of_time{ 1 }, time_headway_in_sec{ 1 }, real_time_information{ 0 }, access_speed{ 2 }, access_distance_lb{ 0.0001 }, access_distance_ub{ 4 }, acecss_link_k{ 4 }
+    CAgent_type() : agent_type_no{ 1 }, value_of_time{ 1 }, time_headway_in_sec{ 1 }, real_time_information{ 0 }, access_speed{ 2 }, access_distance_lb{ 0.0001 }, access_distance_ub{ 4 }, acecss_link_k{ 4 },
+        PCE{ 1 }, OCC{ 1 }
     {
     }
 
@@ -320,7 +347,8 @@ public:
     // dollar per hour
     float value_of_time;
     // link type, product consumption equivalent used, for travel time calculation
-    float PCE;
+    double PCE;
+    double OCC;
     float time_headway_in_sec;
     int real_time_information;
     string agent_type;
@@ -483,7 +511,8 @@ class CColumnVector {
 
 public:
     // this is colletion of unique paths
-    CColumnVector() : cost{ 0 }, time{ 0 }, distance{ 0 }, od_volume{ 0 }, bfixed_route{ false }, m_passing_sensor_flag{ -1 }, information_type{ 0 }, activity_agent_type_no{ 0 }
+    CColumnVector() : cost{ 0 }, time{ 0 }, distance{ 0 }, od_volume{ 0 }, bfixed_route{ false }, m_passing_sensor_flag{ -1 }, information_type{ 0 }, activity_agent_type_no{ 0 },
+        departure_time_profile_no{ -1 }
     {
     }
 
@@ -496,7 +525,7 @@ public:
     int information_type;
     std::vector<int> activity_zone_no_vector;
     int activity_agent_type_no;
-
+    int departure_time_profile_no;
 
 
     int m_passing_sensor_flag;
@@ -527,7 +556,7 @@ public:
 
     vector<int> path_node_vector;
     vector<int> path_link_vector;
-    vector<float> path_time_vector;
+    vector<double> path_time_vector;
 };
 
 // event structure in this "event-based" traffic simulation
@@ -624,8 +653,8 @@ public:
     Assignment() : assignment_mode{ 0 }, VDF_type{ 0 }, g_number_of_memory_blocks{ 8 }, g_number_of_threads{ 1 }, g_link_type_file_loaded{ true }, g_agent_type_file_loaded{ false },
         total_demand_volume{ 0.0 }, g_column_pool{ nullptr }, g_number_of_in_memory_simulation_intervals{ 500 },
         g_number_of_column_generation_iterations{ 20 }, g_number_of_column_updating_iterations{ 0 }, g_number_of_demand_periods{ 24 }, g_number_of_links{ 0 }, g_number_of_timing_arcs{ 0 },
-        g_number_of_nodes{ 0 }, g_number_of_zones{ 0 }, g_number_of_agent_types{ 0 }, debug_detail_flag{ 1 }, path_output{ 1 }, trajectory_output{ 1 }, major_path_volume_threshold{ 0.000001 }, trajectory_sampling_rate{ 1.0 }, dynamic_link_performance_sampling_interval_in_min{ 60 }, dynamic_link_performance_sampling_interval_hd_in_min{ 15 }, trajectory_diversion_only{ 0 }, m_GridResolution{ 0.01 }, 
-        shortest_path_log_zone_id { -1 }
+        g_number_of_nodes{ 0 }, g_number_of_zones{ 0 }, g_number_of_agent_types{ 0 }, debug_detail_flag{ 1 }, path_output{ 1 }, trajectory_output{ 1 }, major_path_volume_threshold{ 0.000001 }, trajectory_sampling_rate{ 1.0 }, dynamic_link_performance_sampling_interval_in_min{ 60 }, dynamic_link_performance_sampling_interval_hd_in_min{ 15 }, trajectory_diversion_only{ 0 }, m_GridResolution{ 0.01 },
+        shortest_path_log_zone_id{ 1 }
     {
     }
 
@@ -726,7 +755,7 @@ public:
 
     // hash table, map external node number to internal node sequence no.
     std::map<int, int> g_node_id_to_seq_no_map;
-    std::map<string, int> g_mvmt_key_to_link_no_map;
+    std::map<string, int> g_mPMT_key_to_link_no_map;
     // from integer to integer map zone_id to zone_seq_no
     std::map<int, int> g_zoneid_to_zone_seq_no_mapping;
     std::map<string, int> g_link_id_map;
@@ -736,6 +765,8 @@ public:
 
 
     std::vector<CDemand_Period> g_DemandPeriodVector;
+    std::vector<CDeparture_time_Profile> g_DepartureTimeProfileVector;
+
     int g_LoadingStartTimeInMin;
     int g_LoadingEndTimeInMin;
 
@@ -788,15 +819,15 @@ public:
     // construction
     CLink() :main_node_id{ -1 }, obs_count{ -1 }, upper_bound_flag{ 0 }, est_count_dev{ 0 }, free_speed{ 0 },
         BWTT_in_simulation_interval{ 100 }, zone_seq_no_for_outgoing_connector{ -1 }, number_of_lanes{ 1 }, lane_capacity{ 1999 },
-        link_distance_in_km{ 1 }, free_flow_travel_time_in_min{ 1 }, link_spatial_capacity{ 100 }, 
+        link_distance_VDF{ 1 }, free_flow_travel_time_in_min{ 1 }, link_spatial_capacity{ 100 }, 
         timing_arc_flag{ false }, traffic_flow_code{ 0 }, spatial_capacity_in_vehicles{ 999999 }, link_type{ 2 }, subarea_id{ -1 }, RT_flow_volume{ 0 },
         cell_type{ -1 }, saturation_flow_rate{ 1800 }, dynamic_link_reduction_start_time_slot_no{ 99999 }, b_automated_generated_flag{ false }, time_to_be_released{ -1 },
-        FT{ 1 }, AT{ 1 }, s3_m{ 4 }, tmc_road_order{ 0 }, VDF_type{ "BPR" }, VDF_type_no{ 0 }
+        RT_travel_time { 0 }, FT{ 1 }, AT{ 1 }, s3_m{ 4 }, tmc_road_order{ 0 }, VDF_type{ "BPR" }, VDF_type_no{ 0 }, tmc_road_sequence{ -1 }, k_critical{45}
     {
         for (int tau = 0; tau < MAX_TIMEPERIODS; ++tau)
         {
-            flow_volume_per_period[tau] = 0;
-            queue_link_distance_in_km_perslot[tau] = 0;
+            vehicle_flow_volume_per_period[tau] = 0;
+            queue_link_distance_VDF_perslot[tau] = 0;
             travel_time_per_period[tau] = 0;
             TDBaseTT[tau] = 0;
             TDBaseCap[tau] = 0;
@@ -823,12 +854,12 @@ public:
 
     float get_VOC_ratio(int tau)
     {
-        return (flow_volume_per_period[tau] + TDBaseFlow[tau]) / max(0.00001, TDBaseCap[tau]);
+        return (vehicle_flow_volume_per_period[tau] + TDBaseFlow[tau]) / max(0.00001, TDBaseCap[tau]);
     }
 
     float get_speed(int tau)
     {
-        return link_distance_in_km / max(travel_time_per_period[tau], 0.0001) * 60;  // per hour
+        return link_distance_VDF / max(travel_time_per_period[tau], 0.0001) * 60;  // per hour
     }
 
     void calculate_marginal_cost_for_agent_type(int tau, int agent_type_no, float PCE_agent_type)
@@ -924,7 +955,7 @@ public:
     std::map <int, string> dynamic_link_closure_type_map;
 
     double length_in_meter;
-    double link_distance_in_km;
+    double link_distance_VDF;
     double free_flow_travel_time_in_min;
     double free_speed;
 
@@ -948,44 +979,37 @@ public:
     int FT;
     int AT;
     float PCE;
-    float fftt;
 
-    float vc; // critical speed;
-    float kc; // critical density;
+    float v_cutoff; // cut-off speed;
+    float v_critical; // critical speed;
+    float k_critical; // critical density;
     float s3_m; // m factor in s3 model
 
     void update_kc(float free_speed_value)
     {
-        int update_kc_method = 0; // 0: HCM
-//        float speed_ratio = free_speed / max(1, speed);
-        kc = lane_capacity * pow(2, 2 / s3_m) / max(1, free_speed_value);
+        k_critical = 45;  // 45 vehicles per mile per lane based on HCM
+        v_critical = lane_capacity / k_critical;
+        s3_m = 2 * log(2) / log(free_speed_value / v_critical);
 
-        if (kc > 50)
-            kc = 50;
-
-        if (update_kc_method == 0 && free_speed_value >= 55 && lane_capacity >= 1500) // free flow speed > 55, treat as freeway facility type
-        {
-            kc = 45;  // 45 vehicles per mile per lane based on HCM
-            vc = lane_capacity / kc;
-            s3_m = 2 * log(2) / log(free_speed_value / vc);
-        }
-        else  // non freeway facility, capacity is partially determined by g/c ratio
-        {
-            vc = free_speed_value * 0.7;
-            s3_m = 2 * log(2) / log(free_speed_value / vc);
-        }
         TMC_highest_speed = free_speed_value;
 
     }
 
-    double get_volume_from_speed(float speed, float free_speed_value)
+    double get_volume_from_speed(float speed, float free_speed_value, float lane_capacity)
     {
         //test data free_speed = 55.0f; 
         //speed = 52;
-        //kc = 23.14167648;
+        //k_critical = 23.14167648;
+
+        if (speed > free_speed_value * 0.99)
+            speed = free_speed_value * 0.99;
 
         if (speed < 0)
             return -1;
+
+        k_critical = 45;  // 45 vehicles per mile per lane based on HCM
+        v_critical = lane_capacity / k_critical;
+        s3_m = 2 * log(2) / log(free_speed_value / v_critical);
 
         double speed_ratio = free_speed_value / max(1, speed);
         if (speed_ratio <= 1.00001)
@@ -996,8 +1020,10 @@ public:
 
         double ratio_difference_final = max(ratio_difference, 0.00000001);
 
-        double volume = speed * kc * pow(ratio_difference_final, 1 / s3_m);
+        double volume = speed * k_critical * pow(ratio_difference_final, 1 / s3_m);
 
+        if (volume > lane_capacity)
+            volume = lane_capacity;
         return volume;
 
     }
@@ -1024,7 +1050,7 @@ public:
     bool b_automated_generated_flag;
 
     int cell_type;
-    string mvmt_txt_id;
+    string mPMT_txt_id;
     string link_code_str;
     string tmc_corridor_name;
     string link_type_name;
@@ -1046,13 +1072,14 @@ public:
     //float travel_time;
 
     int subarea_id;
-    double flow_volume_per_period[MAX_TIMEPERIODS];
+    double vehicle_flow_volume_per_period[MAX_TIMEPERIODS];
+    double person_flow_volume_per_period[MAX_TIMEPERIODS];
     double RT_flow_volume;
-    double background_flow_volume_per_period[MAX_TIMEPERIODS];
+    double background_vehicle_flow_volume_per_period[MAX_TIMEPERIODS];
 
     double  volume_per_period_per_at[MAX_TIMEPERIODS][MAX_AGNETTYPES];
 
-    double  queue_link_distance_in_km_perslot[MAX_TIMEPERIODS];  // # of vehicles in the vertical point queue
+    double  queue_link_distance_VDF_perslot[MAX_TIMEPERIODS];  // # of vehicles in the vertical point queue
     double travel_time_per_period[MAX_TIMEPERIODS];
     double RT_travel_time;
 
@@ -1210,9 +1237,9 @@ public:
 
     void reset()
     {
-        total_VMT = 0;
-        total_VHT = 0;
-        total_VDT = 0;
+        total_PMT = 0;
+        total_PHT = 0;
+        total_PSDT = 0;
         lowest_speed = 9999;
         highest_speed = -1;
         link_count = 0;
@@ -1220,11 +1247,11 @@ public:
 
     double get_avg_speed()
     {
-        return total_VMT / max(0.001, total_VHT);  //miles per hour
+        return total_PMT / max(0.001, total_PHT);  //miles per hour
     }
-    double total_VMT;
-    double total_VHT;
-    double total_VDT;
+    double total_PMT;
+    double total_PHT;
+    double total_PSDT;
 
     double avg_speed;
     double lowest_speed;

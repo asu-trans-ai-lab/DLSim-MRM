@@ -49,7 +49,7 @@ using std::ofstream;
 using std::istringstream;
 
 
-void g_add_new_access_link(int internal_from_node_seq_no, int internal_to_node_seq_no, float link_distance_in_km, int agent_type_no, int zone_seq_no = -1)
+void g_add_new_access_link(int internal_from_node_seq_no, int internal_to_node_seq_no, float link_distance_VDF, int agent_type_no, int zone_seq_no = -1)
 {
     // create a link object
     CLink link;
@@ -72,23 +72,23 @@ void g_add_new_access_link(int internal_from_node_seq_no, int internal_to_node_s
     link.spatial_capacity_in_vehicles = 99999;
     link.lane_capacity = 999999;
     link.link_spatial_capacity = 99999;
-    link.link_distance_in_km = link_distance_in_km;
+    link.link_distance_VDF = link_distance_VDF;
     link.free_speed = assignment.g_AgentTypeVector[agent_type_no].access_speed;
 
     for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
     {
         //setup default values
-        link.VDF_period[tau].period_capacity = 99999;
+        link.VDF_period[tau].lane_based_ultimate_hourly_capacity = 99999;
         // 60.0 for 60 min per hour
-        link.fftt = link_distance_in_km / max(0.001, link.free_speed) * 60; 
-        link.VDF_period[tau].FFTT = link.fftt;
+        link.free_flow_travel_time_in_min = link_distance_VDF / max(0.001, link.free_speed) * 60;
+        link.VDF_period[tau].FFTT = link.free_flow_travel_time_in_min;
         link.VDF_period[tau].penalty = 99;
         link.VDF_period[tau].alpha = 0;
         link.VDF_period[tau].beta = 0;
         link.VDF_period[tau].allowed_uses += assignment.g_AgentTypeVector[agent_type_no].agent_type;
-        link.TDBaseTT[tau] = link.fftt;
+        link.TDBaseTT[tau] = link.free_flow_travel_time_in_min;
         link.TDBaseCap[tau] = 99999;
-        link.travel_time_per_period[tau] = link.fftt;
+        link.travel_time_per_period[tau] = link.free_flow_travel_time_in_min;
     }
 
     // add this link to the corresponding node as part of outgoing node/link

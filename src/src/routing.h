@@ -209,10 +209,23 @@ public:
 
             }
 
-             m_link_genalized_cost_array[i] = pLink->travel_time_per_period[m_tau] + pLink->VDF_period[m_tau].penalty + 
-                 LR_price +
-                 pLink->VDF_period[m_tau].toll[agent_type_no] / m_value_of_time * 60 + pLink->RT_travel_time;  // *60 as 60 min per hour
+            m_link_genalized_cost_array[i] = pLink->travel_time_per_period[m_tau] + pLink->VDF_period[m_tau].penalty +
+                LR_price +
+                pLink->VDF_period[m_tau].toll[agent_type_no] / m_value_of_time * 60;
 
+             if (pLink->travel_time_per_period[m_tau] < 0)
+             {
+            
+             dtalog.output() << "link " << pLink->link_id.c_str() << " " << g_node_vector[pLink->from_node_seq_no].node_id << "->" <<
+                    g_node_vector[pLink->to_node_seq_no].node_id << "," 
+                        << "  has a travel time of " << m_link_genalized_cost_array[i] << " for agent type "
+                        << assignment.g_AgentTypeVector[agent_type_no].agent_type.c_str() << " at demand period =" << m_tau << 
+                 ",pLink->travel_time_per_period[m_tau]=" << pLink->travel_time_per_period[m_tau] <<
+                 ",pLink->VDF_period[m_tau].penalty=" << pLink->VDF_period[m_tau].penalty <<
+                 ",LR_price=" << LR_price <<
+                 ", pLink->VDF_period[m_tau].toll[agent_type_no] / m_value_of_time * 60=" << pLink->VDF_period[m_tau].toll[agent_type_no] / m_value_of_time * 60 <<
+                 endl;
+             }
 
             //route_choice_cost 's unit is min
         }
@@ -513,19 +526,19 @@ public:
                 //the other zones do not have access to the outbound connectors
 
                 // Mark				new_time = m_label_time_array[from_node] + pLink->travel_time_per_period[tau];
-                // Mark				new_distance = m_label_distance_array[from_node] + pLink->link_distance_in_km;
-                float additional_cost = 0;
+                // Mark				new_distance = m_label_distance_array[from_node] + pLink->link_distance_VDF;
+                //float additional_cost = 0;
 
-                if (g_link_vector[link_sqe_no].RT_travel_time > 1)  // used in real time routing only
-                {
-                    additional_cost = g_link_vector[link_sqe_no].RT_travel_time;
+                //if (g_link_vector[link_sqe_no].RT_travel_time > 1)  // used in real time routing only
+                //{
+                //    additional_cost = g_link_vector[link_sqe_no].RT_travel_time;
 
-                    //if (g_link_vector[link_sqe_no].RT_travel_time > 999)
-                    //    continue; //skip this link due to closure
-                }
+                //    //if (g_link_vector[link_sqe_no].RT_travel_time > 999)
+                //    //    continue; //skip this link due to closure
+                //}
 
 
-                new_to_node_cost = m_node_label_cost[from_node] + m_link_genalized_cost_array[link_sqe_no] + additional_cost;
+                new_to_node_cost = m_node_label_cost[from_node] + m_link_genalized_cost_array[link_sqe_no];
 
                 if (iteration_k==2 && g_node_vector[from_node].node_id == 19 && g_node_vector[to_node].node_id == 20)
                 {
@@ -536,7 +549,9 @@ public:
                 if (dtalog.log_path() || local_debugging_flag)
                 {
                     dtalog.output() << "SP:  checking from node " << g_node_vector[from_node].node_id
-                        << "  to node " << g_node_vector[to_node].node_id << " cost = " << new_to_node_cost << endl;
+                        << "  to node " << g_node_vector[to_node].node_id << " cost = " << new_to_node_cost <<
+                        " , m_node_label_cost[from_node] " << m_node_label_cost[from_node] << ",m_link_genalized_cost_array[link_sqe_no] = " << m_link_genalized_cost_array[link_sqe_no] 
+                        << endl;
 
                 }
 
@@ -787,7 +802,7 @@ public:
                 //the other zones do not have access to the outbound connectors
 
                 // Mark				new_time = m_label_time_array[from_node] + pLink->travel_time_per_period[tau];
-                // Mark				new_distance = m_label_distance_array[from_node] + pLink->link_distance_in_km;
+                // Mark				new_distance = m_label_distance_array[from_node] + pLink->link_distance_VDF;
                 float additional_cost = 0;
 
                 if (g_link_vector[link_sqe_no].RT_travel_time > 1)  // used in real time routing only

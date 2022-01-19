@@ -1,0 +1,4 @@
+simulation log file.
+simu time= 0 min, CA = 0 CD=0, speed=60, travel time = 0
+simu time= 10 min, CA = 2117 CD=1584, speed=35.7206, travel time = 3.9837
+simu time= 20 min, CA = 4131 CD=3320, speed=33.1037, travel time = 4.31929

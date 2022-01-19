@@ -104,8 +104,8 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_CRT_SECURE_NO_DEPRECATE;WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <OpenMPSupport>true</OpenMPSupport>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <OpenMPSupport>false</OpenMPSupport>
       <PrecompiledHeaderFile />
       <PrecompiledHeaderOutputFile />
     </ClCompile>
@@ -148,7 +148,7 @@
       <OmitFramePointers>false</OmitFramePointers>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
-      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <PrecompiledHeaderFile />
       <PrecompiledHeaderOutputFile />
     </ClCompile>

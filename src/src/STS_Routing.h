@@ -434,7 +434,7 @@ public:
 //			for (int tau = 0; tau < demand_period_size; ++tau)
 //			{
 //				// used in travel time calculation
-//				g_link_vector[i].background_flow_volume_per_period[tau] = 0;
+//				g_link_vector[i].background_vehicle_flow_volume_per_period[tau] = 0;
 //			}
 //
 //			if (g_node_vector[g_link_vector[i].from_node_seq_no].subarea_id >= 1 && g_node_vector[g_link_vector[i].to_node_seq_no].node_id >= 1)
@@ -504,7 +504,7 @@ public:
 //									for (int nl = 0; nl < it->second.m_link_size; ++nl)  // arc a
 //									{
 //										int link_seq_no = it->second.path_link_vector[nl];
-//										g_link_vector[link_seq_no].background_flow_volume_per_period[tau] += it->second.path_volume;
+//										g_link_vector[link_seq_no].background_vehicle_flow_volume_per_period[tau] += it->second.path_volume;
 //									}
 //								}
 //
@@ -545,8 +545,8 @@ public:
 //
 //				for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
 //				{
-//					double volume = g_link_vector[i].flow_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload;
-//					double major_path_link_volume = g_link_vector[i].flow_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload - g_link_vector[i].background_flow_volume_per_period[tau];
+//					double volume = g_link_vector[i].vehicle_flow_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload;
+//					double major_path_link_volume = g_link_vector[i].vehicle_flow_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload - g_link_vector[i].background_vehicle_flow_volume_per_period[tau];
 //					double ratio = major_path_link_volume / max(volume, 0.000001);
 //
 //					if (volume < 0.0000001)
@@ -557,8 +557,8 @@ public:
 //						g_node_vector[g_link_vector[i].to_node_seq_no].node_id,
 //						g_node_vector[g_link_vector[i].from_node_seq_no].cell_str.c_str(),
 //						assignment.g_DemandPeriodVector[tau].time_period.c_str(),
-//						g_link_vector[i].flow_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload,
-//						g_link_vector[i].background_flow_volume_per_period[tau],
+//						g_link_vector[i].vehicle_flow_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload,
+//						g_link_vector[i].background_vehicle_flow_volume_per_period[tau],
 //						major_path_link_volume,
 //						ratio,
 //						g_link_vector[i].geometry.c_str());

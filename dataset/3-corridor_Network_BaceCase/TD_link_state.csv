@@ -1,3 +1,0 @@
-link_id,from_node_id,to_node_id,time_period,duration_in_sec,state,state_code
-6,7,8,0600:00.000_0600:01.000,1,-1,w
-35_credit,35,34,0600:00.000_0600:01.000,1,-1,w

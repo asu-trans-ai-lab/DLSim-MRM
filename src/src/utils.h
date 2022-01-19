@@ -40,6 +40,7 @@ int g_ParserIntSequence(std::string str, std::vector<int>& vect);
 int g_ParserStringSequence(std::string str, std::vector<std::string>& vect);
 
 std::vector<float> g_time_parser(std::string str);
+float g_timestamp_parser(std::string str);
 std::string g_time_coding(float time_stamp);
 bool g_read_a_line(FILE* f);
 // Peiheng, 04/01/21, this is just a temporary fix on logging in DTALite
