@@ -189,17 +189,17 @@ void Assignment::AllocateLinkMemory4Simulation()
                 }
             }
 
-            int number_of_cycles = (g_LoadingEndTimeInMin - g_LoadingStartTimeInMin) * 60 / max(1, g_link_vector[l].VDF_period[0].cycle_link_distance_VDF);  // unit: seconds;
+            int number_of_cycles = (g_LoadingEndTimeInMin - g_LoadingStartTimeInMin) * 60 / max(1, g_link_vector[l].VDF_period[0].cycle_length);  // unit: seconds;
 
-            int cycle_link_distance_VDF = g_link_vector[l].VDF_period[0].cycle_link_distance_VDF;
+            int cycle_length = g_link_vector[l].VDF_period[0].cycle_length;
             int start_green_time = g_link_vector[l].VDF_period[0].start_green_time;
             int end_green_time = g_link_vector[l].VDF_period[0].end_green_time;
 
             if (end_green_time < start_green_time)
             {
-                end_green_time += cycle_link_distance_VDF;  // consider a looped end green time notation, e.g. 60-10 for cl = 100, then end green time should be 110. 
+                end_green_time += cycle_length;  // consider a looped end green time notation, e.g. 60-10 for cl = 100, then end green time should be 110. 
             }
-            dtalog.output() << "signal timing data: link: cycle_link_distance_VDF = " << cycle_link_distance_VDF <<
+            dtalog.output() << "signal timing data: link: cycle_length = " << cycle_length <<
                 ",start_green_time = " << start_green_time <<
                 ",end_green_time = " << end_green_time <<
                 endl;
@@ -209,7 +209,7 @@ void Assignment::AllocateLinkMemory4Simulation()
                 int count = 0;
 
                 // relative time horizon
-                for (int t = cycle_no * cycle_link_distance_VDF + start_green_time; t <= cycle_no * cycle_link_distance_VDF + end_green_time; t += 1)
+                for (int t = cycle_no * cycle_length + start_green_time; t <= cycle_no * cycle_length + end_green_time; t += 1)
                 {
                     // activate capacity for this time duration
                     m_LinkOutFlowCapacity[l][t] = g_link_vector[l].saturation_flow_rate * g_link_vector[l].number_of_lanes / 3600.0;

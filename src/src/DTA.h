@@ -369,7 +369,7 @@ public:
 class CLinkType
 {
 public:
-    CLinkType() : link_type{ 1 }, number_of_links{ 0 }, traffic_flow_code{ 0 }, k_jam {500}
+    CLinkType() : link_type{ 1 }, number_of_links{ 0 }, traffic_flow_code{ 0 }, k_jam{ 500 }, vdf_type{ 0 }
     {
     }
 
@@ -380,12 +380,13 @@ public:
     float k_jam;
     string link_type_name;
     string type_code;
+    int vdf_type;
 };
 
 class CColumnPath {
 public:
-    CColumnPath() : path_node_vector{ nullptr }, path_link_vector{ nullptr }, path_seq_no{ 0 },
-        path_switch_volume{ 0 }, path_volume{ 0 }, path_travel_time{ 0 }, path_distance{ 0 }, path_toll{ 0 },
+    CColumnPath() : path_node_vector{ nullptr }, path_link_vector{ nullptr }, path_seq_no{ 0 }, m_link_size{ 0 }, m_node_size{ 0 },
+        path_switch_volume{ 0 }, path_volume{ 0 }, path_travel_time{ 0 }, path_distance{ 0 }, path_toll{ 0 }, UE_gap{ 0 }, UE_relative_gap {0},
         path_gradient_cost{ 0 }, path_gradient_cost_difference{ 0 }, path_gradient_cost_relative_difference{ 0 }, subarea_output_flag{ 1 }, measurement_flag{ 0 }
     {
     }
@@ -404,6 +405,12 @@ public:
     {
         m_node_size = node_size;
         m_link_size = link_size;
+
+        if (m_link_size == 0)
+        {
+            int i_debug = 1;
+        }
+
         // dynamic array
         path_node_vector = new int[node_size];
         path_link_vector = new int[link_size];
@@ -433,6 +440,11 @@ public:
     {
         m_node_size = node_vector.size();
         m_link_size = link_vector.size();
+        if (m_link_size == 0)
+        {
+            int i_debug = 1;
+        }
+
         // dynamic array
         path_node_vector = new int[m_node_size];
         path_link_vector = new int[m_link_size];
@@ -474,9 +486,17 @@ public:
     double path_toll;
     // first order graident cost.
     double path_gradient_cost;
+    double UE_gap;
+    double UE_relative_gap;
 
-    std::map <int, double> path_gradient_cost_per_iteration_map;
+    std::map <int, double> path_time_per_iteration_map;
     std::map <int, double> path_volume_per_iteration_map;
+
+    std::map <int, double> path_time_per_iteration_SA_map;
+    std::map <int, double> path_volume_per_iteration_SA_map;
+
+    std::map <int, double> path_time_per_iteration_ODME_map;
+    std::map <int, double> path_volume_per_iteration_ODME_map;
 
     // first order graident cost - least gradient cost
     double path_gradient_cost_difference;
@@ -650,12 +670,14 @@ public:
 class Assignment {
 public:
     // default is UE
-    Assignment() : assignment_mode{ 0 }, VDF_type{ 0 }, g_number_of_memory_blocks{ 8 }, g_number_of_threads{ 1 }, g_link_type_file_loaded{ true }, g_agent_type_file_loaded{ false },
+    Assignment() : assignment_mode{ 0 }, g_number_of_memory_blocks{ 8 }, g_number_of_threads{ 1 }, g_link_type_file_loaded{ true }, g_agent_type_file_loaded{ false },
         total_demand_volume{ 0.0 }, g_column_pool{ nullptr }, g_number_of_in_memory_simulation_intervals{ 500 },
-        g_number_of_column_generation_iterations{ 20 }, g_number_of_column_updating_iterations{ 0 }, g_number_of_demand_periods{ 24 }, g_number_of_links{ 0 }, g_number_of_timing_arcs{ 0 },
+        g_number_of_column_generation_iterations{ 20 }, g_number_of_column_updating_iterations{ 0 }, g_number_of_ODME_iterations{ 0 }, g_number_of_sensitivity_analysis_iterations{ 0 }, g_number_of_demand_periods{ 24 }, g_number_of_links{ 0 }, g_number_of_timing_arcs{ 0 },
         g_number_of_nodes{ 0 }, g_number_of_zones{ 0 }, g_number_of_agent_types{ 0 }, debug_detail_flag{ 1 }, path_output{ 1 }, trajectory_output{ 1 }, major_path_volume_threshold{ 0.000001 }, trajectory_sampling_rate{ 1.0 }, dynamic_link_performance_sampling_interval_in_min{ 60 }, dynamic_link_performance_sampling_interval_hd_in_min{ 15 }, trajectory_diversion_only{ 0 }, m_GridResolution{ 0.01 },
-        shortest_path_log_zone_id{ 1 }
+        shortest_path_log_zone_id{ -1 }
     {
+
+        sp_log_file.open("model_label_correcting_log.txt");
     }
 
     ~Assignment()
@@ -663,9 +685,12 @@ public:
         if (g_column_pool)
             Deallocate4DDynamicArray(g_column_pool, g_number_of_zones, g_number_of_zones, g_number_of_agent_types);
 
+        sp_log_file.close();
 
         DeallocateLinkMemory4Simulation();
     }
+
+    std::ofstream sp_log_file;
 
     void InitializeDemandMatrix(int number_of_zones, int number_of_agent_types, int number_of_time_periods)
     {
@@ -698,7 +723,8 @@ public:
     void STMesoTrafficSimulation();
 
     //OD demand estimation estimation
-    void Demand_ODME(int OD_updating_iterations);
+    void GenerateDefaultMeasurementData();
+    void Demand_ODME(int OD_updating_iterations, int sensitivity_analysis_iterations);
     void AllocateLinkMemory4Simulation();
     void UpdateRTPath(CAgent_Simu* pAgent);
     bool RTSP_RealTimeShortestPathFinding(int time_slot_no, int simu_interval_t);
@@ -713,7 +739,6 @@ public:
 
     double m_GridResolution;
     int assignment_mode;
-    int VDF_type;
     int g_number_of_memory_blocks;
     int g_number_of_threads;
     int path_output;
@@ -737,6 +762,8 @@ public:
     int g_number_of_in_memory_simulation_intervals;
     int g_number_of_column_generation_iterations;
     int g_number_of_column_updating_iterations;
+    int g_number_of_ODME_iterations;
+    int g_number_of_sensitivity_analysis_iterations;
     int g_number_of_demand_periods;
 
 
@@ -755,7 +782,8 @@ public:
 
     // hash table, map external node number to internal node sequence no.
     std::map<int, int> g_node_id_to_seq_no_map;
-    std::map<string, int> g_mPMT_key_to_link_no_map;
+    std::map<int, int> access_node_id_to_zone_id_map;
+
     // from integer to integer map zone_id to zone_seq_no
     std::map<int, int> g_zoneid_to_zone_seq_no_mapping;
     std::map<string, int> g_link_id_map;
@@ -817,16 +845,17 @@ class CLink
 {
 public:
     // construction
-    CLink() :main_node_id{ -1 }, obs_count{ -1 }, upper_bound_flag{ 0 }, est_count_dev{ 0 }, free_speed{ 0 },
+    CLink() :main_node_id{ -1 }, obs_count{ -1 }, upper_bound_flag{ 0 }, est_count_dev{ 0 }, free_speed{ 100 }, v_cutoff{ 100 }, v_critical{ 100},
         BWTT_in_simulation_interval{ 100 }, zone_seq_no_for_outgoing_connector{ -1 }, number_of_lanes{ 1 }, lane_capacity{ 1999 },
         link_distance_VDF{ 1 }, free_flow_travel_time_in_min{ 1 }, link_spatial_capacity{ 100 }, 
         timing_arc_flag{ false }, traffic_flow_code{ 0 }, spatial_capacity_in_vehicles{ 999999 }, link_type{ 2 }, subarea_id{ -1 }, RT_flow_volume{ 0 },
         cell_type{ -1 }, saturation_flow_rate{ 1800 }, dynamic_link_reduction_start_time_slot_no{ 99999 }, b_automated_generated_flag{ false }, time_to_be_released{ -1 },
-        RT_travel_time { 0 }, FT{ 1 }, AT{ 1 }, s3_m{ 4 }, tmc_road_order{ 0 }, VDF_type{ "BPR" }, VDF_type_no{ 0 }, tmc_road_sequence{ -1 }, k_critical{45}
+        RT_travel_time{ 0 }, FT{ 1 }, AT{ 1 }, s3_m{ 4 }, tmc_road_order{ 0 }, tmc_road_sequence{ -1 }, k_critical{ 45 }, vdf_type{ 0 }
     {
         for (int tau = 0; tau < MAX_TIMEPERIODS; ++tau)
         {
             vehicle_flow_volume_per_period[tau] = 0;
+            person_flow_volume_per_period[tau] = 0;
             queue_link_distance_VDF_perslot[tau] = 0;
             travel_time_per_period[tau] = 0;
             TDBaseTT[tau] = 0;
@@ -849,7 +878,7 @@ public:
     {
     }
 
-    void calculate_dynamic_VDFunction(int inner_iteration_number, bool congestion_bottleneck_sensitivity_analysis_mode, int VDF_type_no);
+    void calculate_dynamic_VDFunction(int inner_iteration_number, bool congestion_bottleneck_sensitivity_analysis_mode, int vdf_type);
 
 
     float get_VOC_ratio(int tau)
@@ -897,14 +926,14 @@ public:
 
     std::map <int, int> m_link_pedefined_capacity_map;  // per sec
 
-    float est_speed[MAX_TIMEINTERVAL_PerDay];
+    float model_speed[MAX_TIMEINTERVAL_PerDay];
     float est_volume_per_hour_per_lane[MAX_TIMEINTERVAL_PerDay];
 
     float est_avg_waiting_time_in_min[MAX_TIMEINTERVAL_PerDay]; // at link level
     float est_queue_length_per_lane[MAX_TIMEINTERVAL_PerDay];
 
 
-    float get_est_hourly_speed(int time_in_min)
+    float get_model_hourly_speed(int time_in_min)
     {
         int t = time_in_min / 5;
         float total_speed_value = 0;
@@ -915,9 +944,9 @@ public:
 
             if (t + tt >= 0 && t + tt < MAX_TIMEINTERVAL_PerDay)
             {
-                if (est_speed[t + tt] >= 1)
+                if (model_speed[t + tt] >= 1)
                 {
-                    total_speed_value += est_speed[t + tt];
+                    total_speed_value += model_speed[t + tt];
                     total_speed_count++;
                 }
             }
@@ -978,6 +1007,7 @@ public:
 
     int FT;
     int AT;
+    string VDF_code;
     float PCE;
 
     float v_cutoff; // cut-off speed;
@@ -1050,14 +1080,13 @@ public:
     bool b_automated_generated_flag;
 
     int cell_type;
-    string mPMT_txt_id;
+    string mvmt_txt_id;
     string link_code_str;
     string tmc_corridor_name;
     string link_type_name;
     string link_type_code;
 
-    string VDF_type;
-    int    VDF_type_no;
+    int    vdf_type;
     CPeriod_VDF VDF_period[MAX_TIMEPERIODS];
 
     double TDBaseTT[MAX_TIMEPERIODS];
@@ -1100,12 +1129,7 @@ public:
     string tmc_road, tmc_direction, tmc_intersection;
     float tmc_reference_speed;
     float tmc_mean_speed;
-    float VDF_STA_speed[5];
-    float VDF_STA_VOC[5];
-    float VDF_STA_volume[5];
 
-    float Scenario_STA_VOC_Ratio[5];
-    bool Scenario_evaluation_flag;
 
     float tmc_volume;
     GDPoint TMC_from, TMC_to;
@@ -1278,15 +1302,8 @@ class COZone
 public:
     COZone() : obs_production{ 0 }, obs_attraction{ 0 },
         est_production{ 0 }, est_attraction{ 0 },
-        est_production_dev{ 0 }, est_attraction_dev{ 0 }, b_real_time_information {false}
+        est_production_dev{ 0 }, est_attraction_dev{ 0 }, b_real_time_information{ false }, gravity_production{ 0 }, gravity_attraction{ 0 }
     {
-
-        for (int a = 0; a < MAX_AGNETTYPES; a++)
-        {
-            gravity_production[a] = 0;
-            gravity_attraction[a] = 0;
-        }
-
     }
 
     _int64 cell_id;
@@ -1298,11 +1315,11 @@ public:
     float obs_production;
     float obs_attraction;
 
-    float gravity_production[MAX_AGNETTYPES];
-    float gravity_attraction[MAX_AGNETTYPES];
+    float gravity_production;
+    float gravity_attraction;
 
-    float gravity_est_production[MAX_AGNETTYPES];
-    float gravity_est_attraction[MAX_AGNETTYPES];
+    float gravity_est_production;
+    float gravity_est_attraction;
 
     float est_production;
     float est_attraction;
@@ -1319,8 +1336,8 @@ public:
     float obs_production_upper_bound_flag;
     float obs_attraction_upper_bound_flag;
 
-    CODMatrix m_ODMatrix[MAX_AGNETTYPES][MAX_TIMEPERIODS];
-    CODMatrix m_ODAccessibilityMatrix[MAX_AGNETTYPES][MAX_TIMEPERIODS];
+    CODMatrix m_ODMatrix;
+    CODMatrix m_ODAccessibilityMatrix;
 
     std::vector<int> m_activity_node_vector;
 

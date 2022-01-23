@@ -122,7 +122,6 @@ std::map<string, CInfoCell> g_info_cell_map;
 #include "cbi_tool.h"
 
 std::vector<CTMC_Link> g_TMC_vector;
-
 void g_reset_link_volume_in_master_program_without_columns(int number_of_links, int iteration_index, bool b_self_reducing_path_volume)
 {
     int number_of_demand_periods = assignment.g_number_of_demand_periods;
@@ -149,6 +148,7 @@ void g_reset_link_volume_in_master_program_without_columns(int number_of_links, 
                     // after link volumn "tally", self-deducting the path volume by 1/(k+1) (i.e. keep k/(k+1) ratio of previous flow)
                     // so that the following shortes path will be receiving 1/(k+1) flow
                     g_link_vector[i].vehicle_flow_volume_per_period[tau] = g_link_vector[i].vehicle_flow_volume_per_period[tau] * (float(iteration_index) / float(iteration_index + 1));
+                    g_link_vector[i].person_flow_volume_per_period[tau] = g_link_vector[i].vehicle_flow_volume_per_period[tau] * (float(iteration_index) / float(iteration_index + 1));
                 }
             }
         }
@@ -208,6 +208,9 @@ void g_assign_computing_tasks_to_memory_blocks(Assignment& assignment)
 
                     p_NetworkForSP->m_agent_type_no = at;
                     p_NetworkForSP->m_tau = tau;
+                    p_NetworkForSP->PCE_ratio = assignment.g_AgentTypeVector[at].PCE;
+                    p_NetworkForSP->OCC_ratio = assignment.g_AgentTypeVector[at].OCC;
+
                     computing_zone_count++;
 
                     p_NetworkForSP->AllocateMemory(assignment.g_number_of_nodes, assignment.g_number_of_links);
@@ -275,13 +278,17 @@ void g_reset_link_volume_for_all_processors()
 #pragma omp parallel for
 	for (int ProcessID = 0; ProcessID < number_of_memory_blocks; ++ProcessID)
 	{
-		for (int blk = 0; blk < assignment.g_AgentTypeVector.size()*assignment.g_DemandPeriodVector.size(); ++blk)
-		{
-			NetworkForSP* pNetwork = g_NetworkForSP_vector[blk*assignment.g_number_of_memory_blocks + ProcessID];
+        for(int n=0; n< g_NetworkForSP_vector.size(); n++)
+        {
+            if(n% number_of_memory_blocks ==ProcessID)
+            {
+			NetworkForSP* pNetwork = g_NetworkForSP_vector[n];
 			//Initialization for all non-origin nodes
 			int number_of_links = assignment.g_number_of_links;
 			for (int i = 0; i < number_of_links; ++i)
 				pNetwork->m_link_flow_volume_array[i] = 0;
+
+            }
 		}
 
 	}
@@ -295,173 +302,14 @@ void g_fetch_link_volume_for_all_processors()
         NetworkForSP* pNetwork = g_NetworkForSP_vector[ProcessID];
 
         for (int i = 0; i < g_link_vector.size(); ++i)
-            g_link_vector[i].vehicle_flow_volume_per_period[pNetwork->m_tau] += pNetwork->m_link_flow_volume_array[i];
+        {
+            g_link_vector[i].vehicle_flow_volume_per_period[pNetwork->m_tau] += pNetwork->m_link_flow_volume_array[i]*pNetwork->PCE_ratio;
+            g_link_vector[i].person_flow_volume_per_period[pNetwork->m_tau] += pNetwork->m_link_flow_volume_array[i] * pNetwork->OCC_ratio;
+        }
     }
     // step 1: travel time based on VDF
 }
 
-//major function: update the cost for each node at each SP tree, using a stack from the origin structure
-double NetworkForSP::backtrace_shortest_path_tree(Assignment& assignment, int iteration_number_outterloop, int o_node_index)
-{
-	double total_origin_least_cost = 0;
-    int origin_node = m_origin_node_vector[o_node_index]; // assigned no
-    int m_origin_zone_seq_no = m_origin_zone_seq_no_vector[o_node_index]; // assigned no
-
-    //if (assignment.g_number_of_nodes >= 100000 && m_origin_zone_seq_no % 100 == 0)
-    //{
-    //	g_fout << "backtracing for zone " << m_origin_zone_seq_no << endl;
-    //}
-
-    int departure_time = m_tau;
-    int agent_type = m_agent_type_no;
-
-    if (g_node_vector[origin_node].m_outgoing_link_seq_no_vector.size() == 0)
-        return 0;
-
-    // given,  m_node_label_cost[i]; is the gradient cost , for this tree's, from its origin to the destination node i'.
-
-    //	fprintf(g_pFileDebugLog, "------------START: origin:  %d  ; Departure time: %d  ; demand type:  %d  --------------\n", origin_node + 1, departure_time, agent_type);
-    float k_path_prob = 1;
-    k_path_prob = float(1) / float(iteration_number_outterloop + 1);  //XZ: use default value as MSA, this is equivalent to 1/(n+1)
-    // MSA to distribute the continuous flow
-    // to do, this is for each nth tree.
-
-    //change of path flow is a function of cost gap (the updated node cost for the path generated at the previous iteration -m_node_label_cost[i] at the current iteration)
-    // current path flow - change of path flow,
-    // new propability for flow staying at this path
-    // for current shortest path, collect all the switched path from the other shortest paths for this ODK pair.
-    // check demand flow balance constraints
-
-    int num = 0;
-    int number_of_nodes = assignment.g_number_of_nodes;
-    int number_of_links = assignment.g_number_of_links;
-    int l_node_size = 0;  // initialize local node size index
-    int l_link_size = 0;
-    int node_sum = 0;
-
-    float path_travel_time = 0;
-    float path_distance = 0;
-
-    int current_node_seq_no = -1;  // destination node
-    int current_link_seq_no = -1;
-    int destination_zone_seq_no;
-    double ODvolume, volume;
-    CColumnVector* pColumnVector;
-
-    for (int i = 0; i < number_of_nodes; ++i)
-    {
-        if (g_node_vector[i].zone_id >= 1)
-        {
-            if (i == origin_node) // no within zone demand
-                continue;
-
-            if (g_node_vector[i].zone_id == 2)
-            {
-                int idebug = 1;
-            }
-            //fprintf(g_pFileDebugLog, "--------origin  %d ; destination node: %d ; (zone: %d) -------\n", origin_node + 1, i+1, g_node_vector[i].zone_id);
-            //fprintf(g_pFileDebugLog, "--------iteration number outterloop  %d ;  -------\n", iteration_number_outterloop);
-            destination_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[g_node_vector[i].zone_id];
-
-            pColumnVector = &(assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][m_tau]);
-
-            if (pColumnVector->bfixed_route) // with routing policy, no need to run MSA for adding new columns
-                continue;
-
-            ODvolume = pColumnVector->od_volume;
-            volume = ODvolume * k_path_prob;
-            // this is contributed path volume from OD flow (O, D, k, per time period
-
-            if (ODvolume > 0.000001 ||
-                assignment.zone_seq_no_2_activity_mapping.find(m_origin_zone_seq_no) != assignment.zone_seq_no_2_activity_mapping.end() ||
-                assignment.zone_seq_no_2_activity_mapping.find(destination_zone_seq_no) != assignment.zone_seq_no_2_activity_mapping.end() ||
-                (
-                assignment.zone_seq_no_2_info_mapping.find(m_origin_zone_seq_no)!= assignment.zone_seq_no_2_info_mapping.end()
-                && assignment.g_AgentTypeVector[agent_type].real_time_information >= 1)
-                )
-            {
-                l_node_size = 0;  // initialize local node size index
-                l_link_size = 0;
-                node_sum = 0;
-
-                path_travel_time = 0;
-                path_distance = 0;
-
-                current_node_seq_no = i;  // destination node
-                current_link_seq_no = -1;
-
-				total_origin_least_cost += ODvolume * m_node_label_cost[current_node_seq_no];
-                // backtrace the sp tree from the destination to the root (at origin)
-                while (current_node_seq_no >= 0 && current_node_seq_no < number_of_nodes)
-                {
-                    temp_path_node_vector[l_node_size++] = current_node_seq_no;
-
-                    if (l_node_size >= temp_path_node_vector_size)
-                    {
-                        dtalog.output() << "Error: l_node_size >= temp_path_node_vector_size" << endl;
-                        g_program_stop();
-                    }
-
-                    // this is valid node
-                    if (current_node_seq_no >= 0 && current_node_seq_no < number_of_nodes)
-                    {
-                        current_link_seq_no = m_link_predecessor[current_node_seq_no];
-                        node_sum += current_node_seq_no * current_link_seq_no;
-
-                        // fetch m_link_predecessor to mark the link volume
-                        if (current_link_seq_no >= 0 && current_link_seq_no < number_of_links)
-                        {
-                            temp_path_link_vector[l_link_size++] = current_link_seq_no;
-
-                            // pure link based computing mode
-                            if (assignment.assignment_mode == 0)
-                            {
-                                // this is critical for parallel computing as we can write the volume to data
-                                m_link_flow_volume_array[current_link_seq_no]+= volume;
-                            }
-
-                            //path_travel_time += g_link_vector[current_link_seq_no].travel_time_per_period[tau];
-                            //path_distance += g_link_vector[current_link_seq_no].link_distance_VDF;
-                        }
-                    }
-                    current_node_seq_no = m_node_predecessor[current_node_seq_no];  // update node seq no
-                }
-                //fprintf(g_pFileDebugLog, "\n");
-
-                // we obtain the cost, time, distance from the last tree-k
-                if(assignment.assignment_mode >=1) // column based mode
-                {
-
-                    if (iteration_number_outterloop == 1)
-                    {
-                        int i_debug = 2;
-                    }
-
-                    // we cannot find a path with the same node sum, so we need to add this path into the map,
-                    if (pColumnVector->path_node_sequence_map.find(node_sum) == assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][m_tau].path_node_sequence_map.end())
-                    {
-                        // add this unique path
-                        int path_count = pColumnVector->path_node_sequence_map.size();
-                        pColumnVector->path_node_sequence_map[node_sum].path_seq_no = path_count;
-                        pColumnVector->path_node_sequence_map[node_sum].path_volume = 0;
-                        //assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][tau].time = m_label_time_array[i];
-                        //assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][tau].path_node_sequence_map[node_sum].path_distance = m_label_distance_array[i];
-                        pColumnVector->path_node_sequence_map[node_sum].path_toll = m_node_label_cost[i];
-
-                        pColumnVector->path_node_sequence_map[node_sum].AllocateVector(
-                            l_node_size,
-                            temp_path_node_vector,
-                            l_link_size,
-                            temp_path_link_vector,true);
-                    }
-
-                    pColumnVector->path_node_sequence_map[node_sum].path_volume += volume;
-                }
-            }
-        }
-    }
-	return total_origin_least_cost;
-}
 void  CLink::calculate_dynamic_VDFunction(int inner_iteration_number, bool congestion_bottleneck_sensitivity_analysis_mode, int VDF_type_no)
 {
     RT_travel_time = 0; // reset RT_travel time for each end of simulation iteration 
@@ -482,7 +330,7 @@ void  CLink::calculate_dynamic_VDFunction(int inner_iteration_number, bool conge
 
             travel_time_per_period[tau] = VDF_period[tau].calculate_travel_time_based_on_QVDF(
                 volume_to_be_assigned,
-                this->est_speed, this->est_volume_per_hour_per_lane);
+                this->model_speed, this->est_volume_per_hour_per_lane);
 
             VDF_period[tau].travel_time_per_iteration_map[inner_iteration_number] = travel_time_per_period[tau];
         }
@@ -547,16 +395,17 @@ void  CLink::calculate_dynamic_VDFunction(int inner_iteration_number, bool conge
 
 }
 
-double network_assignment(int assignment_mode, int VDF_type, int iteration_number, int column_updating_iterations, int ODME_iterations, int number_of_memory_blocks)
+double network_assignment(int assignment_mode, int iteration_number, int column_updating_iterations, int ODME_iterations, int sensitivity_analysis_iterations, int simulation_iterations, int number_of_memory_blocks)
 {
     int signal_updating_iterations = 0;
 
     // k iterations for column generation
     assignment.g_number_of_column_generation_iterations = iteration_number;
     assignment.g_number_of_column_updating_iterations = column_updating_iterations;
+    assignment.g_number_of_ODME_iterations = ODME_iterations;
+    assignment.g_number_of_sensitivity_analysis_iterations = sensitivity_analysis_iterations;
     // 0: link UE: 1: path UE, 2: Path SO, 3: path resource constraints
     assignment.assignment_mode = assignment_mode;
-    assignment.VDF_type = VDF_type;
 
 	assignment.g_number_of_memory_blocks = min( max(1, number_of_memory_blocks), MAX_MEMORY_BLOCKS);
 	
@@ -577,7 +426,7 @@ double network_assignment(int assignment_mode, int VDF_type, int iteration_numbe
             if(g_link_vector[i].tmc_code.size() >0)
             {
             // step 1: travel time based on VDF
-            g_link_vector[i].calculate_dynamic_VDFunction(0, false, g_link_vector[i].VDF_type_no);
+            g_link_vector[i].calculate_dynamic_VDFunction(0, false, g_link_vector[i].vdf_type);
             }
 
         }
@@ -590,7 +439,7 @@ double network_assignment(int assignment_mode, int VDF_type, int iteration_numbe
         for (int i = 0; i < g_link_vector.size(); ++i)
         {
             // step 1: travel time based on VDF
-            g_link_vector[i].calculate_dynamic_VDFunction(0, false, g_link_vector[i].VDF_type_no);
+            g_link_vector[i].calculate_dynamic_VDFunction(0, false, g_link_vector[i].vdf_type);
 
         }
         g_output_dynamic_queue_profile();
@@ -746,7 +595,7 @@ double network_assignment(int assignment_mode, int VDF_type, int iteration_numbe
     start_t = clock();
     g_column_pool_optimization(assignment, column_updating_iterations);
     g_column_pool_route_scheduling(assignment, column_updating_iterations);
-//    g_column_pool_activity_scheduling(assignment, column_updating_iterations);  // VMS information updat
+    g_column_pool_activity_scheduling(assignment, column_updating_iterations);  // VMS information updat
 
     dtalog.output() << endl;
 
@@ -763,25 +612,24 @@ double network_assignment(int assignment_mode, int VDF_type, int iteration_numbe
     // initialization at the first iteration of shortest path
     update_link_travel_time_and_cost(iteration_number);
 
-    if (assignment.assignment_mode == 2)
-    {
-        start_simu = clock();
-
-        dtalog.output() << "Step 5: Simulation for traffic assignment.." << endl;
-        assignment.STTrafficSimulation();
-        end_simu = clock();
-        total_simu = end_simu - end_simu;
-
-        dtalog.output() << "CPU Running Time for traffic simulation: " << total_simu / 1000.0 << " s" << endl;
-        dtalog.output() << endl;
-    }
-
-    if (assignment.assignment_mode == 3)
+   if (assignment.assignment_mode == 3)
     {
         dtalog.output() << "Step 6: O-D estimation for traffic assignment.." << endl;
-        assignment.Demand_ODME(ODME_iterations);
+        assignment.Demand_ODME(ODME_iterations, sensitivity_analysis_iterations);
         dtalog.output() << endl;
     }
+   if (simulation_iterations >= 1)
+   {
+       start_simu = clock();
+
+       dtalog.output() << "Step 5: Simulation for traffic assignment.." << endl;
+       assignment.STTrafficSimulation();
+       end_simu = clock();
+       total_simu = end_simu - end_simu;
+
+       dtalog.output() << "CPU Running Time for traffic simulation: " << total_simu / 1000.0 << " s" << endl;
+       dtalog.output() << endl;
+   }
 
     end_t = clock();
     total_t = (end_t - start_t);
@@ -1014,6 +862,4 @@ void Assignment::UpdateRTPath(CAgent_Simu* pAgent)
 
   
 }
-
-
 

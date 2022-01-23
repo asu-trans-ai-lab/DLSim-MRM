@@ -69,7 +69,7 @@ struct CNodeForwardStar {
 class NetworkForSP  // mainly for shortest path calculation
 {
 public:
-    NetworkForSP() : temp_path_node_vector_size{ MAX_LINK_SIZE_IN_A_PATH }, m_value_of_time{ 10 }, bBuildNetwork{ false }, m_memory_block_no{ 0 }, m_agent_type_no{ 0 }, m_tau{ 0 }, b_real_time_information{ false }
+    NetworkForSP() : temp_path_node_vector_size{ MAX_LINK_SIZE_IN_A_PATH }, m_value_of_time{ 10 }, bBuildNetwork{ false }, m_memory_block_no{ 0 }, m_agent_type_no{ 0 }, m_tau{ 0 }, b_real_time_information{ false }, PCE_ratio{ 1 }, OCC_ratio {1}
     {
     }
 
@@ -130,6 +130,8 @@ public:
     bool b_real_time_information;
     int m_tau; // assigned nodes for computing
     int m_agent_type_no; // assigned nodes for computing
+    double PCE_ratio;
+    double OCC_ratio;
 
     CNodeForwardStar* NodeForwardStarArray;
 
@@ -387,7 +389,191 @@ public:
 
     //major function: update the cost for each node at each SP tree, using a stack from the origin structure
 
-    double backtrace_shortest_path_tree(Assignment& assignment, int iteration_number, int o_node_index);
+    //double backtrace_shortest_path_tree(Assignment& assignment, int iteration_number, int o_node_index);
+    //major function: update the cost for each node at each SP tree, using a stack from the origin structure
+    double backtrace_shortest_path_tree(Assignment& assignment, int iteration_number_outterloop, int o_node_index)
+    {
+        double total_origin_least_cost = 0;
+        int origin_node = m_origin_node_vector[o_node_index]; // assigned no
+        int m_origin_zone_seq_no = m_origin_zone_seq_no_vector[o_node_index]; // assigned no
+
+        //if (assignment.g_number_of_nodes >= 100000 && m_origin_zone_seq_no % 100 == 0)
+        //{
+        //	g_fout << "backtracing for zone " << m_origin_zone_seq_no << endl;
+        //}
+
+
+        int departure_time = m_tau;
+        int agent_type = m_agent_type_no;
+
+        if (g_node_vector[origin_node].m_outgoing_link_seq_no_vector.size() == 0)
+            return 0;
+
+        // given,  m_node_label_cost[i]; is the gradient cost , for this tree's, from its origin to the destination node i'.
+
+        //	fprintf(g_pFileDebugLog, "------------START: origin:  %d  ; Departure time: %d  ; demand type:  %d  --------------\n", origin_node + 1, departure_time, agent_type);
+        float k_path_prob = 1;
+        k_path_prob = float(1) / float(iteration_number_outterloop + 1);  //XZ: use default value as MSA, this is equivalent to 1/(n+1)
+        // MSA to distribute the continuous flow
+        // to do, this is for each nth tree.
+
+        //change of path flow is a function of cost gap (the updated node cost for the path generated at the previous iteration -m_node_label_cost[i] at the current iteration)
+        // current path flow - change of path flow,
+        // new propability for flow staying at this path
+        // for current shortest path, collect all the switched path from the other shortest paths for this ODK pair.
+        // check demand flow balance constraints
+
+        int num = 0;
+        int number_of_nodes = assignment.g_number_of_nodes;
+        int number_of_links = assignment.g_number_of_links;
+        int l_node_size = 0;  // initialize local node size index
+        int l_link_size = 0;
+        int node_sum = 0;
+
+        float path_travel_time = 0;
+        float path_distance = 0;
+
+        int current_node_seq_no = -1;  // destination node
+        int current_link_seq_no = -1;
+        int destination_zone_seq_no;
+        double ODvolume, volume;
+        CColumnVector* pColumnVector;
+
+        int local_debugging_flag = 0;
+        if (iteration_number_outterloop == 0)
+        {
+            if (g_node_vector[origin_node].zone_id == assignment.shortest_path_log_zone_id)
+                local_debugging_flag = 1;
+        }
+
+        for (int i = 0; i < number_of_nodes; ++i)
+        {
+            if (g_node_vector[i].zone_id >= 1)
+            {
+                if (i == origin_node) // no within zone demand
+                    continue;
+
+                if (g_node_vector[origin_node].zone_id == assignment.shortest_path_log_zone_id && g_node_vector[i].zone_id == 3)
+                {
+                    int idebug = 1;
+                }
+
+                //fprintf(g_pFileDebugLog, "--------origin  %d ; destination node: %d ; (zone: %d) -------\n", origin_node + 1, i+1, g_node_vector[i].zone_id);
+                //fprintf(g_pFileDebugLog, "--------iteration number outterloop  %d ;  -------\n", iteration_number_outterloop);
+                destination_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[g_node_vector[i].zone_id];
+
+                pColumnVector = &(assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][m_tau]);
+
+                if (pColumnVector->bfixed_route) // with routing policy, no need to run MSA for adding new columns
+                    continue;
+
+                ODvolume = pColumnVector->od_volume;
+                volume = ODvolume * k_path_prob;
+                // this is contributed path volume from OD flow (O, D, k, per time period
+
+                if (ODvolume > 0.000001 ||
+                    assignment.zone_seq_no_2_activity_mapping.find(m_origin_zone_seq_no) != assignment.zone_seq_no_2_activity_mapping.end() ||
+                    assignment.zone_seq_no_2_activity_mapping.find(destination_zone_seq_no) != assignment.zone_seq_no_2_activity_mapping.end() ||
+                    (
+                        assignment.zone_seq_no_2_info_mapping.find(m_origin_zone_seq_no) != assignment.zone_seq_no_2_info_mapping.end()
+                        && assignment.g_AgentTypeVector[agent_type].real_time_information >= 1)
+                    )
+                {
+                    l_node_size = 0;  // initialize local node size index
+                    l_link_size = 0;
+                    node_sum = 0;
+
+                    path_travel_time = 0;
+                    path_distance = 0;
+
+                    current_node_seq_no = i;  // destination node
+                    current_link_seq_no = -1;
+
+                    total_origin_least_cost += ODvolume * m_node_label_cost[current_node_seq_no];
+                    // backtrace the sp tree from the destination to the root (at origin)
+                    while (current_node_seq_no >= 0 && current_node_seq_no < number_of_nodes)
+                    {
+                        temp_path_node_vector[l_node_size++] = current_node_seq_no;
+
+                        if (l_node_size >= temp_path_node_vector_size)
+                        {
+                            dtalog.output() << "Error: l_node_size >= temp_path_node_vector_size" << endl;
+                            g_program_stop();
+                        }
+
+                        // this is valid node
+                        if (current_node_seq_no >= 0 && current_node_seq_no < number_of_nodes)
+                        {
+                            current_link_seq_no = m_link_predecessor[current_node_seq_no];
+                            node_sum += current_node_seq_no + current_link_seq_no;
+
+                            // fetch m_link_predecessor to mark the link volume
+                            if (current_link_seq_no >= 0 && current_link_seq_no < number_of_links)
+                            {
+                                temp_path_link_vector[l_link_size++] = current_link_seq_no;
+
+                                // pure link based computing mode
+                                if (assignment.assignment_mode == 0)
+                                {
+                                    // this is critical for parallel computing as we can write the volume to data
+                                    m_link_flow_volume_array[current_link_seq_no] += volume;
+                                }
+
+                                //path_travel_time += g_link_vector[current_link_seq_no].travel_time_per_period[tau];
+                                //path_distance += g_link_vector[current_link_seq_no].link_distance_VDF;
+                            }
+                        }
+                        current_node_seq_no = m_node_predecessor[current_node_seq_no];  // update node seq no
+                    }
+                    //fprintf(g_pFileDebugLog, "\n");
+
+                    // we obtain the cost, time, distance from the last tree-k
+                    if (assignment.assignment_mode >= 1) // column based mode
+                    {
+                        if (node_sum < 100)
+                        {
+                            int i_debug = 1;
+                        }
+
+                        // we cannot find a path with the same node sum, so we need to add this path into the map,
+                        if (l_node_size >= 2)
+                        {
+
+                            if (pColumnVector->path_node_sequence_map.find(node_sum) == assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][m_tau].path_node_sequence_map.end())
+                            {
+                                // add this unique path
+                                int path_count = pColumnVector->path_node_sequence_map.size();
+                                pColumnVector->path_node_sequence_map[node_sum].path_seq_no = path_count;
+                                pColumnVector->path_node_sequence_map[node_sum].path_volume = 0;
+                                //assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][tau].time = m_label_time_array[i];
+                                //assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][tau].path_node_sequence_map[node_sum].path_distance = m_label_distance_array[i];
+                                pColumnVector->path_node_sequence_map[node_sum].path_toll = m_node_label_cost[i];
+
+                                if (local_debugging_flag)
+                                {
+                                    for (int li = 0; li < l_node_size; ++li)
+                                    {
+                                        assignment.sp_log_file << "backtrace from zone_id =" << g_node_vector[i].zone_id << ", index: " << li << " node_id = " << g_node_vector[temp_path_node_vector[li]].node_id << endl;
+                                    }
+
+                                }
+
+                                pColumnVector->path_node_sequence_map[node_sum].AllocateVector(
+                                    l_node_size,
+                                    temp_path_node_vector,
+                                    l_link_size,
+                                    temp_path_link_vector, true);
+                            }
+
+                            pColumnVector->path_node_sequence_map[node_sum].path_volume += volume;
+                        }
+                    }
+                }
+            }
+        }
+        return total_origin_least_cost;
+    }
+
 
     //major function 2: // time-dependent label correcting algorithm with double queue implementation
     float optimal_label_correcting(int processor_id, Assignment* p_assignment, int iteration_k, int o_node_index, int d_node_no = -1, bool pure_travel_time_cost = false)
@@ -395,6 +581,7 @@ public:
         int local_debugging_flag = 0;
 
         int SE_loop_count = 0;
+
 
         if (iteration_k == 0)
             BuildNetwork(p_assignment);  // based on agent type and link type
@@ -404,6 +591,12 @@ public:
         int origin_zone = m_origin_zone_seq_no_vector[o_node_index]; // assigned nodes for computing
 
         bool negative_cost_flag = UpdateGeneralizedLinkCost(agent_type, p_assignment, origin_zone, iteration_k);
+
+        if (iteration_k <= 2) 
+        {
+            if (g_zone_vector[origin_zone].zone_id == p_assignment->shortest_path_log_zone_id)
+                local_debugging_flag = 1;
+        }
 
 
         if (negative_cost_flag == true)
@@ -419,6 +612,11 @@ public:
 
         if (dtalog.debug_level() >= 2)
             dtalog.output() << "SP iteration k =  " << iteration_k << ": origin node: " << g_node_vector[origin_node].node_id << endl;
+
+        if(local_debugging_flag==1)
+        { 
+            p_assignment->sp_log_file << " beginning of SP iteration k =  " << iteration_k << ": origin node: " << g_node_vector[origin_node].node_id << endl;
+        }
 
         int number_of_nodes = p_assignment->g_number_of_nodes;
         //Initialization for all non-origin nodes
@@ -472,9 +670,9 @@ public:
 
             m_node_status_array[from_node] = 2;
 
-            if (dtalog.log_path() >= 2 || local_debugging_flag )
+            if (local_debugging_flag )
             {
-                dtalog.output() << "SP:scan SE node: " << g_node_vector[from_node].node_id << " with "
+                p_assignment->sp_log_file << "SP:scan SE node: " << g_node_vector[from_node].node_id << " with "
                     << NodeForwardStarArray[from_node].OutgoingLinkSize << " outgoing link(s). " << endl;
             }
             //scan all outbound nodes of the current node
@@ -487,8 +685,8 @@ public:
                 to_node = NodeForwardStarArray[from_node].OutgoingNodeNoArray[i];
                 link_sqe_no = NodeForwardStarArray[from_node].OutgoingLinkNoArray[i];
 
-                if (dtalog.log_path() >= 2 || local_debugging_flag)
-                    dtalog.output() << "SP:  checking outgoing node " << g_node_vector[to_node].node_id << endl;
+                if (local_debugging_flag)
+                    p_assignment->sp_log_file << "SP:  checking outgoing node " << g_node_vector[to_node].node_id << endl;
 
                 // if(map (pred_link_seq_no, link_sqe_no) is prohibitted )
                 //     then continue; //skip this is not an exact solution algorithm for movement
@@ -546,9 +744,9 @@ public:
                     int debug = 1;
                 }
 
-                if (dtalog.log_path() || local_debugging_flag)
+                if (local_debugging_flag)
                 {
-                    dtalog.output() << "SP:  checking from node " << g_node_vector[from_node].node_id
+                    p_assignment->sp_log_file << "SP:  checking from node " << g_node_vector[from_node].node_id
                         << "  to node " << g_node_vector[to_node].node_id << " cost = " << new_to_node_cost <<
                         " , m_node_label_cost[from_node] " << m_node_label_cost[from_node] << ",m_link_genalized_cost_array[link_sqe_no] = " << m_link_genalized_cost_array[link_sqe_no] 
                         << endl;
@@ -557,9 +755,9 @@ public:
 
                 if (new_to_node_cost < m_node_label_cost[to_node]) // we only compare cost at the downstream node ToID at the new arrival time t
                 {
-                    if (dtalog.log_path() || local_debugging_flag)
+                    if (local_debugging_flag)
                     {
-                        dtalog.output() << "SP:  updating node: " << g_node_vector[to_node].node_id << " current cost:" << m_node_label_cost[to_node]
+                        p_assignment->sp_log_file << "SP:  updating node: " << g_node_vector[to_node].node_id << " current cost:" << m_node_label_cost[to_node]
                             << " new cost " << new_to_node_cost << endl;
                     }
 
@@ -572,9 +770,9 @@ public:
                     // pointer to previous physical NODE INDEX from the current label at current node and time
                     m_link_predecessor[to_node] = link_sqe_no;
 
-                    if (dtalog.log_path() || local_debugging_flag)
+                    if (local_debugging_flag)
                     {
-                        dtalog.output() << "SP: add node " << g_node_vector[to_node].node_id << " new cost:" << new_to_node_cost
+                        p_assignment->sp_log_file << "SP: add node " << g_node_vector[to_node].node_id << " new cost:" << new_to_node_cost
                             << " into SE List " << g_node_vector[to_node].node_id << endl;
                     }
 
@@ -623,9 +821,9 @@ public:
             }
         }
 
-        if (dtalog.log_path() || local_debugging_flag)
+        if (local_debugging_flag)
         {
-            dtalog.output() << "SPtree at iteration k = " << iteration_k << " origin node: "
+            p_assignment->sp_log_file << "SPtree at iteration k = " << iteration_k << " origin node: "
                 << g_node_vector[origin_node].node_id << endl;
 
             //Initialization for all non-origin nodes
@@ -639,7 +837,7 @@ public:
 
                 if (m_node_label_cost[i] < 9999)
                 {
-                    dtalog.output() << "SP node: " << g_node_vector[i].node_id << " label cost " << m_node_label_cost[i] << "time "
+                    p_assignment->sp_log_file << "SP node: " << g_node_vector[i].node_id << " label cost " << m_node_label_cost[i] << "time "
                         << m_label_time_array[i] << "node_pred_id " << node_pred_id << endl;
                 }
             }
@@ -649,7 +847,7 @@ public:
          //origin_node = m_origin_node_vector[o_node_index]; // assigned nodes for computing
          //origin_zone = m_origin_zone_seq_no_vector[o_node_index]; // assigned nodes for computing
            
-       if (iteration_k == 0)  // only one processor
+       if (iteration_k <= 2)  // only one processor
        {
             if(g_zone_vector[origin_zone].zone_id == p_assignment->shortest_path_log_zone_id && p_assignment->g_origin_demand_array.find(origin_zone) != p_assignment->g_origin_demand_array.end())
             {
@@ -671,6 +869,7 @@ public:
             }
             }
         }
+         
 
         if (d_node_no >= 1)
             return m_node_label_cost[d_node_no];

@@ -730,7 +730,7 @@ void g_add_new_virtual_connector_link(int internal_from_node_seq_no, int interna
 {
     // create a link object
     CLink link;
-
+    link.link_id = "connector";
     link.from_node_seq_no = internal_from_node_seq_no;
     link.to_node_seq_no = internal_to_node_seq_no;
     link.link_seq_no = assignment.g_number_of_links;
@@ -747,6 +747,7 @@ void g_add_new_virtual_connector_link(int internal_from_node_seq_no, int interna
     link.lane_capacity = 999999;
     link.link_spatial_capacity = 99999;
     link.link_distance_VDF = 0.00001;
+    link.free_flow_travel_time_in_min = 0;
 
     for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
     {
@@ -875,6 +876,131 @@ double g_CheckActivityNodes(Assignment& assignment)
 
 }
 
+int g_detect_if_demand_data_provided(Assignment& assignment)
+{
+
+    CCSVParser parser;
+    dtalog.output() << endl;
+    dtalog.output() << "Step 1.8: Reading file section [demand_file_list] in setting.csv..." << endl;
+    parser.IsFirstLineHeader = false;
+
+    if (parser.OpenCSVFile("settings.csv", false))
+    {
+        while (parser.ReadRecord_Section())
+        {
+
+            if (parser.SectionName == "[demand_file_list]")
+            {
+                int file_sequence_no = 1;
+
+                string format_type = "null";
+
+                int demand_format_flag = 0;
+
+                if (!parser.GetValueByFieldName("file_sequence_no", file_sequence_no))
+                    break;
+
+                // skip negative sequence no
+                if (file_sequence_no <= -1)
+                    continue;
+
+                string file_name, demand_period_str, agent_type;
+                parser.GetValueByFieldName("file_name", file_name);
+
+                if (format_type.find("column") != string::npos)  // or muliti-column
+                {
+                    // read the file formaly after the test.
+                    CCSVParser parser;
+
+                    if (parser.OpenCSVFile(file_name, false))
+                    {
+                        return 0;
+                    }
+                    else
+                    {
+                        return 1; // colulmn format demand file is needed.
+                    }
+                }
+                if (format_type.find("matrix") != string::npos)  
+                {
+                    // read the file formaly after the test.
+                    CCSVParser parser;
+
+                    if (parser.OpenCSVFile(file_name, false))
+                    {
+                        return 0;
+                    }
+                    else
+                    {
+                        return 2; // matrix format demand file is needed.
+                    }
+                }
+            }
+        }
+     }
+
+    return 2;  //default
+}
+
+int g_detect_if_zones_defined_in_node_csv(Assignment& assignment)
+{
+    CCSVParser parser;
+
+    int number_of_zones = 0;
+    int number_of_is_boundary = 0;
+
+
+    if (parser.OpenCSVFile("node.csv", true))
+    {
+        while (parser.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
+        {
+            int node_id;
+            if (!parser.GetValueByFieldName("node_id", node_id))
+                continue;
+
+            int zone_id = 0;
+            int is_boundary = 0;
+            parser.GetValueByFieldName("zone_id", zone_id);
+            parser.GetValueByFieldName("is_boundary", is_boundary, false);
+
+            if (zone_id >= 1)
+            {
+                number_of_zones++;
+            }
+
+            if (is_boundary != 0)
+            {
+                number_of_is_boundary++;
+            }
+        }
+
+        parser.CloseCSVFile();
+    }
+
+    if (parser.OpenCSVFile("zone.csv", true))
+    {
+        while (parser.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
+        {
+            int node_id;
+            if (!parser.GetValueByFieldName("node_id", node_id))
+                continue;
+            int zone_id = 0;
+            parser.GetValueByFieldName("zone_id", zone_id);
+            if (zone_id >= 1)
+            {
+                number_of_zones++;
+            }
+        }
+        parser.CloseCSVFile();
+    }
+
+    if (number_of_zones >= 2)  // if node.csv or zone.csv have 2 more zones;
+        return 1;
+    if (number_of_is_boundary >= 2)
+        return 0;
+    else
+        return -1;
+}
 
 void g_read_input_data(Assignment& assignment)
 {
@@ -1007,7 +1133,7 @@ void g_read_input_data(Assignment& assignment)
                 {
                     if (line_no == 0)
                     {
-                        dtalog.output() << "Error: Field link_type cannot be found in file link_type.csv." << endl;
+                        dtalog.output() << "Error: Field link_type cannot be found in file link_type section." << endl;
                         g_program_stop();
                     }
                     else
@@ -1019,12 +1145,24 @@ void g_read_input_data(Assignment& assignment)
 
                 if (assignment.g_LinkTypeMap.find(element.link_type) != assignment.g_LinkTypeMap.end())
                 {
-                    dtalog.output() << "Error: Field link_type " << element.link_type << " has been defined more than once in file link_type.csv." << endl;
+                    dtalog.output() << "Error: Field link_type " << element.link_type << " has been defined more than once in file link_type section" << endl;
                     g_program_stop();
                 }
 
                 string traffic_flow_code_str;
                 parser_link_type.GetValueByFieldName("type_code", element.type_code, true);
+
+                string vdf_type_str;
+                parser_link_type.GetValueByFieldName("vdf_type", vdf_type_str, true);
+                if (vdf_type_str == "bpr")
+                    element.vdf_type = 0;
+                if (vdf_type_str == "qvdf")
+                    element.vdf_type = 1;
+                if (vdf_type_str == "bprx")
+                    element.vdf_type = 2;
+
+
+                
                 parser_link_type.GetValueByFieldName("traffic_flow_code", traffic_flow_code_str);
                 parser_link_type.GetValueByFieldName("k_jam", element.k_jam, false);
 
@@ -1141,6 +1279,18 @@ void g_read_input_data(Assignment& assignment)
     assignment.g_number_of_nodes = 0;
     assignment.g_number_of_links = 0;  // initialize  the counter to 0
 
+
+    int zone_reading_mode = g_detect_if_zones_defined_in_node_csv(assignment);
+    // = 1: normal
+    //= 0, there are is boundary 
+    //=-1, no information
+
+    if (zone_reading_mode!=1)
+    {
+        g_grid_zone_generation(assignment);
+
+    }
+
     int internal_node_seq_no = 0;
     // step 3: read node file
 
@@ -1155,106 +1305,56 @@ void g_read_input_data(Assignment& assignment)
     std::map<int, int> zone_id_production;
     std::map<int, int> zone_id_attraction;
 
-
-
-
     CCSVParser parser;
 
     int multmodal_activity_node_count = 0;
 
-    if(assignment.assignment_mode != 20)
-    {    dtalog.output() << "Step 1.3: Reading zone data in zone.csv..." << endl;
+        dtalog.output() << "Step 1.3: Reading zone data in zone.csv..." << endl;
 
 
     if (parser.OpenCSVFile("zone.csv", true))
     {
         while (parser.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
         {
-            int node_id;
-            if (!parser.GetValueByFieldName("node_id", node_id))
+            int zone_id=0;
+            if (!parser.GetValueByFieldName("zone_id", zone_id))
                 continue;
 
-            if (assignment.g_node_id_to_seq_no_map.find(node_id) != assignment.g_node_id_to_seq_no_map.end())
+            if (zone_id <= 0)
             {
-                //has been defined
                 continue;
             }
-            assignment.g_node_id_to_seq_no_map[node_id] = internal_node_seq_no;
 
-            // create a node object
-            CNode node;
-            node.node_id = node_id;
-            node.node_seq_no = internal_node_seq_no;
+            string access_node_vector_str;
+            parser.GetValueByFieldName("access_node_vector", access_node_vector_str);
 
-            int zone_id = -1;
-            int is_boundary = 0;
+            std::vector<int> access_node_vector;
 
-//
-            parser.GetValueByFieldName("zone_id", zone_id);
-            if (zone_id >= 1)
-            {
-                node.is_activity_node = 100;  // from zone.csv
-                string str_agent_type;
-                parser.GetValueByFieldName("agent_type", str_agent_type, false); //step 2 for adding access links: read agent_type for adding access links
-
-                if (str_agent_type.size() > 0 && assignment.agent_type_2_seqno_mapping.find(str_agent_type) != assignment.agent_type_2_seqno_mapping.end())
-                {
-                    node.agent_type_str = str_agent_type;
-                    node.agent_type_no = assignment.agent_type_2_seqno_mapping[str_agent_type];
-                    multmodal_activity_node_count++;
-                }
-            }
-
-            parser.GetValueByFieldName("access_distance", node.access_distance, true, false);
+            g_ParserIntSequence(access_node_vector_str, access_node_vector);
             
-
-            parser.GetValueByFieldName("x_coord", node.x, true, false);
-            parser.GetValueByFieldName("y_coord", node.y, true, false);
-
-            // this is an activity node // we do not allow zone id of zero
-            if (zone_id >= 1)
+            for (int i = 0; i < access_node_vector.size(); i++)
             {
-                // for physcial nodes because only centriod can have valid zone_id.
-                node.zone_org_id = zone_id;
-                if (zone_id_mapping.find(zone_id) == zone_id_mapping.end())
-                {
-                    //create zone
-                    zone_id_mapping[zone_id] = node_id;
-
-                    assignment.zone_id_X_mapping[zone_id] = node.x;
-                    assignment.zone_id_Y_mapping[zone_id] = node.y;
-                }
-
-                // for od calibration, I think we don't need to implement for now
-                if (assignment.assignment_mode == 5 || assignment.assignment_mode == 21)
-                {
-                    float production = 0;
-                    float attraction = 0;
-                    parser.GetValueByFieldName("production", production,false);
-                    parser.GetValueByFieldName("attraction", attraction, false);
-
-                    zone_id_production[zone_id] = production;
-                    zone_id_attraction[zone_id] = attraction;
-                }
+                assignment.access_node_id_to_zone_id_map[access_node_vector[i]] = zone_id;
             }
-            /*node.x = x;
-            node.y = y;*/
-            internal_node_seq_no++;
 
+            float production = 0;
+            float attraction = 0;
+            parser.GetValueByFieldName("production", production,false);
+            parser.GetValueByFieldName("attraction", attraction, false);
+
+            zone_id_production[zone_id] = production;
+            zone_id_attraction[zone_id] = attraction;
             // push it to the global node vector
-            g_node_vector.push_back(node);
-            assignment.g_number_of_nodes++;
-
-            if (assignment.g_number_of_nodes % 5000 == 0)
-                dtalog.output() << "reading " << assignment.g_number_of_nodes << " nodes.. " << endl;
+            dtalog.output() << "reading " << assignment.access_node_id_to_zone_id_map.size() << " access nodes from zone.csv.. " << endl;
         }
 
         parser.CloseCSVFile();
-        }
     }
+    
 
 
     dtalog.output() << "Step 1.4: Reading node data in node.csv..." << endl;
+
 
     if (parser.OpenCSVFile("node.csv", true))
     {
@@ -1277,19 +1377,26 @@ void g_read_input_data(Assignment& assignment)
             node.node_seq_no = internal_node_seq_no;
 
             int zone_id = -1;
-            int is_boundary = 0;
 
+            parser.GetValueByFieldName("is_boundary", node.is_boundary, false,false);
             parser.GetValueByFieldName("node_type", node.node_type, false);// step 1 for adding access links: read node type
-
             parser.GetValueByFieldName("zone_id", zone_id);
-            parser.GetValueByFieldName("is_boundary", is_boundary, false);
-            node.is_boundary = is_boundary;
-            if (zone_id >= 1 || is_boundary!=0 )
+
+            if (node_id == 2235)
             {
+                int idebug = 1;
+            }
+            //read from mapping created in zone file
+            if (zone_id == -1 && assignment.access_node_id_to_zone_id_map.find(node_id) != assignment.access_node_id_to_zone_id_map.end())
+            {
+                zone_id = assignment.access_node_id_to_zone_id_map[node_id];
+            }
+
+            if (zone_id >= 1 )
+            {
+                node.zone_id = zone_id;
                 if(zone_id >=1)
                     node.is_activity_node = 1;  // from zone
-                else if (is_boundary !=0)
-                    node.is_activity_node = 2;  // from node.csv, is boundary 
 
                 string str_agent_type;
                 parser.GetValueByFieldName("agent_type", str_agent_type, false); //step 2 for adding access links: read agent_type for adding access links
@@ -1368,8 +1475,7 @@ void g_read_input_data(Assignment& assignment)
 
     int debug_line_count = 0;
 
-
-    
+     
         /// <summary>  mappping node to zone
         // hanlding multimodal access link: stage 1
         //step 3 for adding access links: there is node type restriction defined in agent type section of settings.csv
@@ -1513,13 +1619,17 @@ void g_read_input_data(Assignment& assignment)
 
             // for each zone, we have to also create centriod
             ozone.zone_id = it->first;  // zone_id
+
+            if (assignment.shortest_path_log_zone_id == -1)  // set this to the first zone
+                assignment.shortest_path_log_zone_id = ozone.zone_id;
+
             ozone.zone_seq_no = g_zone_vector.size();
             ozone.obs_production = zone_id_production[it->first];
             ozone.obs_attraction = zone_id_attraction[it->first];
             ozone.cell_x = assignment.zone_id_X_mapping[it->first];
             ozone.cell_y = assignment.zone_id_Y_mapping[it->first];
-            ozone.gravity_production[0] = zone_id_production[it->first];
-            ozone.gravity_attraction[0] = zone_id_attraction[it->first];
+            ozone.gravity_production = zone_id_production[it->first];
+            ozone.gravity_attraction = zone_id_attraction[it->first];
 
            assignment.g_zoneid_to_zone_seq_no_mapping[ozone.zone_id] = ozone.zone_seq_no;  // create the zone id to zone seq no mapping
 
@@ -1530,6 +1640,8 @@ void g_read_input_data(Assignment& assignment)
             node.node_seq_no = g_node_vector.size();
             assignment.g_node_id_to_seq_no_map[node.node_id] = node.node_seq_no;
             node.zone_id = ozone.zone_id;
+            node.x = ozone.cell_x;
+            node.y = ozone.cell_y;
 
             if (info_zone_id_mapping.find(ozone.zone_id) != info_zone_id_mapping.end())
             {
@@ -1549,60 +1661,24 @@ void g_read_input_data(Assignment& assignment)
             g_zone_vector.push_back(ozone);
         }
 
-        // gravity model.
-        if (assignment.assignment_mode == 5)
-        {
-            dtalog.output() << "writing demand.csv.." << endl;
-
-            FILE* g_pFileODMatrix = nullptr;
-            fopen_ss(&g_pFileODMatrix, "demand.csv", "w");
-
-            if (!g_pFileODMatrix)
-            {
-                dtalog.output() << "File demand.csv cannot be opened." << endl;
-                g_program_stop();
-            }
-            else
-            {
-                fprintf(g_pFileODMatrix, "o_zone_id,d_zone_id,volume\n");
-
-                float total_attraction = 0;
-
-                for (int d = 0; d < g_zone_vector.size(); ++d)
-                {
-                    if (g_zone_vector[d].obs_attraction > 0)
-                        total_attraction += g_zone_vector[d].obs_attraction;
-                }
-
-                // reset the estimated production and attraction
-                for (int orig = 0; orig < g_zone_vector.size(); ++orig)  // o
-                {
-                    if (g_zone_vector[orig].obs_production >= 0)
-                    {
-                        for (int dest = 0; dest < g_zone_vector.size(); ++dest)  // d
-                        {
-                            if (g_zone_vector[dest].obs_attraction > 0)
-                            {
-                                float value = g_zone_vector[orig].obs_production * g_zone_vector[dest].obs_attraction / max(0.0001f, total_attraction);
-                                fprintf(g_pFileODMatrix, "%d,%d,%.4f,\n", g_zone_vector[orig].zone_id, g_zone_vector[dest].zone_id, value);
-                                dtalog.output() << "orig= " << g_zone_vector[orig].zone_id << " dest= " << g_zone_vector[dest].zone_id << ":" << value << endl;
-                            }
-                        }
-                    }
-                }
-
-                fclose(g_pFileODMatrix);
-            }
-        }
 
         dtalog.output() << "number of zones = " << g_zone_vector.size() << endl;
         g_zone_to_access(assignment);  // only under zone2connector mode
         g_OutputModelFiles(3);  // node
 
-        // step 4: read link file
+
+        int demand_data_mode = g_detect_if_demand_data_provided(assignment);
+
+        if (demand_data_mode >= 1)
+        {
+            g_demand_file_generation(assignment);
+        }
+
+// step 4: read link file
 
         CCSVParser parser_link;
 
+        int link_type_warning_count = 0;
         bool length_in_km_waring = false;
         dtalog.output() << "Step 1.6: Reading link data in link.csv... " << endl;
         if (parser_link.OpenCSVFile("link.csv", true))
@@ -1655,7 +1731,7 @@ void g_read_input_data(Assignment& assignment)
                 assignment.g_link_id_map[link.link_id] = 1;
 
                 string movement_str;
-                parser_link.GetValueByFieldName("mPMT_txt_id", movement_str, false);
+                parser_link.GetValueByFieldName("mvmt_txt_id", movement_str, false);
                 int cell_type = -1;
                 if (parser_link.GetValueByFieldName("cell_type", cell_type, false) == true)
                     link.cell_type = cell_type;
@@ -1676,7 +1752,7 @@ void g_read_input_data(Assignment& assignment)
                     int main_node_id = -1;
 
 
-                    link.mPMT_txt_id = movement_str;
+                    link.mvmt_txt_id = movement_str;
                     link.main_node_id = main_node_id;
                 }
 
@@ -1686,7 +1762,11 @@ void g_read_input_data(Assignment& assignment)
 
                 if (assignment.g_LinkTypeMap.find(link_type) == assignment.g_LinkTypeMap.end())
                 {
-                    dtalog.output() << "link type " << link_type << " in link.csv is not defined for link " << from_node_id << "->" << to_node_id << " in link_type.csv" << endl;
+                    if(link_type_warning_count<10)
+                    {
+                    dtalog.output() << "link type " << link_type << " in link.csv is not defined for link " << from_node_id << "->" << to_node_id << " in link_type section in setting.csv" << endl;
+                    link_type_warning_count++;
+                    }
                     // link.link_type has been taken care by its default constructor
                     //g_program_stop();
                 }
@@ -1714,7 +1794,10 @@ void g_read_input_data(Assignment& assignment)
 
                 double lane_capacity = 1800;
                 parser_link.GetValueByFieldName("length", length_in_meter);  // in meter
-                
+                parser_link.GetValueByFieldName("FT", link.FT,false,true);
+                parser_link.GetValueByFieldName("AT", link.AT, false, true);
+                parser_link.GetValueByFieldName("VDF_code", link.VDF_code, false);
+
                 if (length_in_km_waring == false && length_in_meter < 0.1)
                 {
                     dtalog.output() << "warning: link link_distance_VDF =" << length_in_meter << " in link.csv for link " << from_node_id << "->" << to_node_id << ". Please ensure the unit of the link link_distance_VDF is meter." << endl;
@@ -1762,9 +1845,7 @@ void g_read_input_data(Assignment& assignment)
                 if (link.traffic_flow_code == 3)
                     link.BWTT_in_simulation_interval = link.link_distance_VDF / bwtt_speed * 3600 / number_of_seconds_per_interval;
 
-                // Peiheng, 02/03/21, useless block
-                if (linkID == "10")
-                    int i_debug = 1;
+                link.vdf_type = assignment.g_LinkTypeMap[link.link_type].vdf_type;
 
                 char VDF_field_name[50];
 
@@ -1801,12 +1882,12 @@ void g_read_input_data(Assignment& assignment)
                 // reading for VDF related functions 
                 // step 1 read type
 
-                link.VDF_type_no = assignment.VDF_type;
+
                     //data initialization 
 
                 for (int time_index = 0; time_index < MAX_TIMEINTERVAL_PerDay; time_index++)
                 {
-                    link.est_speed[time_index] = free_speed;
+                    link.model_speed[time_index] = free_speed;
                     link.est_volume_per_hour_per_lane[time_index] = 0;
                     link.est_avg_waiting_time_in_min[time_index] = 0;
                     link.est_queue_length_per_lane[time_index] = 0;
@@ -1816,6 +1897,7 @@ void g_read_input_data(Assignment& assignment)
                 for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
                 {
                     //setup default values
+                    link.VDF_period[tau].vdf_type = assignment.g_LinkTypeMap[link.link_type].vdf_type;
                     link.VDF_period[tau].lane_based_ultimate_hourly_capacity = lane_capacity;
                     link.VDF_period[tau].nlanes = number_of_lanes;
 
@@ -1827,8 +1909,6 @@ void g_read_input_data(Assignment& assignment)
                     link.VDF_period[tau].beta = 4;
                     link.VDF_period[tau].preload = 0;
 
-
-
                     for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)
                     {
                         link.VDF_period[tau].toll[at] = 0;
@@ -1836,58 +1916,73 @@ void g_read_input_data(Assignment& assignment)
                         link.VDF_period[tau].LR_RT_price[at] = 0;
                     }
 
-
                     link.VDF_period[tau].starting_time_in_hour = assignment.g_DemandPeriodVector[tau].starting_time_slot_no* MIN_PER_TIMESLOT/60.0;
                     link.VDF_period[tau].ending_time_in_hour = assignment.g_DemandPeriodVector[tau].ending_time_slot_no * MIN_PER_TIMESLOT / 60.0;
                     link.VDF_period[tau].L = assignment.g_DemandPeriodVector[tau].time_period_in_hour;
                     link.VDF_period[tau].t2 = assignment.g_DemandPeriodVector[tau].t2_peak_in_hour;
                     link.VDF_period[tau].peak_load_factor = 1;
 
-
                     int demand_period_id = assignment.g_DemandPeriodVector[tau].demand_period_id;
-                    sprintf(VDF_field_name, "VDF_fftt%d", demand_period_id);
-                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].FFTT, false, false);  // FFTT should be per min
+                    sprintf(VDF_field_name, "BPR_fftt%d", demand_period_id);
+
+                    double FFTT = -1;
+                    parser_link.GetValueByFieldName(VDF_field_name, FFTT, false, false);  // FFTT should be per min
+
+                    bool VDF_required_field_flag = false;
+                    if (FFTT >= 0)
+                    {
+                        link.VDF_period[tau].FFTT = FFTT;
+                        VDF_required_field_flag = true;
+                    }
 
                     if (link.VDF_period[tau].FFTT > 100)
+
                     {
                         dtalog.output() << "link " << from_node_id << "->" << to_node_id << " has a FFTT of " << link.VDF_period[tau].FFTT << " min at demand period " << demand_period_id
                             << " " << assignment.g_DemandPeriodVector[tau].demand_period.c_str() << endl;
                      }
+
+                   sprintf(VDF_field_name, "BPR_plf%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].peak_load_factor, VDF_required_field_flag, false);
+                    sprintf(VDF_field_name, "BPR_alpha%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].alpha, VDF_required_field_flag, false);
+                    sprintf(VDF_field_name, "BPR_beta%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].beta, VDF_required_field_flag, false);
+
+                    if(link.vdf_type >=1)
+                    {
+                    sprintf(VDF_field_name, "QVDF_vctt%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].VCTT, VDF_required_field_flag, false);  // VTTT should be per min
 
                     if (link.VDF_period[tau].VCTT > 100)
                     {
                         dtalog.output() << "link " << from_node_id << "->" << to_node_id << " has a VCTT of " << link.VDF_period[tau].VCTT << " min at demand period " << demand_period_id
                             << " " << assignment.g_DemandPeriodVector[tau].demand_period.c_str() << endl;
                     }
-                    sprintf(VDF_field_name, "VDF_vctt%d", demand_period_id);
-                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].VCTT, false, false);  // FFTT should be per min
 
-                    sprintf(VDF_field_name, "VDF_plf%d", demand_period_id);
-                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].peak_load_factor, false, false);
+                    sprintf(VDF_field_name, "QVDF_qdf%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].queue_demand_factor, VDF_required_field_flag, false);
+                    sprintf(VDF_field_name, "QVDF_alpha%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].Q_alpha, VDF_required_field_flag, false);
+                    sprintf(VDF_field_name, "QVDF_beta%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].Q_beta, VDF_required_field_flag, false);
+                    sprintf(VDF_field_name, "QVDF_cd%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].Q_cd, VDF_required_field_flag, false);
+                    sprintf(VDF_field_name, "QVDF_n%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].Q_n, VDF_required_field_flag, false);
 
-                    sprintf(VDF_field_name, "VDF_alpha%d", demand_period_id);
-                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].alpha, false, false);
-
-                    sprintf(VDF_field_name, "VDF_beta%d", demand_period_id);
-                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].beta, false, false);
-
-                    sprintf(VDF_field_name, "VDF_n%d", demand_period_id);
-                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].n, false, false);
-
-                    sprintf(VDF_field_name, "VDF_s%d", demand_period_id);
-                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].s, false, false);
-
-                    sprintf(VDF_field_name, "VDF_m%d", demand_period_id);
-                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].m, false, false);
-
+                    }
                     sprintf(VDF_field_name, "VDF_allowed_uses%d", demand_period_id);
                     parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].allowed_uses, false);
 
                     sprintf(VDF_field_name, "VDF_preload%d", demand_period_id);
                     parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].preload, false, false);
 
-                    sprintf(VDF_field_name, "VDF_savol%d", demand_period_id);
-                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].sa_volume, false, false);
+                    sprintf(VDF_field_name, "SA_lanes_change%d", demand_period_id);
+                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].sa_lanes_change, false, false);
+
+                    //sprintf(VDF_field_name, "SA_vol%d", demand_period_id);
+                    //parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].sa_volume, false, false);
 
                     for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)
                     {
@@ -1901,7 +1996,6 @@ void g_read_input_data(Assignment& assignment)
                         }
 
                     }
-
                     sprintf(VDF_field_name, "VDF_penalty%d", demand_period_id);
                     parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].penalty, false, false);
 
@@ -1911,12 +2005,9 @@ void g_read_input_data(Assignment& assignment)
                         link.VDF_period[tau].penalty += 0.4;
                     }
 
-                    sprintf(VDF_field_name, "VDF_mu%d", demand_period_id);
-                    parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].mu, false, false);  // mu should be per hour per link, so that we can calculate congestion duration and D/mu in BPR-X
+                    parser_link.GetValueByFieldName("cycle_length", link.VDF_period[tau].cycle_length, false, false);
 
-                    parser_link.GetValueByFieldName("cycle_link_distance_VDF", link.VDF_period[tau].cycle_link_distance_VDF, false, false);
-
-                    if (link.VDF_period[tau].cycle_link_distance_VDF >= 1)
+                    if (link.VDF_period[tau].cycle_length >= 1)
                     {
                         link.timing_arc_flag = true;
 
@@ -1979,42 +2070,7 @@ void g_read_input_data(Assignment& assignment)
                     parser_link.GetValueByFieldName("tmc_road_sequence", link.tmc_road_sequence, false);
                 }
 
-
-
-                for (int tau = 0; tau <= 4; tau++)
-                {
-                    link.VDF_STA_speed[tau] = -1;
-                    link.VDF_STA_VOC[tau] = -1;
-                    link.VDF_STA_volume[tau] = -1;
-                }
-
-                parser_link.GetValueByFieldName("VDF_STA_speed1", link.VDF_STA_speed[1], false);
-                parser_link.GetValueByFieldName("VDF_STA_speed2", link.VDF_STA_speed[2], false);
-                parser_link.GetValueByFieldName("VDF_STA_speed3", link.VDF_STA_speed[3], false);
-                parser_link.GetValueByFieldName("VDF_STA_speed4", link.VDF_STA_speed[4], false);
-
-                parser_link.GetValueByFieldName("VDF_STA_VOC1", link.VDF_STA_VOC[1], false);
-                parser_link.GetValueByFieldName("VDF_STA_VOC2", link.VDF_STA_VOC[2], false);
-                parser_link.GetValueByFieldName("VDF_STA_VOC3", link.VDF_STA_VOC[3], false);
-                parser_link.GetValueByFieldName("VDF_STA_VOC4", link.VDF_STA_VOC[4], false);
-
-                parser_link.GetValueByFieldName("VDF_STA_volume1", link.VDF_STA_volume[1], false);
-                parser_link.GetValueByFieldName("VDF_STA_volume2", link.VDF_STA_volume[2], false);
-                parser_link.GetValueByFieldName("VDF_STA_volume3", link.VDF_STA_volume[3], false);
-                parser_link.GetValueByFieldName("VDF_STA_volume4", link.VDF_STA_volume[4], false);
-                //
-
-
                 g_link_vector.push_back(link);
-
-                string mPMT_key;
-                parser_link.GetValueByFieldName("mPMT_key", mPMT_key, false);
-                if (mPMT_key.size() > 4) // main_node_id _ movement code
-                {
-                    assignment.g_mPMT_key_to_link_no_map[mPMT_key] = assignment.g_number_of_links;
-                }
-
-
 
                 assignment.g_number_of_links++;
 
@@ -2088,31 +2144,6 @@ void g_read_input_data(Assignment& assignment)
             }
         }
 
-
-        if (assignment.assignment_mode == 10)  // if no zones have been identified from node.csv, then we carry out the zone generation and demand generation 
-        {
-            if (g_zone_vector.size() == 0)  // if no zones have been identified from node.csv, then we carry out the zone generation and demand generation 
-            {
-                g_grid_zone_generation(assignment);
-                g_create_zone_vector(assignment);
-            }
-            g_demand_file_generation(assignment);
-
-            assignment.assignment_mode = 2;  // default back to dta mode  // read generated input_matrix.csv 
-        }
-
-        if (assignment.assignment_mode == 20)  // if no zones have been identified from node.csv, then we carry out the zone generation and demand generation 
-        {
-            if (g_zone_vector.size() == 0)  // if no zones have been identified from node.csv, then we carry out the zone generation and demand generation 
-            {
-                g_grid_zone_generation(assignment);
-                g_program_exit();
-            }
-
-
-        }
-
-
 }
     //CCSVParser parser_movement;
     //int prohibited_count = 0;
@@ -2178,24 +2209,24 @@ void g_read_input_data(Assignment& assignment)
 //    {
 //        while (parser_timing_arc.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
 //        {
-//            string mPMT_key;
-//            if (!parser_timing_arc.GetValueByFieldName("mPMT_key", mPMT_key))
+//            string mvmt_key;
+//            if (!parser_timing_arc.GetValueByFieldName("mvmt_key", mvmt_key))
 //            {
-//                dtalog.output() << "Error: mPMT_key in file timing.csv is not defined." << endl;
+//                dtalog.output() << "Error: mvmt_key in file timing.csv is not defined." << endl;
 //                continue;
 //            }
 //            // create a link object
 //            CSignalTiming timing_arc;
 //
-//            if (assignment.g_mPMT_key_to_link_no_map.find(mPMT_key) == assignment.g_mPMT_key_to_link_no_map.end())
+//            if (assignment.g_mvmt_key_to_link_no_map.find(mvmt_key) == assignment.g_mvmt_key_to_link_no_map.end())
 //            {
-//                dtalog.output() << "Error: mPMT_key " << mPMT_key << " in file timing.csv is not defined in link.csv." << endl;
+//                dtalog.output() << "Error: mvmt_key " << mvmt_key << " in file timing.csv is not defined in link.csv." << endl;
 //                //has not been defined
 //                continue;
 //            }
 //            else
 //            {
-//                timing_arc.link_seq_no = assignment.g_mPMT_key_to_link_no_map[mPMT_key];
+//                timing_arc.link_seq_no = assignment.g_mvmt_key_to_link_no_map[mvmt_key];
 //                g_link_vector[timing_arc.link_seq_no].timing_arc_flag = true;
 //            }
 //
@@ -2241,7 +2272,7 @@ void g_read_input_data(Assignment& assignment)
 //            timing_arc.VDF_capacity = max(0.0f, capacity);
 //
 //            // capacity in the space time arcs
-//            parser_timing_arc.GetValueByFieldName("cycle_link_distance_VDF", timing_arc.cycle_link_distance_VDF);
+//            parser_timing_arc.GetValueByFieldName("cycle_length", timing_arc.cycle_length);
 //
 //            // capacity in the space time arcs
 //            parser_timing_arc.GetValueByFieldName("red_time", timing_arc.red_time);
@@ -2252,7 +2283,7 @@ void g_read_input_data(Assignment& assignment)
 //            {
 //                    // to do: we need to consider multiple periods in the future, Xuesong Zhou, August 20, 2020.
 //                g_link_vector[timing_arc.link_seq_no].VDF_period[tau].red_time = timing_arc.red_time;
-//                g_link_vector[timing_arc.link_seq_no].VDF_period[tau].cycle_link_distance_VDF = timing_arc.cycle_link_distance_VDF;
+//                g_link_vector[timing_arc.link_seq_no].VDF_period[tau].cycle_length = timing_arc.cycle_length;
 //            }
 //
 //

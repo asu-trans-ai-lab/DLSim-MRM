@@ -170,7 +170,7 @@ double update_link_travel_time_and_cost(int inner_iteration_number)
     for (int i = 0; i < g_link_vector.size(); ++i)
     {
         // step 1: travel time based on VDF
-        g_link_vector[i].calculate_dynamic_VDFunction(inner_iteration_number, false, g_link_vector[i].VDF_type_no);
+        g_link_vector[i].calculate_dynamic_VDFunction(inner_iteration_number, false, g_link_vector[i].vdf_type);
 
         for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); ++tau)
         {
@@ -215,6 +215,10 @@ double g_reset_and_update_link_volume_based_on_ODME_columns(int number_of_links,
     float sub_total_gap_P_count = 0;
     float sub_total_gap_A_count = 0;
 
+    double total_system_travel_cost = 0;
+    double total_system_travel_time = 0;
+    double total_system_demand = 0;
+    double total_system_UE_gap = 0;
     // reset the link volume
     for (int i = 0; i < number_of_links; ++i)
     {
@@ -222,6 +226,7 @@ double g_reset_and_update_link_volume_based_on_ODME_columns(int number_of_links,
         {
             // used in travel time calculation
             g_link_vector[i].vehicle_flow_volume_per_period[tau] = 0;
+            g_link_vector[i].person_flow_volume_per_period[tau] = 0;
         }
     }
 
@@ -243,7 +248,9 @@ double g_reset_and_update_link_volume_based_on_ODME_columns(int number_of_links,
         float link_volume_contributed_by_path_volume;
 
         int link_seq_no;
-        float PCE_ratio;
+        float PCE_ratio = assignment.g_AgentTypeVector[at].PCE; 
+        float OCC_ratio = assignment.g_AgentTypeVector[at].OCC; 
+
         int nl;
 
         std::map<int, CColumnPath>::iterator it_begin;
@@ -261,11 +268,93 @@ double g_reset_and_update_link_volume_based_on_ODME_columns(int number_of_links,
                     p_column_pool = &(assignment.g_column_pool[orig][dest][at][tau]);
                     if (p_column_pool->od_volume > 0)
                     {
+                        total_system_demand += p_column_pool->od_volume;
                         // continuous: type 0
                         column_vector_size = p_column_pool->path_node_sequence_map.size();
 
                         it_begin = p_column_pool->path_node_sequence_map.begin();
                         it_end = p_column_pool->path_node_sequence_map.end();
+
+                            double least_cost = 999999;
+                            int least_cost_path_seq_no = -1;
+                            int least_cost_path_node_sum_index = -1;
+                            int path_seq_count = 0;
+
+                            double path_toll = 0;
+                            double path_gradient_cost = 0;
+                            double path_distance = 0;
+                            double path_travel_time = 0;
+                            int link_seq_no;
+
+                            double link_travel_time;
+                            double total_switched_out_path_volume = 0;
+
+                            double step_size = 0;
+                            double previous_path_volume = 0;
+
+                                            least_cost = 999999;
+                                            path_seq_count = 0;
+
+                                            it_begin = p_column_pool->path_node_sequence_map.begin();
+                                            it_end = p_column_pool->path_node_sequence_map.end();
+                                            for (it = it_begin; it != it_end; ++it)
+                                            {
+                                                path_toll = 0;
+                                                path_gradient_cost = 0;
+                                                path_distance = 0;
+                                                path_travel_time = 0;
+
+                                                for (int nl = 0; nl < it->second.m_link_size; ++nl)  // arc a
+                                                {
+                                                    link_seq_no = it->second.path_link_vector[nl];
+                                                    link_travel_time = g_link_vector[link_seq_no].travel_time_per_period[tau];
+                                                    path_travel_time += link_travel_time;
+
+                                                }
+
+                                                it->second.path_toll = path_toll;
+                                                it->second.path_travel_time = path_travel_time;
+                                                total_system_travel_time += (it->second.path_travel_time * it->second.path_volume);
+
+                                                if (column_vector_size == 1)  // only one path
+                                                {
+
+                                                    break;
+                                                }
+
+                                                if (path_travel_time < least_cost)
+                                                {
+                                                    least_cost = path_travel_time;
+                                                    least_cost_path_seq_no = it->second.path_seq_no;
+                                                    least_cost_path_node_sum_index = it->first;
+                                                }
+                                                total_system_travel_cost += (it->second.path_travel_time * it->second.path_volume);
+                                            } // end for each path
+
+
+
+                                            if (column_vector_size >= 2)
+                                            {
+                                                // step 2: calculate gradient cost difference for each column path
+                                                total_switched_out_path_volume = 0;
+                                                for (it = it_begin; it != it_end; ++it)
+                                                {
+                                                    if (it->second.path_seq_no != least_cost_path_seq_no)  //for non-least cost path
+                                                    {
+                                                        it->second.UE_gap = it->second.path_travel_time - least_cost;
+                                                        it->second.UE_relative_gap = (it->second.path_travel_time - least_cost) / max(0.0001, least_cost);
+
+                                                        total_system_UE_gap += (it->second.UE_gap * it->second.path_volume);
+
+
+
+
+
+                                                    }
+                                                }
+
+                                            }  // end for each path
+                                        
                         for (it = it_begin; it != it_end; ++it)  // path k
                         {
                             link_volume_contributed_by_path_volume = it->second.path_volume;  // assign all OD flow to this first path
@@ -280,10 +369,10 @@ double g_reset_and_update_link_volume_based_on_ODME_columns(int number_of_links,
 
                                 // MSA updating for the existing column pools
                                 // if iteration_index = 0; then update no flow discount is used (for the column pool case)
-                                PCE_ratio = 1;
-                                //#pragma omp critical
+                                 //#pragma omp critical
                                 {
                                     g_link_vector[link_seq_no].vehicle_flow_volume_per_period[tau] += link_volume_contributed_by_path_volume * PCE_ratio;
+                                    g_link_vector[link_seq_no].person_flow_volume_per_period[tau] += link_volume_contributed_by_path_volume * OCC_ratio;
                                     g_link_vector[link_seq_no].volume_per_period_per_at[tau][at] += link_volume_contributed_by_path_volume;  // pure volume, not consider PCE
                                 }
                             }
@@ -299,7 +388,7 @@ double g_reset_and_update_link_volume_based_on_ODME_columns(int number_of_links,
     // calcualte deviation for each measurement type
     for (int i = 0; i < number_of_links; ++i)
     {
-        g_link_vector[i].calculate_dynamic_VDFunction(iteration_no,false, g_link_vector[i].VDF_type_no);
+        g_link_vector[i].calculate_dynamic_VDFunction(iteration_no,false, g_link_vector[i].vdf_type);
 
         if (g_link_vector[i].obs_count >= 1)  // with data
         {
@@ -365,19 +454,26 @@ double g_reset_and_update_link_volume_based_on_ODME_columns(int number_of_links,
     }
 
     dtalog.output() << "ODME #" << iteration_no/*<< " total abs gap= " << total_gap*/
-        << " ,%link_MAPE: " << (sub_total_gap_link_count) / max(1, total_link_count) * 100 <<
-        " ,%system_MPE: " << (sub_total_system_gap_count) / max(1, total_link_count) * 100 << endl;
+        << ",link_MAPE: " << (sub_total_gap_link_count) / max(1, total_link_count) * 100 <<
+        "%,system_MPE: " << (sub_total_system_gap_count) / max(1, total_link_count) * 100 << 
+        "%,avg_tt = " << total_system_travel_time/max(0.1, total_system_demand) << "(min) " <<
+         ",UE gap =" << total_system_UE_gap / max(0.00001, total_system_demand) << "(min)" <<
+        " = (" << total_system_UE_gap / max(0.00001, total_system_travel_time)*100 << " %)"
+        << endl;
     double gap = sub_total_gap_link_count / max(1, total_link_count);
     system_gap = sub_total_system_gap_count / max(1, total_link_count);
 
     return gap;
 }
 
-void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignment, int inner_iteration_number)
+
+void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignment, int inner_iteration_number, bool b_sensitivity_analysis_flag)
 {
     double total_system_cost_gap = 0;
     float total_relative_gap = 0;
     double total_system_travel_cost = 0;
+    double total_system_travel_time = 0;
+    double total_system_demand = 0;
 
     // we can have a recursive formulat to reupdate the current link volume by a factor of k/(k+1),
     // and use the newly generated path flow to add the additional 1/(k+1)
@@ -422,6 +518,7 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
                     if (p_column_pool->od_volume > 0)
                     {
                         column_vector_size = p_column_pool->path_node_sequence_map.size();
+                        total_system_demand += p_column_pool->od_volume;
 
                         // scan through the map with different node sum for different paths
                         /// step 1: update gradient cost for each column path
@@ -455,7 +552,13 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
                             it->second.path_travel_time = path_travel_time;
                             it->second.path_gradient_cost = path_gradient_cost;
 
-                            it->second.path_gradient_cost_per_iteration_map[inner_iteration_number] = path_gradient_cost;
+
+                            if (b_sensitivity_analysis_flag == false)
+                                it->second.path_time_per_iteration_map[inner_iteration_number] = path_travel_time;
+                            else  // SA mode
+                                it->second.path_time_per_iteration_SA_map[inner_iteration_number] = path_travel_time;
+
+                            total_system_travel_time += (it->second.path_travel_time * it->second.path_volume);
 
                             if (column_vector_size == 1)  // only one path
                             {
@@ -468,6 +571,10 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
                                 least_gradient_cost = path_gradient_cost;
                                 least_gradient_cost_path_seq_no = it->second.path_seq_no;
                                 least_gradient_cost_path_node_sum_index = it->first;
+                                if (least_gradient_cost_path_node_sum_index < 100)
+                                {
+                                    int i_debug = 1;
+                                }
                             }
                         }
 
@@ -491,7 +598,7 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
 
                                     double flow_shift = step_size * it->second.path_gradient_cost_relative_difference;
 
-                                    if (flow_shift > it->second.path_volume*0.5)
+                                    if (flow_shift > it->second.path_volume * 0.5)
                                     {
                                         flow_shift = it->second.path_volume * 0.5;
                                     }
@@ -500,7 +607,11 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
                                     // step 3.1: shift flow from nonshortest path to shortest path
                                     it->second.path_volume = max(0.0, it->second.path_volume - flow_shift);
 
-                                    it->second.path_volume_per_iteration_map[inner_iteration_number] = it->second.path_volume;
+                                    if(b_sensitivity_analysis_flag == false)
+                                        it->second.path_volume_per_iteration_map[inner_iteration_number] = it->second.path_volume;
+                                    else  //SA mode
+                                        it->second.path_volume_per_iteration_SA_map[inner_iteration_number] = it->second.path_volume;
+
                                     //we use min(step_size to ensure a path is not switching more than 1/n proportion of flow
                                     it->second.path_switch_volume = (previous_path_volume - it->second.path_volume);
                                     total_switched_out_path_volume += (previous_path_volume - it->second.path_volume);
@@ -508,11 +619,18 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
                             }
 
                             //step 3.2 consider least cost path, receive all volume shifted from non-shortest path
-                            if (least_gradient_cost_path_seq_no != -1)
+                            if (least_gradient_cost_path_seq_no != -1 && p_column_pool->path_node_sequence_map.find(least_gradient_cost_path_node_sum_index)!= p_column_pool->path_node_sequence_map.end())
                             {
+                                if (least_gradient_cost_path_node_sum_index < 100)
+                                {
+                                    int i_debug = 1;
+                                }
                                 p_column_pool->path_node_sequence_map[least_gradient_cost_path_node_sum_index].path_volume += total_switched_out_path_volume;
 
-                                p_column_pool->path_node_sequence_map[least_gradient_cost_path_node_sum_index].path_volume_per_iteration_map[inner_iteration_number] = p_column_pool->path_node_sequence_map[least_gradient_cost_path_node_sum_index].path_volume;
+                                if (b_sensitivity_analysis_flag == false)
+                                        p_column_pool->path_node_sequence_map[least_gradient_cost_path_node_sum_index].path_volume_per_iteration_map[inner_iteration_number] = p_column_pool->path_node_sequence_map[least_gradient_cost_path_node_sum_index].path_volume;
+                                else
+                                        p_column_pool->path_node_sequence_map[least_gradient_cost_path_node_sum_index].path_volume_per_iteration_SA_map[inner_iteration_number] = p_column_pool->path_node_sequence_map[least_gradient_cost_path_node_sum_index].path_volume;
 
                                 total_system_travel_cost += (p_column_pool->path_node_sequence_map[least_gradient_cost_path_node_sum_index].path_gradient_cost *
                                     p_column_pool->path_node_sequence_map[least_gradient_cost_path_node_sum_index].path_volume);
@@ -524,17 +642,21 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
         }
     }
 
-    dtalog.output() << "column updating: iteration= " << inner_iteration_number << ", total_gap=" << total_system_cost_gap
-        << ",total_relative_gap=" << total_system_cost_gap / max(0.00001, total_system_travel_cost) << endl;
+    double avg_travel_time = total_system_travel_time / max(0.001, total_system_demand);
+
+    dtalog.output() << "column updating: iteration= " << inner_iteration_number << ", avg travel time = " << 
+        avg_travel_time << "(min), optimization obj = " << total_system_cost_gap
+        << ",Relative_gap=" << total_system_cost_gap *100.0/ max(0.00001, total_system_travel_cost) << " %" << endl;
 
 }
 
-void g_column_pool_optimization(Assignment& assignment, int column_updating_iterations)
+
+void g_column_pool_optimization(Assignment& assignment, int column_updating_iterations, bool sensitivity_analysis_flag= false)
 {
     // column_updating_iterations is internal numbers of column updating
     for (int n = 0; n < column_updating_iterations; ++n)
     {
-        g_update_gradient_cost_and_assigned_flow_in_column_pool(assignment, n);
+        g_update_gradient_cost_and_assigned_flow_in_column_pool(assignment, n, sensitivity_analysis_flag);
 
         if (dtalog.debug_level() >= 3)
         {
@@ -547,6 +669,7 @@ void g_column_pool_optimization(Assignment& assignment, int column_updating_iter
         }
     }
 }
+
 
 void g_column_pool_route_scheduling(Assignment& assignment, int inner_iteration_number)
 {
@@ -580,144 +703,144 @@ void g_column_pool_route_scheduling(Assignment& assignment, int inner_iteration_
                     if (p_column_pool->od_volume > 0)
                     {
 
-                            if (assignment.g_AgentTypeVector[at].real_time_information == 1)   // case of VMS 
+                        if (assignment.g_AgentTypeVector[at].real_time_information == 1)   // case of VMS 
+                        {
+
+                            column_vector_size = p_column_pool->path_node_sequence_map.size();
+
+                            // scan through the map with different node sum for different paths
+
+                            path_seq_count = 0;
+
+                            it_begin = p_column_pool->path_node_sequence_map.begin();
+                            it_end = p_column_pool->path_node_sequence_map.end();
+
+                            //test condition 1: passing through information zone
+                            bool b_passing_information_zone = false;
+                            int new_orig_zone_id = 0;
+
+                            std::vector <int> link_seq_vector;
+
+                            //test condition 2: passing through capacity impact area
+                            bool b_passing_capacity_impact_area = false;
+                            for (it = it_begin; it != it_end; ++it)  // scan each first-stage original path
                             {
+                                if (it->second.path_volume < 0.00001)
+                                    continue;
 
-                                column_vector_size = p_column_pool->path_node_sequence_map.size();
-
-                                // scan through the map with different node sum for different paths
-
-                                path_seq_count = 0;
-
-                                it_begin = p_column_pool->path_node_sequence_map.begin();
-                                it_end = p_column_pool->path_node_sequence_map.end();
-
-                                //test condition 1: passing through information zone
-                                bool b_passing_information_zone = false;
-                                int new_orig_zone_id = 0;
-
-                                std::vector <int> link_seq_vector;
-
-                                //test condition 2: passing through capacity impact area
-                                bool b_passing_capacity_impact_area = false;
-                                for (it = it_begin; it != it_end; ++it)  // scan each first-stage original path
+                                for (int nl = 0; nl < it->second.m_link_size; ++nl)  // arc a
                                 {
-                                    if (it->second.path_volume < 0.00001)
-                                        continue;
+                                    link_seq_no = it->second.path_link_vector[nl];
+                                    CLink* pCurrentLink = &(g_link_vector[link_seq_no]);
 
-                                    for (int nl = 0; nl < it->second.m_link_size; ++nl)  // arc a
+
+
+                                    if (b_passing_information_zone == false &&
+                                        assignment.node_seq_no_2_info_zone_id_mapping.find(pCurrentLink->to_node_seq_no) != assignment.node_seq_no_2_info_zone_id_mapping.end())  // this node been defined as zone
                                     {
-                                        link_seq_no = it->second.path_link_vector[nl];
-                                        CLink* pCurrentLink = &(g_link_vector[link_seq_no]);
-                                        
-                                        
+                                        int zone_id = assignment.node_seq_no_2_info_zone_id_mapping[pCurrentLink->to_node_seq_no];
+                                        int zone_no = assignment.g_zoneid_to_zone_seq_no_mapping[zone_id];
 
-                                        if (b_passing_information_zone == false &&
-                                            assignment.node_seq_no_2_info_zone_id_mapping.find(pCurrentLink->to_node_seq_no) != assignment.node_seq_no_2_info_zone_id_mapping.end())  // this node been defined as zone
+                                        if (assignment.zone_seq_no_2_info_mapping.find(zone_no) != assignment.zone_seq_no_2_info_mapping.end())  // as information zone
                                         {
-                                            int zone_id = assignment.node_seq_no_2_info_zone_id_mapping[pCurrentLink->to_node_seq_no];
-                                            int zone_no = assignment.g_zoneid_to_zone_seq_no_mapping[zone_id];
+                                            b_passing_information_zone = true;
+                                            new_orig_zone_id = zone_id;  // zone id to zone no.
 
-                                            if(assignment.zone_seq_no_2_info_mapping.find(zone_no) != assignment.zone_seq_no_2_info_mapping.end())  // as information zone
-                                            {
-                                                b_passing_information_zone = true;
-                                                new_orig_zone_id = zone_id;  // zone id to zone no.
-
-                                                for (int nl2 = 0; nl2 <= nl; ++nl2)  // arc a
-                                                {  // copy the existing link sequence up to the downstream node id corresponding to the info zone
-                                                    link_seq_no = it->second.path_link_vector[nl2];
-                                                    link_seq_vector.push_back(link_seq_no);
-                                                }
+                                            for (int nl2 = 0; nl2 <= nl; ++nl2)  // arc a
+                                            {  // copy the existing link sequence up to the downstream node id corresponding to the info zone
+                                                link_seq_no = it->second.path_link_vector[nl2];
+                                                link_seq_vector.push_back(link_seq_no);
                                             }
                                         }
-
-                                        if (pCurrentLink->capacity_reduction_map.find(tau) != pCurrentLink->capacity_reduction_map.end())
-                                        {
-                                            b_passing_capacity_impact_area = true;
-                                        }
-
                                     }
-                                
+
+                                    if (pCurrentLink->capacity_reduction_map.find(tau) != pCurrentLink->capacity_reduction_map.end())
+                                    {
+                                        b_passing_capacity_impact_area = true;
+                                    }
+
+                                }
 
 
-                                    if (b_passing_capacity_impact_area == true && b_passing_information_zone == true)
+
+                                if (b_passing_capacity_impact_area == true && b_passing_information_zone == true)
+                                {
+
+                                    CColumnVector* p_2_stage_column_pool;
+
+                                    int info_orig = assignment.g_zoneid_to_zone_seq_no_mapping[new_orig_zone_id];
+
+                                    //step 2: fetch the related column pool from the information node/zone
+                                    p_2_stage_column_pool = &(assignment.g_column_pool[info_orig][dest][at][tau]);  // we come from info_orig but going to  the same destination with same at, and assignment period tau 
+                                    //             scan through the map with different node sum for different continuous paths
+
+                                    std::map<int, CColumnPath>::iterator it2, it_begin2, it_end2;
+
+                                    it_begin2 = p_2_stage_column_pool->path_node_sequence_map.begin();
+                                    it_end2 = p_2_stage_column_pool->path_node_sequence_map.end();
+
+
+                                    for (it2 = it_begin2; it2 != it_end2; ++it2)  // we can still have k-path from the info zone to to final destination so we need to random select one 
                                     {
 
-                                        CColumnVector* p_2_stage_column_pool;
-
-                                        int info_orig = assignment.g_zoneid_to_zone_seq_no_mapping[new_orig_zone_id];
-
-                                        //step 2: fetch the related column pool from the information node/zone
-                                        p_2_stage_column_pool = &(assignment.g_column_pool[info_orig][dest][at][tau]);  // we come from info_orig but going to  the same destination with same at, and assignment period tau 
-                                        //             scan through the map with different node sum for different continuous paths
-
-                                        std::map<int, CColumnPath>::iterator it2, it_begin2, it_end2;
-
-                                        it_begin2 = p_2_stage_column_pool->path_node_sequence_map.begin();
-                                        it_end2 = p_2_stage_column_pool->path_node_sequence_map.end();
-
-
-                                        for (it2 = it_begin2; it2 != it_end2; ++it2)  // we can still have k-path from the info zone to to final destination so we need to random select one 
+                                        for (int nl = 1; nl < it2->second.m_link_size; ++nl)  // arc a // exclude virtual link at the end;
                                         {
-
-                                            for (int nl = 1; nl < it2->second.m_link_size; ++nl)  // arc a // exclude virtual link at the end;
-                                            {
-                                                link_seq_vector.push_back(it2->second.path_link_vector[nl]);
-                                            }
-                                            break; // only connect with the first available second stage path
+                                            link_seq_vector.push_back(it2->second.path_link_vector[nl]);
                                         }
+                                        break; // only connect with the first available second stage path
+                                    }
 
-                                        if (it->second.path_link_vector != NULL)
+                                    if (it->second.path_link_vector != NULL)
+                                    {
+                                        // copy the updated path (stage1 + stage 2) back to the path link vector 
+                                        delete it->second.path_link_vector;
+                                        it->second.path_link_vector = new int[link_seq_vector.size()];
+                                        for (int l = 0; l < link_seq_vector.size(); l++)
                                         {
-                                            // copy the updated path (stage1 + stage 2) back to the path link vector 
-                                            delete it->second.path_link_vector;
-                                            it->second.path_link_vector = new int[link_seq_vector.size()];
-                                            for (int l = 0; l < link_seq_vector.size(); l++)
-                                            {
-                                                it->second.path_link_vector[l] = link_seq_vector[l];
-                                            }
-                                            it->second.m_link_size = link_seq_vector.size();
-
-                                            // copy the updated path (stage1 + stage 2) back to the path node vector 
-                                            delete it->second.path_node_vector;
-                                            it->second.path_node_vector = new int[link_seq_vector.size()+1];
-                                            
-                                            
-                                            // first node
-                                            it->second.path_node_vector[0] = g_link_vector[link_seq_vector[0]].from_node_seq_no;
-
-
-                                            // remaining nodes to the end of path
-
-                                            for (int l = 0; l < link_seq_vector.size(); l++)
-                                            {
-                                                it->second.path_node_vector[l+1] = g_link_vector[link_seq_vector[l]].to_node_seq_no;
-                                            }
-                                            it->second.m_node_size = link_seq_vector.size() + 1;
+                                            it->second.path_link_vector[l] = link_seq_vector[l];
                                         }
+                                        it->second.m_link_size = link_seq_vector.size();
 
-                                        p_2_stage_column_pool->od_volume += it->second.path_volume;// carry over the switching path flow to the second path volume count
-
-                                        p_2_stage_column_pool->information_type = 1;
-                                        it2->second.path_volume += it->second.path_volume;// carry over the switching path flow to the second path volume count
-
-                                    
-                                    }  // two conditions satisified
-
-                                }  //end of scanning for the first stage path in the column pool
-                                
-                            } // agent type is real time agent type
-                            
-                        }  // with positve OD volume
+                                        // copy the updated path (stage1 + stage 2) back to the path node vector 
+                                        delete it->second.path_node_vector;
+                                        it->second.path_node_vector = new int[link_seq_vector.size() + 1];
 
 
-                    } // tau
-                }  //agent type
-            } //dest
-        }  // orig
- 
+                                        // first node
+                                        it->second.path_node_vector[0] = g_link_vector[link_seq_vector[0]].from_node_seq_no;
 
-        dtalog.output() << " updating";
+
+                                        // remaining nodes to the end of path
+
+                                        for (int l = 0; l < link_seq_vector.size(); l++)
+                                        {
+                                            it->second.path_node_vector[l + 1] = g_link_vector[link_seq_vector[l]].to_node_seq_no;
+                                        }
+                                        it->second.m_node_size = link_seq_vector.size() + 1;
+                                    }
+
+                                    p_2_stage_column_pool->od_volume += it->second.path_volume;// carry over the switching path flow to the second path volume count
+
+                                    p_2_stage_column_pool->information_type = 1;
+                                    it2->second.path_volume += it->second.path_volume;// carry over the switching path flow to the second path volume count
+
+
+                                }  // two conditions satisified
+
+                            }  //end of scanning for the first stage path in the column pool
+
+                        } // agent type is real time agent type
+
+                    }  // with positve OD volume
+
+
+                } // tau
+            }  //agent type
+        } //dest
+    }  // orig
+
+
+    dtalog.output() << " updating";
 
 
 }
@@ -762,14 +885,14 @@ void g_column_pool_activity_scheduling(Assignment& assignment, int inner_iterati
                             std::vector <int> link_seq_vector;
                             // for each origin and detination pair in activity zone no to perform routing continuously
 
-                            for(int az = 0; az < p_column_pool->activity_zone_no_vector.size()-1; az++) // key step: go through each activty OD pair
+                            for (int az = 0; az < p_column_pool->activity_zone_no_vector.size() - 1; az++) // key step: go through each activty OD pair
                             { // 0 will the origin
                                 // last one will destination
 
                                 CColumnVector* p_2_stage_column_pool;
 
                                 int activity_orig = p_column_pool->activity_zone_no_vector[az];
-                                int activity_dest = p_column_pool->activity_zone_no_vector[az+1];
+                                int activity_dest = p_column_pool->activity_zone_no_vector[az + 1];
 
                                 //step 2: fetch the related column pool from the information node/zone
                                 p_2_stage_column_pool = &(assignment.g_column_pool[activity_orig][activity_dest][aat][tau]);  // we come from info_orig but going to  the same destination with same at, and assignment period tau 
@@ -784,7 +907,7 @@ void g_column_pool_activity_scheduling(Assignment& assignment, int inner_iterati
                                 for (it2 = it_begin2; it2 != it_end2; ++it2)  // we can still have k-path from the info zone to to final destination so we need to random select one 
                                 {
 
-                                    for (int nl = 1; nl < it2->second.m_link_size-1; ++nl)  // arc a // exclude virtual link in the beginning and at the end;
+                                    for (int nl = 1; nl < it2->second.m_link_size - 1; ++nl)  // arc a // exclude virtual link in the beginning and at the end;
                                     {
                                         link_seq_vector.push_back(it2->second.path_link_vector[nl]);
                                     }
@@ -793,7 +916,7 @@ void g_column_pool_activity_scheduling(Assignment& assignment, int inner_iterati
 
 
                             }
-                            
+
                             if (link_seq_vector.size() == 0)
                             {
                                 int i_debug = 1;
@@ -803,42 +926,42 @@ void g_column_pool_activity_scheduling(Assignment& assignment, int inner_iterati
                             int node_sum = 0;
                             for (int l = 0; l < link_seq_vector.size(); l++)
                             {
-                                node_sum+= link_seq_vector[l];
+                                node_sum += link_seq_vector[l];
                             }
 
-                           
-                                // add this unique path  // later we can add k activity paths
-                                int path_count = p_column_pool->path_node_sequence_map.size();
-                                p_column_pool->path_node_sequence_map[node_sum].path_seq_no = path_count;
-                                p_column_pool->path_node_sequence_map[node_sum].path_volume = p_column_pool->od_volume;
-                                //assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][tau].time = m_label_time_array[i];
-                                //assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][tau].path_node_sequence_map[node_sum].path_distance = m_label_distance_array[i];
-                                p_column_pool->path_node_sequence_map[node_sum].path_toll = 0;
+
+                            // add this unique path  // later we can add k activity paths
+                            int path_count = p_column_pool->path_node_sequence_map.size();
+                            p_column_pool->path_node_sequence_map[node_sum].path_seq_no = path_count;
+                            p_column_pool->path_node_sequence_map[node_sum].path_volume = p_column_pool->od_volume;
+                            //assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][tau].time = m_label_time_array[i];
+                            //assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][tau].path_node_sequence_map[node_sum].path_distance = m_label_distance_array[i];
+                            p_column_pool->path_node_sequence_map[node_sum].path_toll = 0;
 
 
-                                p_column_pool->path_node_sequence_map[node_sum].path_link_vector = new int[link_seq_vector.size()];
-                                p_column_pool->path_node_sequence_map[node_sum].path_node_vector = new int[link_seq_vector.size() + 1];
+                            p_column_pool->path_node_sequence_map[node_sum].path_link_vector = new int[link_seq_vector.size()];
+                            p_column_pool->path_node_sequence_map[node_sum].path_node_vector = new int[link_seq_vector.size() + 1];
 
-                                        for (int l = 0; l < link_seq_vector.size(); l++)
-                                        {
-                                            p_column_pool->path_node_sequence_map[node_sum].path_link_vector[l] = link_seq_vector[l];
-                                            p_column_pool->path_node_sequence_map[node_sum].path_link_STL_vector.push_back(link_seq_vector[l]);
-                                        }
-                                        p_column_pool->path_node_sequence_map[node_sum].m_link_size = link_seq_vector.size();
+                            for (int l = 0; l < link_seq_vector.size(); l++)
+                            {
+                                p_column_pool->path_node_sequence_map[node_sum].path_link_vector[l] = link_seq_vector[l];
+                                p_column_pool->path_node_sequence_map[node_sum].path_link_STL_vector.push_back(link_seq_vector[l]);
+                            }
+                            p_column_pool->path_node_sequence_map[node_sum].m_link_size = link_seq_vector.size();
 
-                                        // copy the updated path (stage1 + stage 2) back to the path node vector 
+                            // copy the updated path (stage1 + stage 2) back to the path node vector 
 
-                                        // first node
-                                        p_column_pool->path_node_sequence_map[node_sum].path_node_vector[0] = g_link_vector[link_seq_vector[0]].from_node_seq_no;
+                            // first node
+                            p_column_pool->path_node_sequence_map[node_sum].path_node_vector[0] = g_link_vector[link_seq_vector[0]].from_node_seq_no;
 
-                                        // remaining nodes to the end of path
+                            // remaining nodes to the end of path
 
-                                        for (int l = 0; l < link_seq_vector.size(); l++)
-                                        {
-                                            p_column_pool->path_node_sequence_map[node_sum].path_node_vector[l + 1] = g_link_vector[link_seq_vector[l]].to_node_seq_no;
-                                        }
-                                        p_column_pool->path_node_sequence_map[node_sum].m_node_size = link_seq_vector.size() + 1;
-                         } //end of conditions for activity chain
+                            for (int l = 0; l < link_seq_vector.size(); l++)
+                            {
+                                p_column_pool->path_node_sequence_map[node_sum].path_node_vector[l + 1] = g_link_vector[link_seq_vector[l]].to_node_seq_no;
+                            }
+                            p_column_pool->path_node_sequence_map[node_sum].m_node_size = link_seq_vector.size() + 1;
+                        } //end of conditions for activity chain
                     }  // with positve OD volume
 
 
@@ -849,6 +972,4 @@ void g_column_pool_activity_scheduling(Assignment& assignment, int inner_iterati
 
 
     dtalog.output() << " updating";
-
-
 }

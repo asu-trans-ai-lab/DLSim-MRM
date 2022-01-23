@@ -32,8 +32,9 @@ int main()
     int iteration_number = 20;
     int column_updating_iterations = 40;
     int ODME_iterations = 20;
-    int VDF_type = 0;
+    int sensitivity_analysis_iterations = 0;
 	int number_of_memory_blocks = 8;
+    int simulation_iterations = 0;
 
     int signal_updating_output = 0;
     // generate link performance and agent file
@@ -61,18 +62,10 @@ int main()
                 // for more detailed link performances (one minute) set 'dta'
                 if (assignment_mode_str == "lue")
                     assignment_mode = 0;
-                else if (assignment_mode_str == "ue")
-                    assignment_mode = 1;
                 else if (assignment_mode_str == "dta")
-                    assignment_mode = 2;
-                else if (assignment_mode_str == "odme")
                     assignment_mode = 3;
-                else if (assignment_mode_str == "grid2zone")  
-                    assignment_mode = 20;
                 else if (assignment_mode_str == "zone2access")  //access link
                     assignment_mode = 21;
-                else if (assignment_mode_str == "zone2demand")  
-                    assignment_mode = 22;
                 else if (assignment_mode_str == "cbi")  //congestion bottleneck identification
                     assignment_mode = 11;
                 else if (assignment_mode_str == "cbsa")  //congestion bottleneck sensitivity
@@ -85,10 +78,15 @@ int main()
 
                 // iteration number of reassignment
                 parser_settings.GetValueByFieldName("column_updating_iterations", column_updating_iterations, true, true);
-                parser_settings.GetValueByFieldName("ODME_iterations", ODME_iterations, false, false);
-                parser_settings.GetValueByFieldName("VDF_type", VDF_type, false, false);
 
-                // the start interation of generating signals, if there is no signals set this number larger than the iteration number
+                if(assignment_mode == 3)
+                {
+                    parser_settings.GetValueByFieldName("ODME_iterations", ODME_iterations, true, false);
+                    parser_settings.GetValueByFieldName("sensitivity_analysis_iterations", sensitivity_analysis_iterations, true, false);
+                }
+                parser_settings.GetValueByFieldName("simulation_iterations", simulation_iterations, true, false);
+                
+                    // the start interation of generating signals, if there is no signals set this number larger than the iteration number
                 parser_settings.GetValueByFieldName("number_of_memory_blocks", number_of_memory_blocks, false, false);
 				dtalog.output() << "number_of_memory_blocks = " << number_of_memory_blocks << " in settings.csv." << std::endl;
 
@@ -111,7 +109,7 @@ int main()
         }
     }
     // obtain initial flow values
-    network_assignment(assignment_mode, VDF_type, iteration_number, column_updating_iterations, ODME_iterations, number_of_memory_blocks);
+    network_assignment(assignment_mode, iteration_number, column_updating_iterations, ODME_iterations, sensitivity_analysis_iterations, simulation_iterations, number_of_memory_blocks);
 
     return 0;
 }

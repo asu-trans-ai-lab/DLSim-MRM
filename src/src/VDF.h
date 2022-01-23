@@ -51,12 +51,10 @@ using std::ofstream;
 class CPeriod_VDF
 {
 public:
-    CPeriod_VDF() : n{ 1.28 }, s{ 0.859 }, vf{ 60 }, v_cutoff{ 45 }, FFTT{ 1 }, VCTT{ 1 }, m{ 0.5 }, peak_load_factor{ 0 }, queue_demand_factor{ 0 }, DOC{ 0 }, VOC{ 0 }, gamma{ 3.47f }, mu{ -1 }, vt2{ -1 }, 
-        alpha{ 0.52f }, beta{ 1.29 }, Q_alpha{ 0.368}, Q_beta{ 1.38 }, rho{ 1 }, preload{ 0 }, penalty{ 0 }, LR_price{ 0 }, LR_RT_price{ 0 }, starting_time_in_hour{ 0 }, ending_time_in_hour{ 0 },
-        cycle_link_distance_VDF{ -1 }, red_time{ 0 }, effective_green_time{ 0 }, t0{ -1 }, t3{ -1 }, start_green_time{ -1 }, end_green_time{ -1 }, L{ 1 },
+    CPeriod_VDF() : vdf_type{ 0 }, Q_cd{ 0.954946463 }, Q_n{ 1.124 }, Q_cp{0.6},  Q_s{ 1 }, vf{ 60 }, v_cutoff{ 45 }, FFTT{ 1 }, VCTT{ 1 }, peak_load_factor{ 1 }, queue_demand_factor{ 0 }, DOC{ 0 }, VOC{ 0 }, vt2{ -1 },
+        alpha{ 0.52f }, beta{ 1.29 }, Q_alpha{ 0.368 }, Q_beta{ 1.38 }, rho{ 1 }, preload{ 0 }, penalty{ 0 }, sa_lanes_change{ 0 }, LR_price{ 0 }, LR_RT_price{ 0 }, starting_time_in_hour{ 0 }, ending_time_in_hour{ 0 },
+        cycle_length{ -1 }, red_time{ 0 }, effective_green_time{ 0 }, t0{ -1 }, t3{ -1 }, start_green_time{ -1 }, end_green_time{ -1 }, L{ 1 },
         queue_length{ 0 }, avg_waiting_time{ 0 }, P{ -1 }, Severe_Congestion_P{ -1 }, lane_based_D{ 0 }, lane_based_Vph{ 0 }, avg_speed_BPR{ -1 }, avg_queue_speed{ -1 }, nlanes{ 1 }, sa_volume{ 0 }, t2{ 1 }, k_critical{ 45 }
-
-
 {
         for (int at = 0; at < MAX_AGNETTYPES; at++)
         {
@@ -70,11 +68,11 @@ public:
     {
     }
 
-    //float PerformSignalVDF(float hourly_per_lane_volume, float red, float cycle_link_distance_VDF)
+    //float PerformSignalVDF(float hourly_per_lane_volume, float red, float cycle_length)
     //{
     //    float lambda = hourly_per_lane_volume;
     //    float mu = _default_saturation_flow_rate; //default saturation flow ratesa
-    //    float s_bar = 1.0 / 60.0 * red * red / (2 * cycle_link_distance_VDF); // 60.0 is used to convert sec to min
+    //    float s_bar = 1.0 / 60.0 * red * red / (2 * cycle_length); // 60.0 is used to convert sec to min
     //    float uniform_delay = s_bar / max(1 - lambda / mu, 0.1f);
 
     //    return uniform_delay;
@@ -135,7 +133,7 @@ public:
   
 
     double calculate_travel_time_based_on_QVDF(double volume, 
-        float est_speed[MAX_TIMEINTERVAL_PerDay], float est_volume_per_hour_per_lane[MAX_TIMEINTERVAL_PerDay])    
+        float model_speed[MAX_TIMEINTERVAL_PerDay], float est_volume_per_hour_per_lane[MAX_TIMEINTERVAL_PerDay])    
     {
         // QVDF
 
@@ -170,23 +168,33 @@ public:
             avg_speed_BPR = vf / (1.0 + alpha * pow(VOC, beta));
             avg_travel_time = FFTT * vf / max(0.1, avg_speed_BPR); // Mark: FFTT should be vctt
 
-            if (DOC > 0.2)
-            {
-                avg_travel_time = FFTT * v_cutoff / max(0.1, avg_queue_speed); 
-            }
-            else
-            {
+            if (vdf_type == 0)  // pure BPR form
                 avg_travel_time = FFTT * vf / max(0.1, avg_speed_BPR); // Mark: FFTT should be vctt
+            else if (vdf_type == 1) // pure QVDF form
+            {
+                avg_travel_time = VCTT * v_cutoff / max(0.1, avg_queue_speed); // Mark: FFTT should be vctt
+
+            }else        // BPR-X form
+            {
+                if (DOC > 0.2)
+                {
+                    avg_travel_time = VCTT * v_cutoff / max(0.1, avg_queue_speed);
+                }
+                else
+                {
+                    avg_travel_time = FFTT * vf / max(0.1, avg_speed_BPR); // Mark: FFTT should be vctt
+                }
+
             }
+            
 
             //step 4.4 compute vt2
-            vt2 = avg_queue_speed * 8.0 / 15.0;
-
+//            vt2 = avg_queue_speed * 8.0 / 15.0;  // 8/15 is a strong assumption 
+            P = Q_cd * pow(DOC, Q_n);  // applifed for both uncongested and congested conditions
+            double base = Q_cp*pow(P, Q_s) + 1.0;
+            vt2 = v_cutoff / max(0.001, base);
             //step 4.1: compute congestion duration P
-            double C_d = 0.954946463;
-            n = 1.124;
-
-            P = C_d* pow(DOC, n);  // applifed for both uncongested and congested conditions
+            
             
             double nonpeak_hourly_flow = 0;
                
@@ -209,7 +217,7 @@ public:
 
            // work on congested condition
            //step 4.3 compute mu
-            mu = min(lane_based_ultimate_hourly_capacity, lane_based_D / P);
+            double mu = min(lane_based_ultimate_hourly_capacity, lane_based_D / P);
 
            //use  as the lower speed compared to 8/15 values for the congested states 
 
@@ -273,7 +281,7 @@ public:
 
             int t_interval = t_in_min / 5;
             double td_flow = 0; // default: get_volume_from_speed(td_speed, vf, k_critical, s3_m);
-            est_speed[t_interval] = td_speed;
+            model_speed[t_interval] = td_speed;
             est_volume_per_hour_per_lane[t_interval] = td_flow;
 
             if(td_speed < vf*0.5)
@@ -329,14 +337,10 @@ public:
             return avg_travel_time;
      }
 
-
-    double m;
-    // we should also pass uncongested_travel_time as link_distance_VDF/(speed_at_capacity)
+    int vdf_type;
     double DOC;
     double VOC;
     //updated BPR-X parameters
-    double gamma;
-    double mu;
     double vt2;
     //peak hour factor
     double alpha;
@@ -344,6 +348,11 @@ public:
 
     double Q_alpha;
     double Q_beta;
+    double Q_cd;
+    double Q_cp;
+    double Q_n;
+    double Q_s;
+
 
     double starting_time_in_hour;
     double ending_time_in_hour;
@@ -353,18 +362,11 @@ public:
     double peak_load_factor;  // peak load factor
     double queue_demand_factor;  // queue_demand_factor
 
-    //https://en.wikipedia.org/wiki/Peak_demand
-    //https://aquicore.com/blog/what-is-peak-load/ 
-    //peak load pricing: https://saylordotorg.github.io/text_introduction-to-economic-analysis/s16-07-peak-load-pricing.html
-    //peak hour factor: https://help.miovision.com/s/article/Peak-Hour-Factor-PHF-Explained?language=en_US 
-    /*The Peak Hour Factor(PHF) compares the traffic volume during the busiest 15 - minutes of the peak hour with the total volume during the peak hour.It indicates how consistent traffic volume is during the peak hour.*/
-
-    double n;
-    double s;
     double v_cutoff;
     double vf;
 
     double sa_volume;
+    double sa_lanes_change;
     double preload;
     double toll[MAX_AGNETTYPES];
     double pce[MAX_AGNETTYPES];
@@ -377,7 +379,7 @@ public:
     double rho;
 //    double marginal_base;
     // in 15 min slot
-    float cycle_link_distance_VDF;
+    float cycle_length;
     float red_time;
     float effective_green_time;
     int start_green_time;

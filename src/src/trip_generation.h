@@ -199,6 +199,49 @@ double g_random_generate_activity_nodes(Assignment& assignment)
 
 void g_grid_zone_generation(Assignment& assignment)
 {
+
+    CCSVParser parser;
+
+    int number_of_zones = 0;
+    int number_of_is_boundary = 0;
+
+    std::vector<CNode> l_node_vector; // l as local
+
+    if (parser.OpenCSVFile("node.csv", true))
+    {
+        while (parser.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
+        {
+
+            int node_id;
+            if (!parser.GetValueByFieldName("node_id", node_id))
+                continue;
+
+            CNode node;
+            node.node_id = node_id;
+            int is_boundary = 0;
+
+
+            parser.GetValueByFieldName("is_boundary", is_boundary,false,false);
+
+
+            if (node_id == 2235)
+            {
+                int idebug = 1;
+            }
+            if (is_boundary != 0)
+                node.is_activity_node = 1;
+
+            parser.GetValueByFieldName("x_coord", node.x, true, false);
+            parser.GetValueByFieldName("y_coord", node.y, true, false);
+
+            l_node_vector.push_back(node);
+
+        }
+
+        // fprintf(g_pFileOutputLog, "number of nodes =,%d\n", assignment.g_number_of_nodes);
+        parser.CloseCSVFile();
+    }
+
     dtalog.output() << "Step 1.4.1: QEM mode for creating node 2 zone mapping" << endl;
 
     FILE* g_pFileZone = nullptr;
@@ -210,13 +253,10 @@ void g_grid_zone_generation(Assignment& assignment)
         g_program_stop();
     }
 
-
-        fprintf(g_pFileZone, "node_id,zone_id,access_node_vector,cell_code,cell_id,access_distance,x_coord,y_coord,");
+        fprintf(g_pFileZone, "first_column,zone_id,access_node_vector,cell_code,cell_id,access_distance,x_coord,y_coord,");
         fprintf(g_pFileZone, "geometry,");
-        for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
-        {
-            fprintf(g_pFileZone, "%s_production,%s_attraction,", assignment.g_AgentTypeVector[at].agent_type.c_str(), assignment.g_AgentTypeVector[at].agent_type.c_str());
-        }
+
+        fprintf(g_pFileZone, "production,attraction,");
 
         fprintf(g_pFileZone, "\n");
 
@@ -228,23 +268,23 @@ void g_grid_zone_generation(Assignment& assignment)
         double top = -1000000000;
         double  bottom = 1000000000;
 
-        for (int i = 0; i < g_node_vector.size(); i++)
+        for (int i = 0; i < l_node_vector.size(); i++)
         {
             // exapnd the grid boundary according to the nodes
-            left = min(left, g_node_vector[i].x);
-            right = max(right, g_node_vector[i].x);
-            top = max(top, g_node_vector[i].y);
-            bottom = min(bottom, g_node_vector[i].y);
+            left = min(left, l_node_vector[i].x);
+            right = max(right, l_node_vector[i].x);
+            top = max(top, l_node_vector[i].y);
+            bottom = min(bottom, l_node_vector[i].y);
 
         }
 
         int grid_size = 8;
 
-        if (g_node_vector.size() > 3000)
+        if (l_node_vector.size() > 3000)
             grid_size = 10;
-        if (g_node_vector.size() > 10000)
+        if (l_node_vector.size() > 10000)
             grid_size = 20;
-        if (g_node_vector.size() > 40000)
+        if (l_node_vector.size() > 40000)
             grid_size = 30;
 
         double temp_resolution = (((right - left) / grid_size + (top - bottom) / grid_size)) / 2.0;
@@ -305,67 +345,66 @@ void g_grid_zone_generation(Assignment& assignment)
             }
         }
 
-        assignment.m_GridResolution = temp_resolution;
+        double m_GridResolution = temp_resolution;
 
-        assignment.zone_id_2_node_no_mapping.clear();
         dtalog.output() << "Step 1.4.2: Grid Resolution " << assignment.m_GridResolution << endl;
 
         int activity_node_count = 0;
 
 
-        for (int i = 0; i < g_node_vector.size(); i++)
+        for (int i = 0; i < l_node_vector.size(); i++)
         {
 
-            if (g_node_vector[i].is_activity_node >= 1)
+            if (l_node_vector[i].is_activity_node != 0)
             {
 
-                if (g_node_vector[i].node_id == 966)
+                if (l_node_vector[i].node_id == 966)
                 {
                     int itest = 1;
                 }
-                __int64 cell_id = g_get_cell_ID(g_node_vector[i].x, g_node_vector[i].y, assignment.m_GridResolution);
+                __int64 cell_id = g_get_cell_ID(l_node_vector[i].x, l_node_vector[i].y, assignment.m_GridResolution);
                 int zone_id;
 
                 if (assignment.cell_id_mapping.find(cell_id) == assignment.cell_id_mapping.end())  // create a cell
                 {
                     //create zone
-                    assignment.cell_id_mapping[cell_id] = g_node_vector[i].node_id;
-                    string cell_code = g_get_cell_code(g_node_vector[i].x, g_node_vector[i].y, assignment.m_GridResolution, left, top);
+                    assignment.cell_id_mapping[cell_id] = l_node_vector[i].node_id;
+                    string cell_code = g_get_cell_code(l_node_vector[i].x, l_node_vector[i].y, assignment.m_GridResolution, left, top);
 
 
-                    int x_i = floor(g_node_vector[i].x / assignment.m_GridResolution);
-                    int y_i = floor(g_node_vector[i].y/ assignment.m_GridResolution);
+                    int x_i = floor(l_node_vector[i].x / assignment.m_GridResolution);
+                    int y_i = floor(l_node_vector[i].y/ assignment.m_GridResolution);
 
                     double x_coord_left = x_i * assignment.m_GridResolution;
                     double y_coord_bottom = y_i * assignment.m_GridResolution;
                     double x_coord_right = x_coord_left + assignment.m_GridResolution;
                     double y_coord_top = y_coord_bottom + assignment.m_GridResolution;
 
-                    fprintf(g_pFileZone, "%d,", 100000+assignment.cell_id_mapping.size()+1);
+                    fprintf(g_pFileZone, ",");
                     fprintf(g_pFileZone, "%d,", assignment.cell_id_mapping.size()+1);
                     // generate access nodes
                     std::vector <int> access_node_vector;
                     float max_distance = 0;
 
-                    float zone_x = (g_node_vector[i].x * 2 + x_coord_left + x_coord_right) / 4;
-                    float zone_y = (g_node_vector[i].y * 2 + y_coord_top + y_coord_bottom) / 4;
-                    for (int j = 0; j < g_node_vector.size(); j++)
+                    float zone_x = (l_node_vector[i].x * 2 + x_coord_left + x_coord_right) / 4;
+                    float zone_y = (l_node_vector[i].y * 2 + y_coord_top + y_coord_bottom) / 4;
+                    for (int j = 0; j < l_node_vector.size(); j++)
                     {
 
-                        if (g_node_vector[j].is_activity_node >= 1)
+                        if (l_node_vector[j].is_activity_node != 0)  // is_boundary flag
                         {
 
-                            __int64 cell_id_j = g_get_cell_ID(g_node_vector[j].x, g_node_vector[j].y, assignment.m_GridResolution);
+                            __int64 cell_id_j = g_get_cell_ID(l_node_vector[j].x, l_node_vector[j].y, assignment.m_GridResolution);
                             if (cell_id == cell_id_j)
                             {
-                                double distance = g_calculate_p2p_distance_in_meter_from_latitude_longitude(zone_x, zone_y, g_node_vector[j].x, g_node_vector[j].y);
+                                double distance = g_calculate_p2p_distance_in_meter_from_latitude_longitude(zone_x, zone_y, l_node_vector[j].x, l_node_vector[j].y);
                                 if (distance > max_distance)
                                 {
                                     max_distance = distance;
                                 }
 
-                                access_node_vector.push_back(g_node_vector[j].node_id);
-                                fprintf(g_pFileZone, "%d;", g_node_vector[j].node_id);
+                                access_node_vector.push_back(l_node_vector[j].node_id);
+                                fprintf(g_pFileZone, "%d;", l_node_vector[j].node_id);
                             }
                         }
                     }
@@ -374,7 +413,7 @@ void g_grid_zone_generation(Assignment& assignment)
                     fprintf(g_pFileZone, "%f,", max_distance);
 
 
-                    fprintf(g_pFileZone, "%f,%f,", (g_node_vector[i].x*2 + x_coord_left+ x_coord_right)/4, (g_node_vector[i].y * 2 + y_coord_top+ y_coord_bottom)/4);
+                    fprintf(g_pFileZone, "%f,%f,", (l_node_vector[i].x*2 + x_coord_left+ x_coord_right)/4, (l_node_vector[i].y * 2 + y_coord_top+ y_coord_bottom)/4);
 
                     fprintf(g_pFileZone, "\"LINESTRING (");
 
@@ -387,7 +426,7 @@ void g_grid_zone_generation(Assignment& assignment)
 
                     for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
                     {
-                        fprintf(g_pFileZone, "0,0,");
+                        fprintf(g_pFileZone, "%d,%d,", access_node_vector.size()*100, access_node_vector.size() * 100);
                     }
 
 
@@ -459,45 +498,84 @@ void g_create_zone_vector(Assignment& assignment)
 
 void g_trip_generation(Assignment& assignment)
 {
-    // accessibility 
-    for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); ++tau)
-    {
-        for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
-        {
 
-            for (int orig = 0; orig < g_zone_vector.size(); ++orig)  // o
+
+    // accessibility 
+           for (int orig = 0; orig < g_zone_vector.size(); ++orig)  // o
             {
                 for (int dest = 0; dest < g_zone_vector.size(); ++dest)  // d
                 {
                     if (orig != dest)
                     {
-                        float distance_in_mile = g_calculate_p2p_distance_in_meter_from_latitude_longitude(g_zone_vector[orig].cell_x, g_zone_vector[orig].cell_y, g_zone_vector[dest].cell_x, g_zone_vector[dest].cell_y);
-                        g_zone_vector[orig].m_ODAccessibilityMatrix[at][tau].distance_map[dest] = distance_in_mile;
+                        float distance_in_mile = g_calculate_p2p_distance_in_meter_from_latitude_longitude(g_zone_vector[orig].cell_x, g_zone_vector[orig].cell_y, g_zone_vector[dest].cell_x, g_zone_vector[dest].cell_y)/1609.0;
+                        g_zone_vector[orig].m_ODAccessibilityMatrix.distance_map[dest] = distance_in_mile;
                         float travel_time_in_min = distance_in_mile/ 30 * 60;  // default speed as 30 miles per hour
-
-                        g_zone_vector[orig].m_ODAccessibilityMatrix[at][tau].value_map[dest] = travel_time_in_min;
+                        g_zone_vector[orig].m_ODAccessibilityMatrix.value_map[dest] = travel_time_in_min;
                     }
 
                 }
 
             }
+
+
+    FILE* g_pFileODMatrix = nullptr;
+    fopen_ss(&g_pFileODMatrix, "gc_distance.csv", "w");
+
+    if (!g_pFileODMatrix)
+    {
+        dtalog.output() << "File gc_distance.csv cannot be opened." << endl;
+        g_program_stop();
+    }
+    else
+    {
+
+        fprintf(g_pFileODMatrix, "o_zone_id,d_zone_id,distance,geometry\n");
+        int demand_writing_log_count = 0;
+        // reset the estimated production and attraction
+        for (int orig = 0; orig < g_zone_vector.size(); ++orig)  // o
+        {
+            for (int dest = 0; dest < g_zone_vector.size(); ++dest)  // d
+            {
+                if (g_zone_vector[orig].gravity_production >= 0)
+                {
+                    if (g_zone_vector[dest].gravity_attraction > 0)
+                    {
+                        float value = -1;
+                        if (g_zone_vector[orig].m_ODAccessibilityMatrix.distance_map.find(dest) != g_zone_vector[orig].m_ODAccessibilityMatrix.distance_map.end())
+                        {
+                            value = g_zone_vector[orig].m_ODAccessibilityMatrix.distance_map[dest];
+                        }
+
+                        if (value > 0.000001)
+                        {
+                            fprintf(g_pFileODMatrix, "%d,%d,%.4f,", g_zone_vector[orig].zone_id, g_zone_vector[dest].zone_id, value);
+
+                            fprintf(g_pFileODMatrix, "\"LINESTRING (");
+
+                            fprintf(g_pFileODMatrix, "%f %f,", g_zone_vector[orig].cell_x, g_zone_vector[orig].cell_y);
+                            fprintf(g_pFileODMatrix, "%f %f,", g_zone_vector[dest].cell_x, g_zone_vector[dest].cell_y);
+                            fprintf(g_pFileODMatrix, ")\"");
+                            fprintf(g_pFileODMatrix, "\n");
+                        }
+
+                    }
+                }
+            }
+        
         }
+
+        fclose(g_pFileODMatrix);
     }
 
     int out_of_bound_log_count = 0;
     int trip_accessibility_log_count = 0;
     int trip_distribution_log_count = 0;
 
-    for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); ++tau)
-    {
-        for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
-        {
-            for (int orig = 0; orig < g_zone_vector.size(); ++orig)  // o
-                                                                     // gravity model;
+          for (int orig = 0; orig < g_zone_vector.size(); ++orig)  // o
+           // gravity model;
             {
-                if (g_zone_vector[orig].gravity_production[at] > 0.00001)
+                if (g_zone_vector[orig].gravity_production > 0.00001)
                 {
-
                     float total_attraction_utility = 0;
                     int count = 0;
 
@@ -506,23 +584,23 @@ void g_trip_generation(Assignment& assignment)
                         if (orig != d)
                         {
 
-                            g_zone_vector[d].gravity_est_attraction[at] = 0;
+                            g_zone_vector[d].gravity_est_attraction = 0;
 
 //                            float cut_off = assignment.g_AgentTypeVector[at].trip_time_budget_in_min;
                             float cut_off = 40;
-                            if (g_zone_vector[d].gravity_attraction[at] > 0)
+                            if (g_zone_vector[d].gravity_attraction > 0)
                             {
-                                //double disutility = g_zone_vector[orig].m_ODAccessibilityMatrix[at][tau].value_map[d] * beta;
-                                double exp_disutility = g_zone_vector[d].gravity_attraction[at];
-                                g_zone_vector[orig].m_ODAccessibilityMatrix[at][tau].disutility_map[d] = exp_disutility;
+                                //double disutility = g_zone_vector[orig].m_ODAccessibilityMatrix.value_map[d] * beta;
+                                double exp_disutility = g_zone_vector[d].gravity_attraction;
+                                g_zone_vector[orig].m_ODAccessibilityMatrix.disutility_map[d] = exp_disutility;
 
-                                if (g_zone_vector[orig].m_ODAccessibilityMatrix[at][tau].value_map[d] < cut_off)
+                                if (g_zone_vector[orig].m_ODAccessibilityMatrix.value_map[d] < cut_off)
                                 {
                                     if (trip_accessibility_log_count <= 100)
                                     {
-                                        dtalog.output() << "agent type: " << assignment.g_AgentTypeVector[at].agent_type.c_str() << ", o: " << orig << ",d:" << d <<
-                                            ", gc distance = " << g_zone_vector[orig].m_ODAccessibilityMatrix[at][tau].distance_map[d] <<
-                                            ", travel time =" << g_zone_vector[orig].m_ODAccessibilityMatrix[at][tau].value_map[d] <<
+                                        dtalog.output() << ", o: " << orig << ",d:" << d <<
+                                            ", gc distance = " << g_zone_vector[orig].m_ODAccessibilityMatrix.distance_map[d] <<
+                                            ", travel time =" << g_zone_vector[orig].m_ODAccessibilityMatrix.value_map[d] <<
                                             ",value = " << exp_disutility << endl;
                                     }
                                     total_attraction_utility += exp_disutility;
@@ -533,9 +611,9 @@ void g_trip_generation(Assignment& assignment)
                                 {
                                     if (out_of_bound_log_count < 10)
                                     {
-                                        dtalog.output() << "out of bound: agent type: " << assignment.g_AgentTypeVector[at].agent_type.c_str() << ",o: " << orig << ",d:" << d <<
-                                            ", gc distance = " << g_zone_vector[orig].m_ODAccessibilityMatrix[at][tau].distance_map[d] <<
-                                            ", travel time =" << g_zone_vector[orig].m_ODAccessibilityMatrix[at][tau].value_map[d] <<
+                                        dtalog.output() << "out of bound: " << ",o:" << orig << ",d:" << d <<
+                                            ", gc distance = " << g_zone_vector[orig].m_ODAccessibilityMatrix.distance_map[d] <<
+                                            ", travel time =" << g_zone_vector[orig].m_ODAccessibilityMatrix.value_map[d] <<
                                             ",value = " << exp_disutility << endl;
                                     }
 
@@ -554,37 +632,35 @@ void g_trip_generation(Assignment& assignment)
                         {
                             if (orig != dest)
                             {
-                                if (g_zone_vector[dest].gravity_attraction[at] > 0)
+                                if (g_zone_vector[dest].gravity_attraction > 0)
                                 {
 //                                    float cut_off = assignment.g_AgentTypeVector[at].trip_time_budget_in_min;
-                                    float cut_off = 40;
-                                    if (g_zone_vector[orig].m_ODAccessibilityMatrix[at][tau].value_map[dest] < cut_off)
+
+                                    //if (g_zone_vector[orig].m_ODAccessibilityMatrix.value_map[dest] < cut_off)
                                     {
 
-                                        double ratio = g_zone_vector[orig].m_ODAccessibilityMatrix[at][tau].disutility_map[dest] / total_attraction_utility;
+                                        double ratio = g_zone_vector[orig].m_ODAccessibilityMatrix.disutility_map[dest] / total_attraction_utility;
 
 
-                                        g_zone_vector[orig].m_ODMatrix[at][tau].value_map[dest] = g_zone_vector[orig].gravity_production[at] * ratio;
+                                        g_zone_vector[orig].m_ODMatrix.value_map[dest] = g_zone_vector[orig].gravity_production * ratio;
 
                                         if (trip_distribution_log_count < 100)
                                         {
-                                            dtalog.output() << "agent type: " << assignment.g_AgentTypeVector[at].agent_type.c_str() << ", o: " << orig << ",d:" << dest << ", ratio =" << ratio <<
-                                                ",trip = " << g_zone_vector[orig].m_ODMatrix[at][tau].value_map[dest] << endl;
+                                            dtalog.output()  << ", o: " << orig << ",d:" << dest << ", ratio =" << ratio <<
+                                                ",trip = " << g_zone_vector[orig].m_ODMatrix.value_map[dest] << endl;
                                         }
                                         trip_distribution_log_count++;
 
-                                        g_zone_vector[dest].gravity_est_attraction[at] += g_zone_vector[orig].m_ODMatrix[at][tau].value_map[dest];
+                                        g_zone_vector[dest].gravity_est_attraction += g_zone_vector[orig].m_ODMatrix.value_map[dest];
                                     }
                                 }
 
                             }
                         }
                     }
-                }
-
             }
         }
-    }
+
 }
 void g_writing_demand_files(Assignment& assignment)
 {
@@ -612,14 +688,14 @@ else
             {
                 for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
                 {
-                    if (g_zone_vector[orig].gravity_production[at] >= 0)
+                    if (g_zone_vector[orig].gravity_production >= 0)
                     {
-                        if (g_zone_vector[dest].gravity_attraction[at] > 0)
+                        if (g_zone_vector[dest].gravity_attraction > 0)
                         {
                             float value = 0;
-                            if (g_zone_vector[orig].m_ODMatrix[at][tau].value_map.find(dest) != g_zone_vector[orig].m_ODMatrix[at][tau].value_map.end())
+                            if (g_zone_vector[orig].m_ODMatrix.value_map.find(dest) != g_zone_vector[orig].m_ODMatrix.value_map.end())
                             {
-                                value = g_zone_vector[orig].m_ODMatrix[at][tau].value_map[dest];
+                                value = g_zone_vector[orig].m_ODMatrix.value_map[dest];
                             }
 
                             if (value > 0.000001)
@@ -667,11 +743,6 @@ if (!g_pFileODMatrix)
 }
 else
 {
-    for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); ++tau)
-    {
-        for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
-        {
-
             fprintf(g_pFileODMatrix, "od,");  // first line
             for (int d = 0; d < g_zone_vector.size(); ++d)
             {
@@ -694,17 +765,17 @@ else
                 for (int dest = 0; dest < g_zone_vector.size(); ++dest)  // d
                 {
                     float value = 0;
-                    if (g_zone_vector[orig].gravity_production[at] >= 0 && g_zone_vector[dest].gravity_attraction[at] > 0)
+                    if (g_zone_vector[orig].gravity_production >= 0 && g_zone_vector[dest].gravity_attraction > 0)
                     {
-                        value = g_zone_vector[orig].m_ODMatrix[at][tau].value_map[dest];
+                        value = g_zone_vector[orig].m_ODMatrix.value_map[dest];
                     }
                     total_production += value;
                     fprintf(g_pFileODMatrix, "%f,", value);
 
                 }
                 fprintf(g_pFileODMatrix, "\n");  // return key at each line 
-                //                float percentage_difference = (total_production - g_zone_vector[orig].gravity_production[at]) / max(0.001, g_zone_vector[orig].gravity_production[at]);
-//                fprintf(g_pFileODMatrix, "%f,%f,%f\n", total_production, g_zone_vector[orig].gravity_production[at], percentage_difference);
+                //                float percentage_difference = (total_production - g_zone_vector[orig].gravity_production) / max(0.001, g_zone_vector[orig].gravity_production);
+//                fprintf(g_pFileODMatrix, "%f,%f,%f\n", total_production, g_zone_vector[orig].gravity_production, percentage_difference);
 
             }
 
@@ -712,14 +783,14 @@ else
 
             //for (int dest = 0; dest < g_zone_vector.size(); ++dest)  // d
             //{
-            //    fprintf(g_pFileODMatrix, "%f,", g_zone_vector[dest].gravity_est_attraction[at]);
+            //    fprintf(g_pFileODMatrix, "%f,", g_zone_vector[dest].gravity_est_attraction);
             //}
             //fprintf(g_pFileODMatrix, "\n");
             //fprintf(g_pFileODMatrix, "target,");
 
             //for (int dest = 0; dest < g_zone_vector.size(); ++dest)  // d
             //{
-            //    fprintf(g_pFileODMatrix, "%f,", g_zone_vector[dest].gravity_attraction[at]);
+            //    fprintf(g_pFileODMatrix, "%f,", g_zone_vector[dest].gravity_attraction);
             //}
 
             //fprintf(g_pFileODMatrix, "\n");
@@ -727,20 +798,16 @@ else
 
             //for (int dest = 0; dest < g_zone_vector.size(); ++dest)  // d
             //{
-            //    float percentage_difference = (g_zone_vector[dest].gravity_est_attraction[at] - g_zone_vector[dest].gravity_attraction[at]) / max(0.001, g_zone_vector[dest].gravity_attraction[at]);
+            //    float percentage_difference = (g_zone_vector[dest].gravity_est_attraction - g_zone_vector[dest].gravity_attraction) / max(0.001, g_zone_vector[dest].gravity_attraction);
 
             //    fprintf(g_pFileODMatrix, "%f,", percentage_difference);
             //}
             fprintf(g_pFileODMatrix, "\n");
 
-            break; // only for one agent type
         }
-        break; // only for one demand period
-    }
 
 
     fclose(g_pFileODMatrix);
-}
 
 
 ////////////////////set reference half of link capacity as link volume
@@ -760,11 +827,12 @@ for (int z = 0; z < g_zone_vector.size(); ++z)  // d
     g_zone_vector[z].obs_attraction = -1;  // invalidate the data, we will focus on link count data first 
 }
 }
+
 void g_demand_file_generation(Assignment& assignment)
 {
 
-//        g_trip_generation(assignment);
-//        g_writing_demand_files(assignment);
+        g_trip_generation(assignment);
+        g_writing_demand_files(assignment);
   
 }
 

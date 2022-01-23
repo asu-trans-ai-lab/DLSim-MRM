@@ -50,9 +50,47 @@ using std::istringstream;
 
 #include "DTA.h"
 
-// updates for OD re-generations
-void Assignment::Demand_ODME(int OD_updating_iterations)
+void Assignment::GenerateDefaultMeasurementData()
 {
+    // step 1: read measurement.csv
+    CCSVParser parser_measurement;
+    if (parser_measurement.OpenCSVFile("measurement.csv", false))
+    {
+        parser_measurement.CloseCSVFile();
+        return;
+    }
+
+
+    FILE* g_pFileModelLink = fopen("measurement.csv", "w");
+
+    if (g_pFileModelLink != NULL)
+    {
+        fprintf(g_pFileModelLink, "measurement_id,measurement_type,o_zone_id,d_zone_id,from_node_id,to_node_id,count,upper_bound_flag,notes\n");
+        //83	link			1	3	5000
+        int measurement_id = 1;
+        int sampling_rate = g_link_vector.size() / 100+1;
+        for (int i = 0; i < g_link_vector.size(); i++)
+        {
+            if(i% sampling_rate==0 && g_link_vector[i].lane_capacity<2500 && g_link_vector[i].link_type >=1)
+            {
+
+            fprintf(g_pFileModelLink, "%d,link,,,%d,%d,%f,0,generated from preprocssing based on 1/3 of link capacity\n",
+                measurement_id++,
+                g_node_vector[g_link_vector[i].from_node_seq_no].node_id,
+                g_node_vector[g_link_vector[i].to_node_seq_no].node_id,
+                g_link_vector[i].lane_capacity * g_link_vector[i].number_of_lanes * 0.3333);
+            }
+        }
+        
+        fclose(g_pFileModelLink);
+    }
+
+}
+// updates for OD re-generations
+void Assignment::Demand_ODME(int OD_updating_iterations, int sensitivity_analysis_iterations)
+{
+
+    GenerateDefaultMeasurementData();
     // step 1: read measurement.csv
     CCSVParser parser_measurement;
 
@@ -188,13 +226,14 @@ void Assignment::Demand_ODME(int OD_updating_iterations)
         // we can have a recursive formulat to reupdate the current link volume by a factor of k/(k+1),
         // and use the newly generated path flow to add the additional 1/(k+1)
         double system_gap = 0;
+
         double gap = g_reset_and_update_link_volume_based_on_ODME_columns(g_link_vector.size(), s, system_gap);
         //step 2.2: based on newly calculated path volumn, update volume based travel time, and update volume based measurement error/deviation
                 // and use the newly generated path flow to add the additional 1/(k+1)
 
         double gap_improvement = gap - prev_gap;
 
-        if (s >= 1 && gap_improvement > 0.001)  // convergency criterion
+        if (s >= 5 && gap_improvement > 0.001)  // convergency criterion
             break;
 
         prev_gap = gap;
@@ -241,14 +280,56 @@ void Assignment::Demand_ODME(int OD_updating_iterations)
 
                             it_begin = p_column_pool->path_node_sequence_map.begin();
                             it_end = p_column_pool->path_node_sequence_map.end();
+
+                            //stage 1: least cost 
+                            double least_cost = 999999;
+                            int least_cost_path_seq_no = -1;
+                            int least_cost_path_node_sum_index = -1;
+                            path_seq_count = 0;
+
+                            it_begin = p_column_pool->path_node_sequence_map.begin();
+                            it_end = p_column_pool->path_node_sequence_map.end();
+                            for (it = it_begin; it != it_end; ++it)
+                            {
+                                path_toll = 0;
+                                path_distance = 0;
+                                path_travel_time = 0;
+
+                                for (int nl = 0; nl < it->second.m_link_size; ++nl)  // arc a
+                                {
+                                    link_seq_no = it->second.path_link_vector[nl];
+                                    path_toll += g_link_vector[link_seq_no].VDF_period[tau].toll[at];
+                                    path_distance += g_link_vector[link_seq_no].link_distance_VDF;
+                                    double link_travel_time = g_link_vector[link_seq_no].travel_time_per_period[tau];
+                                    path_travel_time += link_travel_time;
+                               }
+
+                                it->second.path_toll = path_toll;
+                                it->second.path_travel_time = path_travel_time;
+            
+                                it->second.path_time_per_iteration_ODME_map[s] = path_travel_time;
+                                it->second.path_volume_per_iteration_ODME_map[s] = it->second.path_volume;
+
+                                if (path_travel_time < least_cost)
+                                {
+                                    least_cost = path_travel_time;
+                                    least_cost_path_seq_no = it->second.path_seq_no;
+                                    least_cost_path_node_sum_index = it->first;
+                                }
+                            }
+
+
+                            //stage 2: deviation based on observation
                             int i = 0;
                             for (it = it_begin; it != it_end; ++it, ++i) // for each k
                             {
+
                                 column_path_counts++;
 
-                                if (s >= 1 && it->second.measurement_flag == 0)  // after 1  iteration, if there are no data passing through this path column. we will skip it in the ODME process
-                                    continue;
+                                //if (s >= 1 && it->second.measurement_flag == 0)  // after 1  iteration, if there are no data passing through this path column. we will skip it in the ODME process
+                                //    continue;
 
+                                it->second.UE_gap = (it->second.path_travel_time - least_cost);
                                 path_gradient_cost = 0;
                                 path_distance = 0;
                                 path_travel_time = 0;
@@ -316,7 +397,11 @@ void Assignment::Demand_ODME(int OD_updating_iterations)
 
                                 step_size = 0.01;
                                 float prev_path_volume = it->second.path_volume;
-                                float change = step_size * it->second.path_gradient_cost;
+                                double weight_of_measurements = 0.01;  // ad hoc weight on the measurements with respect to the UE gap// because unit of UE gap  is around 1-5 mins, measurement error is around 100 vehicles per hour per lane
+
+                                double change = step_size * (weight_of_measurements *it->second.path_gradient_cost + (1 - weight_of_measurements) *it->second.UE_gap);
+
+//                                dtalog.output() <<" path =" << i << ", gradient cost of measurements =" << it->second.path_gradient_cost << ", UE gap=" << it->second.UE_gap << endl;
 
                                 float change_lower_bound = it->second.path_volume * 0.05 * (-1);
                                 float change_upper_bound = it->second.path_volume * 0.05;
@@ -335,17 +420,10 @@ void Assignment::Demand_ODME(int OD_updating_iterations)
                                 {
                                     dtalog.output() << "OD " << orig << "-> " << dest << " path id:" << i << ", prev_vol"
                                         << prev_path_volume << ", gradient_cost = " << it->second.path_gradient_cost
-                                        << prev_path_volume << ", gradient_cost = " << it->second.path_gradient_cost
-                                        << prev_path_volume << ", gradient_cost = " << it->second.path_gradient_cost
-                                        << prev_path_volume << ", gradient_cost = " << it->second.path_gradient_cost
-                                        << prev_path_volume << ", gradient_cost = " << it->second.path_gradient_cost
+                                        << " UE gap," << it->second.UE_gap
                                         << " link," << g_link_vector[link_seq_no].est_count_dev
                                         << " P," << g_zone_vector[orig].est_production_dev
                                         << " A," << g_zone_vector[orig].est_attraction_dev
-                                        << "proposed change = " << step_size * it->second.path_gradient_cost
-                                        << "proposed change = " << step_size * it->second.path_gradient_cost
-                                        << "proposed change = " << step_size * it->second.path_gradient_cost
-                                        << "proposed change = " << step_size * it->second.path_gradient_cost
                                         << "proposed change = " << step_size * it->second.path_gradient_cost
                                         << "actual change = " << change
                                         << "new vol = " << it->second.path_volume << endl;
@@ -373,7 +451,26 @@ void Assignment::Demand_ODME(int OD_updating_iterations)
 
     }
 
+    // stage 3:
+    {  // this is the first iteration of sensitivity analysis, so the updating operation is triggered once. 
+        for (int i = 0; i < g_link_vector.size(); ++i)
+        {
+            for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
+            {
+                // used in travel time calculation
+                if (g_link_vector[i].VDF_period[tau].sa_lanes_change != 0)  // we 
+                {
+                    g_link_vector[i].VDF_period[tau].nlanes += g_link_vector[i].VDF_period[tau].sa_lanes_change; // apply the lane changes 
+                }
 
+            }
+        }
+    }
+
+    if(assignment.g_number_of_sensitivity_analysis_iterations > 0)
+    {
+    g_column_pool_optimization(assignment, assignment.g_number_of_sensitivity_analysis_iterations, true);
+    }
     //if (assignment.g_pFileDebugLog != NULL)
     //	fprintf(assignment.g_pFileDebugLog, "CU: iteration %d: total_gap=, %f,total_relative_gap=, %f,\n", s, total_gap, total_gap / max(0.0001, total_system_travel_cost));
 }

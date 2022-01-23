@@ -73,7 +73,7 @@ void g_output_dynamic_queue_profile()  // generated from VDF, from numerical que
         fprintf(g_pFileLinkMOE, "link_id,tmc_corridor_name,tmc_road_sequence,tmc,link_type_name,from_node_id,to_node_id,geometry,");
 
         fprintf(g_pFileLinkMOE, "link_type_code,FT,AT,nlanes,link_distance_VDF,free_speed,capacity,k_critical,v_cutoff,");
-        for (int tau = 0; tau < min(3, assignment.g_DemandPeriodVector.size()); tau++)
+        for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); tau++)
         {
             fprintf(g_pFileLinkMOE, "%s_Volume,%s_speed_BPR,%s_speed_QVDF,%s_t0,%s_t3,%s_P, %s_D,%s_DC_ratio,%s_mu,",
                 assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
@@ -83,7 +83,10 @@ void g_output_dynamic_queue_profile()  // generated from VDF, from numerical que
                 assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
                 assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
                 assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
-                assignment.g_DemandPeriodVector[tau].demand_period.c_str());
+                assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
+                assignment.g_DemandPeriodVector[tau].demand_period.c_str()
+
+            );
         }
 
         fprintf(g_pFileLinkMOE, "");
@@ -105,14 +108,7 @@ void g_output_dynamic_queue_profile()  // generated from VDF, from numerical que
             fprintf(g_pFileLinkMOE, "vrh%02d,", hour);
         }
 
-        for (int t = 6 * 60; t < 20 * 60; t += 15)
-        {
-            int hour = t / 60;
-            int minute = t - hour * 60;
-            fprintf(g_pFileLinkMOE, "vr%02d:%02d,", hour, minute);
-        }
-
-        for (int t = 6 * 60; t < 20 * 60; t += 15)
+        for (int t = 6 * 60; t < 20 * 60; t += 5)
         {
             int hour = t / 60;
             int minute = t - hour * 60;
@@ -123,8 +119,15 @@ void g_output_dynamic_queue_profile()  // generated from VDF, from numerical que
         {
             int hour = t / 60;
             int minute = t - hour * 60;
-            fprintf(g_pFileLinkMOE, "v%02d:%02d,", hour, minute);
+            fprintf(g_pFileLinkMOE, "vr%02d:%02d,", hour, minute);
         }
+
+        //for (int t = 6 * 60; t < 20 * 60; t += 5)
+        //{
+        //    int hour = t / 60;
+        //    int minute = t - hour * 60;
+        //    fprintf(g_pFileLinkMOE, "v%02d:%02d,", hour, minute);
+        //}
 
 
         fprintf(g_pFileLinkMOE, "\n");
@@ -204,13 +207,13 @@ void g_output_dynamic_queue_profile()  // generated from VDF, from numerical que
 
             for (int t = 6 * 60; t < 20 * 60; t += 60)
             {
-                float speed = g_link_vector[i].get_est_hourly_speed(t);
+                float speed = g_link_vector[i].get_model_hourly_speed(t);
                 fprintf(g_pFileLinkMOE, "%.3f,", speed);
             }
 
             for (int t = 6 * 60; t < 20 * 60; t += 60)
             {
-                float speed_ratio = g_link_vector[i].get_est_hourly_speed(t) /  max(1, g_link_vector[i].v_cutoff);
+                float speed_ratio = g_link_vector[i].get_model_hourly_speed(t) /  max(1, g_link_vector[i].v_cutoff);
                 if (speed_ratio > 1)
                     speed_ratio = 1;
 
@@ -218,28 +221,28 @@ void g_output_dynamic_queue_profile()  // generated from VDF, from numerical que
             }
 
 
-            for (int t = 6 * 60; t < 20 * 60; t += 15)
+            for (int t = 6 * 60; t < 20 * 60; t += 5)
             {
                 int time_interval = t / 5;
-                float speed = g_link_vector[i].est_speed[time_interval];
+                float speed = g_link_vector[i].model_speed[time_interval];
                 fprintf(g_pFileLinkMOE, "%.3f,", speed);
-            }
-
-            for (int t = 6 * 60; t < 20 * 60; t += 15)
-            {
-                int time_interval = t / 5;
-                float speed_ratio = g_link_vector[i].est_speed[time_interval] / max(1, g_link_vector[i].v_cutoff);
-                if (speed_ratio > 1)
-                    speed_ratio = 1;
-
-                fprintf(g_pFileLinkMOE, "%.3f,", speed_ratio);
             }
 
             for (int t = 6 * 60; t < 20 * 60; t += 5)
             {
-                float speed = g_link_vector[i].get_est_hourly_speed(t);
-                fprintf(g_pFileLinkMOE, "%.3f,", speed);
+                int time_interval = t / 5;
+                float speed_ratio = g_link_vector[i].model_speed[time_interval] / max(1, g_link_vector[i].v_cutoff);
+                if (speed_ratio > 1)
+                    speed_ratio = 1;
+
+                fprintf(g_pFileLinkMOE, "%.3f,", speed_ratio);
             }
+
+            //for (int t = 6 * 60; t < 20 * 60; t += 5)
+            //{
+            //    float speed = g_link_vector[i].get_model_hourly_speed(t);
+            //    fprintf(g_pFileLinkMOE, "%.3f,", speed);
+            //}
 
             //for (int t = 6 * 60; t < 20 * 60; t += 5)
             //{
@@ -280,13 +283,11 @@ void g_output_assignment_result(Assignment& assignment)
     {
 
         // Option 2: BPR-X function
-        fprintf(g_pFileLinkMOE, "link_id,from_node_id,to_node_id,link_type_name,link_type_code,time_period,volume,person_volume,travel_time,speed,speed_ratio,VOC,DOC,capacity,queue,avg_waiting_time_in_min,congestion_duration_in_h,severe_congestion_duration_in_h,VMT,VHT,PMT,PHT,PDT_vf,PDT_vc,geometry,");
+        fprintf(g_pFileLinkMOE, "link_id,from_node_id,to_node_id,subarea_id,link_type_name,link_type_code,time_period,volume,preload_volume,person_volume,travel_time,speed,speed_ratio,VOC,DOC,capacity,queue,avg_waiting_time_in_min,congestion_duration_in_h,severe_congestion_duration_in_h,VMT,VHT,PMT,PHT,PDT_vf,PDT_vc,geometry,");
 
 //        travel_time_per_iteration_map[iteration_k]
 
-        //ODME
-        if (assignment.assignment_mode == 3)
-            fprintf(g_pFileLinkMOE, "obs_count,upper_type,dev,");
+        fprintf(g_pFileLinkMOE, "obs_count,upper_type,dev,");
 
         for (int iteration_number = 0; iteration_number < min(20,assignment.g_number_of_column_generation_iterations); iteration_number++)
             fprintf(g_pFileLinkMOE, "TT_%d,", iteration_number);
@@ -311,6 +312,7 @@ void g_output_assignment_result(Assignment& assignment)
                 float vehicle_volume = g_link_vector[i].vehicle_flow_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload;
                 float person_volume = g_link_vector[i].person_flow_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload;
                 //VMT,VHT,PMT,PHT,PDT
+                float preload = g_link_vector[i].VDF_period[tau].preload;
                 float VMT = vehicle_volume * g_link_vector[i].link_distance_VDF;
 
                 float VHT = vehicle_volume * g_link_vector[i].VDF_period[tau].avg_travel_time / 60.0;
@@ -319,15 +321,17 @@ void g_output_assignment_result(Assignment& assignment)
                 float PDT_vf = person_volume * (g_link_vector[i].VDF_period[tau].avg_travel_time- g_link_vector[i].VDF_period[tau].FFTT) / 60.0;
                 float PDT_vc = person_volume * (g_link_vector[i].VDF_period[tau].avg_travel_time - g_link_vector[i].VDF_period[tau].VCTT) / 60.0;
 
-                fprintf(g_pFileLinkMOE, "%s,%d,%d,%s,%s,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.1f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,\"%s\",",
+                fprintf(g_pFileLinkMOE, "%s,%d,%d,%d,%s,%s,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.1f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,\"%s\",",
                     g_link_vector[i].link_id.c_str(),
                     g_node_vector[g_link_vector[i].from_node_seq_no].node_id,
                     g_node_vector[g_link_vector[i].to_node_seq_no].node_id,
+                    g_link_vector[i].subarea_id,
                     g_link_vector[i].link_type_name.c_str(),
                     g_link_vector[i].link_type_code.c_str(),
                     assignment.g_DemandPeriodVector[tau].time_period.c_str(),
                     vehicle_volume,
-                    g_link_vector[i].person_flow_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload,
+                    preload,
+                    person_volume,
                     g_link_vector[i].VDF_period[tau].avg_travel_time,
                     speed ,  /* 60.0 is used to convert min to hour */
                     speed_ratio,
@@ -342,13 +346,11 @@ void g_output_assignment_result(Assignment& assignment)
                     VMT, VHT, PMT, PHT, PDT_vf, PDT_vc,
                     g_link_vector[i].geometry.c_str());
 
-                if (assignment.assignment_mode == 3)  //ODME
-                {
-                    if (g_link_vector[i].obs_count >= 1) //ODME
+                if (g_link_vector[i].obs_count >= 1) //ODME
                         fprintf(g_pFileLinkMOE, "%.1f,%d,%.1f,", g_link_vector[i].obs_count, g_link_vector[i].upper_bound_flag, g_link_vector[i].est_count_dev);
                     else
-                        fprintf(g_pFileLinkMOE, ",,");
-                }
+                        fprintf(g_pFileLinkMOE, ",,,");
+                
 
                 for (int iteration_number = 0; iteration_number < min(20, assignment.g_number_of_column_generation_iterations); iteration_number++)
                 {
@@ -398,12 +400,37 @@ void g_output_assignment_result(Assignment& assignment)
 
         fprintf(g_pFilePathMOE, "first_column,path_no,o_zone_id,d_zone_id,within_OD_path_no,path_id,information_type,agent_type,demand_period,volume,assign_volume,subarea_flag,sensor_flag,toll,#_of_nodes,travel_time,VDF_travel_time,VDF_travel_time_without_access_link,distance_km,node_sequence,link_sequence,");
 
+        // stage 1: column updating
         for (int iteration_number = 0; iteration_number < min(20, assignment.g_number_of_column_updating_iterations); iteration_number++)
         { 
             fprintf(g_pFilePathMOE, "TT_%d,", iteration_number);
+        }
+
+        for (int iteration_number = 0; iteration_number < min(20, assignment.g_number_of_column_updating_iterations); iteration_number++)
+        {
             fprintf(g_pFilePathMOE, "Vol_%d,", iteration_number);
         }
 
+        //stage 2: ODME
+        for (int iteration_number = 0; iteration_number < min(20, assignment.g_number_of_ODME_iterations); iteration_number++)
+        {
+            fprintf(g_pFilePathMOE, "ODME_TT_%d,", iteration_number);
+        }
+
+        for (int iteration_number = 0; iteration_number < min(20, assignment.g_number_of_ODME_iterations); iteration_number++)
+        {
+            fprintf(g_pFilePathMOE, "ODME_Vol_%d,", iteration_number);
+        }
+
+        //stage 3: sensitivity analysi
+        for (int iteration_number = 0; iteration_number < assignment.g_number_of_sensitivity_analysis_iterations; iteration_number++)
+        {
+            fprintf(g_pFilePathMOE, "SA_TT_%d,", iteration_number);
+        }
+        for (int iteration_number = 0; iteration_number < assignment.g_number_of_sensitivity_analysis_iterations; iteration_number++)
+        {
+            fprintf(g_pFilePathMOE, "SA_Vol_%d,", iteration_number);
+        }
         fprintf(g_pFilePathMOE, "geometry,");
 
         fprintf(g_pFilePathMOE, "link_type_name_sequence,link_code_sequence,link_link_distance_VDF_sequence,link_FFTT_sequence,");
@@ -545,7 +572,7 @@ void g_output_assignment_result(Assignment& assignment)
             }
             else
             {
-                fprintf(g_pFileLinkMOE, "link_id,from_node_id,to_node_id,from_cell_code,time_period,volume,background_volume,major_path_volume,ratio_of_major_path_flow,geometry,");
+                fprintf(g_pFileLinkMOE, "link_id,from_node_id,to_node_id,subarea_id,time_period,volume,background_volume,major_path_volume,ratio_of_major_path_flow,geometry,");
 
                 fprintf(g_pFileLinkMOE, "notes\n");
 
@@ -564,11 +591,11 @@ void g_output_assignment_result(Assignment& assignment)
 
                         if (volume < 0.0000001)
                             ratio = -1;
-                        fprintf(g_pFileLinkMOE, "%s,%d,%d,%s,%s,%.3f,%.3f,%.3f,%.3f,\"%s\",",
+                        fprintf(g_pFileLinkMOE, "%s,%d,%d,%d,%s,%.3f,%.3f,%.3f,%.3f,\"%s\",",
                             g_link_vector[i].link_id.c_str(),
                             g_node_vector[g_link_vector[i].from_node_seq_no].node_id,
                             g_node_vector[g_link_vector[i].to_node_seq_no].node_id,
-                            g_node_vector[g_link_vector[i].from_node_seq_no].cell_str.c_str(),
+                            g_link_vector[i].subarea_id,
                             assignment.g_DemandPeriodVector[tau].time_period.c_str(),
                             g_link_vector[i].vehicle_flow_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload,
                             g_link_vector[i].background_vehicle_flow_volume_per_period[tau],
@@ -745,12 +772,12 @@ void g_output_assignment_result(Assignment& assignment)
                                     if (it->second.m_node_size - virtual_first_link_delta - virtual_last_link_delta <= 2)
                                         continue;
 
-                                    fprintf(g_pFilePathMOE, ",%d,%d,%d,%d,%s,%d,%s,%s,%.2f,%d,%d,%d,%.1f,%d,%.1f,%.4f,%.4f,%.4f,",
+                                    fprintf(g_pFilePathMOE, ",%d,%d,%d,%d,%d,%d,%s,%s,%.2f,%d,%d,%d,%.1f,%d,%.1f,%.4f,%.4f,%.4f,",
                                         count,
                                         g_zone_vector[orig].zone_id,
                                         g_zone_vector[dest].zone_id,
                                         it->second.path_seq_no,
-                                        it->second.path_id.c_str(),
+                                        it->second.path_seq_no+1,
                                         information_type,
                                         assignment.g_AgentTypeVector[at].agent_type.c_str(),
                                         assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
@@ -800,24 +827,85 @@ void g_output_assignment_result(Assignment& assignment)
                                     //    fprintf(g_pFilePathMOE, "%.2f;", path_time_vector[nt+1]- path_time_vector[nt]);
 
                                     //fprintf(g_pFilePathMOE, ",");
+                                    // output the TT and vol of column updating 
 
+                                    // stage 1:
                                     for (int iteration_number = 0; iteration_number < min(20, assignment.g_number_of_column_updating_iterations); iteration_number++)
                                     {
                                         double TT = -1;
-                                        double Vol = 0;
-                                        if (it->second.path_gradient_cost_per_iteration_map.find(iteration_number) != it->second.path_gradient_cost_per_iteration_map.end())
+                                        if (it->second.path_time_per_iteration_map.find(iteration_number) != it->second.path_time_per_iteration_map.end())
                                         {
-                                            TT = it->second.path_gradient_cost_per_iteration_map[iteration_number];
+                                            TT = it->second.path_time_per_iteration_map[iteration_number];
                                         }
 
+
+                                        fprintf(g_pFilePathMOE, "%f,", TT);
+
+                                    }
+                                    for (int iteration_number = 0; iteration_number < min(20, assignment.g_number_of_column_updating_iterations); iteration_number++)
+                                    {
+                                        double Vol = 0;
                                         if (it->second.path_volume_per_iteration_map.find(iteration_number) != it->second.path_volume_per_iteration_map.end())
                                         {
                                             Vol = it->second.path_volume_per_iteration_map[iteration_number];
                                         }
 
-                                        fprintf(g_pFilePathMOE, "%f,%f,", TT, Vol);
+                                        fprintf(g_pFilePathMOE, "%f,", Vol);
 
                                     }
+                                    // stage II: ODME
+                                    for (int iteration_number = 0; iteration_number < min(20, assignment.g_number_of_ODME_iterations); iteration_number++)
+                                    {
+                                        double TT = -1;
+                                        if (it->second.path_time_per_iteration_ODME_map.find(iteration_number) != it->second.path_time_per_iteration_ODME_map.end())
+                                        {
+                                            TT = it->second.path_time_per_iteration_ODME_map[iteration_number];
+                                        }
+
+
+                                        fprintf(g_pFilePathMOE, "%f,", TT);
+
+                                    }
+                                    for (int iteration_number = 0; iteration_number < min(20, assignment.g_number_of_ODME_iterations); iteration_number++)
+                                    {
+                                        double Vol = 0;
+                                        if (it->second.path_volume_per_iteration_ODME_map.find(iteration_number) != it->second.path_volume_per_iteration_ODME_map.end())
+                                        {
+                                            Vol = it->second.path_volume_per_iteration_ODME_map[iteration_number];
+                                        }
+
+                                        fprintf(g_pFilePathMOE, "%f,", Vol);
+
+                                    }
+
+
+
+                                    //stage III: 
+
+                                    // output the TT and vol of sensitivity analysis
+                                    for (int iteration_number = 0; iteration_number < assignment.g_number_of_sensitivity_analysis_iterations; iteration_number++)
+                                    {
+                                        double TT = -1;
+                                        if (it->second.path_time_per_iteration_SA_map.find(iteration_number) != it->second.path_time_per_iteration_SA_map.end())
+                                        {
+                                            TT = it->second.path_time_per_iteration_SA_map[iteration_number];
+                                        }
+
+                                        fprintf(g_pFilePathMOE, "%f,", TT);
+
+                                    }
+                                    for (int iteration_number = 0; iteration_number < assignment.g_number_of_sensitivity_analysis_iterations; iteration_number++)
+                                    {
+                                        double Vol = 0;
+                                        if (it->second.path_volume_per_iteration_SA_map.find(iteration_number) != it->second.path_volume_per_iteration_SA_map.end())
+                                        {
+                                            Vol = it->second.path_volume_per_iteration_SA_map[iteration_number];
+                                        }
+
+                                        fprintf(g_pFilePathMOE, "%f,", Vol);
+
+                                    }
+
 
                                     if(it->second.m_node_size- virtual_first_link_delta- virtual_last_link_delta>=2)
                                     {
@@ -881,7 +969,6 @@ void g_output_assignment_result(Assignment& assignment)
         fclose(g_pFilePathMOE);
     }
 
-    if (assignment.VDF_type == 2)  //numerical queue evolution mode
         g_output_dynamic_queue_profile();
 }
 
@@ -910,7 +997,7 @@ void g_output_accessibility_result(Assignment& assignment)
             g_program_stop();
         }
 
-        fprintf(g_pFilePathMOE, "od_no,o_zone_id,d_zone_id,o_zone_agent_type_cover_flag,d_zone_agent_type_cover_flag,path_id,information_type,agent_type,demand_period,volume,assign_volume,subarea_flag,sensor_flag,toll,travel_time,VDF_travel_time,travel_time_without_access_link,distance_km\n");
+        fprintf(g_pFilePathMOE, "od_no,o_zone_id,d_zone_id,o_zone_agent_type_cover_flag,d_zone_agent_type_cover_flag,path_id,information_type,agent_type,demand_period,volume,assign_volume,subarea_flag,sensor_flag,toll,travel_time,VDF_travel_time,travel_time_without_access_link,#_of_nodes,distance_km\n");
 
         int count = 1;
 
@@ -1167,8 +1254,13 @@ void g_output_accessibility_result(Assignment& assignment)
                                         d_zone_agent_type_cover_flag = 1;
                                     }
 
+                                    int number_of_nodes = it->second.m_link_size+1;
 
-                                    fprintf(g_pFilePathMOE, "%d,%d,%d,%d,%d,%d,%d,%s,%s,%.2f,%d,%d,%d,%.1f,%.1f,%.4f,%.4f,%.4f\n",
+                                    if (number_of_nodes <= 1)
+                                    {
+                                        int i_debug = 1;
+                                    }
+                                    fprintf(g_pFilePathMOE, "%d,%d,%d,%d,%d,%d,%d,%s,%s,%.2f,%d,%d,%d,%.1f,%.1f,%.4f,%.4f,%d,%.4f\n",
                                         count,
                                         g_zone_vector[orig].zone_id,
                                         g_zone_vector[dest].zone_id,
@@ -1188,6 +1280,7 @@ void g_output_accessibility_result(Assignment& assignment)
                                         path_travel_time_without_access_link,
                                         //path_FF_travel_time,
                                         //final_path_travel_time- path_FF_travel_time,
+                                        number_of_nodes,
                                         path_distance);
 
 
@@ -2138,7 +2231,7 @@ void g_output_trajectory_bin(Assignment& assignment)
                                         header.agent_id = pAgentSimu->agent_id;
                                         header.o_zone_id = g_zone_vector[orig].zone_id;
                                         header.d_zone_id = g_zone_vector[dest].zone_id;
-                                        header.path_id = it->second.path_seq_no;
+                                        header.path_id = it->second.path_seq_no+1;
                                         header.display_code = 0; // assignment.g_AgentTypeVector[at].display_code_no;
                                         header.agent_type = 0; // assignment.g_AgentTypeVector[at].agent_type_no;
                                         header.PCE_unit = 0; // pAgentSimu->PCE_unit_size;
@@ -2205,7 +2298,7 @@ void g_OutputModelFiles(int mode)
 
         if (g_pFileModelNode != NULL)
         {
-            fprintf(g_pFileModelNode, "node_id,node_no,node_type,#_of_outgoing_nodes,activity_node_flag,agent_type,zone_id,cell_id,cell_code,info_zone_flag,x_coord,y_coord\n");
+            fprintf(g_pFileModelNode, "node_id,node_no,node_type,is_boundary,#_of_outgoing_nodes,activity_node_flag,agent_type,zone_id,cell_code,info_zone_flag,x_coord,y_coord\n");
             for (int i = 0; i < g_node_vector.size(); i++)
             {
 
@@ -2213,15 +2306,16 @@ void g_OutputModelFiles(int mode)
                 if (g_node_vector[i].node_id >= 0)  //for all physical links
                 {
 
-                    fprintf(g_pFileModelNode, "%d,%d,%s,%d,%d,%s,%d,%ld,%s,%d,%f,%f\n",
+                    fprintf(g_pFileModelNode, "%d,%d,%s,%d,%d,%d,%s, %ld,%s,%d,%f,%f\n",
                         g_node_vector[i].node_id,
                         g_node_vector[i].node_seq_no,
                         g_node_vector[i].node_type.c_str(),
+                        g_node_vector[i].is_boundary,
                         g_node_vector[i].m_outgoing_link_seq_no_vector.size(),
                         g_node_vector[i].is_activity_node,
                         g_node_vector[i].agent_type_str.c_str(),
+
                         g_node_vector[i].zone_org_id,
-                        g_node_vector[i].cell_id,
                         g_node_vector[i].cell_str.c_str(),
                         g_node_vector[i].is_information_zone,
                         g_node_vector[i].x,
@@ -2250,13 +2344,15 @@ void g_OutputModelFiles(int mode)
 
         if (g_pFileModelLink != NULL)
         {
-            fprintf(g_pFileModelLink, "link_id,link_no,from_node_id,to_node_id,link_type,link_type_name,lanes,link_distance_VDF,free_speed,fftt,capacity,allow_uses,geometry\n");
+            fprintf(g_pFileModelLink, "link_id,link_no,from_node_id,to_node_id,link_type,link_type_name,lanes,link_distance_VDF,free_speed,cutoff_speed,fftt,capacity,allow_uses,");
+            fprintf(g_pFileModelLink, "BPR_plf,BPR_alpha,BPR_beta,QVDF_qdf,QVDF_alpha,QVDF_beta,QVDF_cd,QVDF_n,");
+            fprintf(g_pFileModelLink, "geometry\n");
 
             //VDF_fftt1,VDF_cap1,VDF_alpha1,VDF_beta1
             for (int i = 0; i < g_link_vector.size(); i++)
             {
 
-                fprintf(g_pFileModelLink, "%s,%d,%d,%d,%d,%s,%d,%f,%f,%f,%f,%s,",
+                fprintf(g_pFileModelLink, "%s,%d,%d,%d,%d,%s,%d,%f,%f,%f,%f,%f,%s,%f,%f,%f,%f,%f,%f,%f,%f,",
                     g_link_vector[i].link_id.c_str(),
                     g_link_vector[i].link_seq_no,
                     g_node_vector[g_link_vector[i].from_node_seq_no].node_id,
@@ -2266,14 +2362,20 @@ void g_OutputModelFiles(int mode)
                     g_link_vector[i].number_of_lanes,
                     g_link_vector[i].link_distance_VDF,
                     g_link_vector[i].free_speed,
+                    g_link_vector[i].v_cutoff,
                     g_link_vector[i].free_flow_travel_time_in_min,
                     g_link_vector[i].lane_capacity,
-                    g_link_vector[i].VDF_period[0].allowed_uses.c_str()
-                    //g_link_vector[i].VDF_period[0].FFTT,
-                   //g_link_vector[i].VDF_period[0].period_capacity,
-                   //g_link_vector[i].VDF_period[0].alpha,
-                   //g_link_vector[i].VDF_period[0].beta,
-                );
+                    g_link_vector[i].VDF_period[0].allowed_uses.c_str(),
+                    g_link_vector[i].VDF_period[0].peak_load_factor,
+                    g_link_vector[i].VDF_period[0].alpha,
+                    g_link_vector[i].VDF_period[0].beta,
+
+                    g_link_vector[i].VDF_period[0].queue_demand_factor,
+                    g_link_vector[i].VDF_period[0].Q_alpha,
+                    g_link_vector[i].VDF_period[0].Q_beta,
+                    g_link_vector[i].VDF_period[0].Q_cd,
+                    g_link_vector[i].VDF_period[0].Q_n
+                    );
 
                 if (g_link_vector[i].geometry.size() > 0)
                 {
@@ -2423,12 +2525,12 @@ void g_OutputModelFiles(int mode)
 
         if (g_pFileModel_LC != NULL)
         {
-            fprintf(g_pFileModel_LC, "iteration,agent_type,zone_id,node_id,pred,label_cost\n");
+            fprintf(g_pFileModel_LC, "iteration,agent_type,zone_id,node_id,d_zone_id,connected_flag,pred,label_cost,x_coord,y_coord,\n");
             for (int i = 0; i < g_node_vector.size(); i++)
             {
 
 
-                if (g_node_vector[i].node_id >= 0)  //for all physical links
+//                if (g_node_vector[i].node_id >= 0)  //for all physical links
                 {
                     std::map<string, float> ::iterator it;
 
@@ -2438,10 +2540,14 @@ void g_OutputModelFiles(int mode)
                         int pred_no = g_node_vector[i].pred_per_iteration_map[it->first];
                         if (pred_no >= 0)
                             node_pred_id = g_node_vector[pred_no].node_id;
+                        int d_zone_id = g_node_vector[i].zone_id;
+                        int connected_flag = 0;
 
-                        //if(it->second < 100000)
+                        if (it->second < 100000)
+                            connected_flag = 1;
+
                         {
-                        fprintf(g_pFileModel_LC, "%s,%d,%f,\n", it->first.c_str(), node_pred_id, it->second);
+                        fprintf(g_pFileModel_LC, "%s,%d,%d,%d,%f,%f,%f,\n", it->first.c_str(), d_zone_id, connected_flag, node_pred_id, it->second, g_node_vector[i].x, g_node_vector[i].y);
                         }
                     }
 
