@@ -96,8 +96,11 @@ public:
         if (m_node_label_cost)  //7
             delete[] m_node_label_cost;
 
-        if (m_link_flow_volume_array)  //8
-            delete[] m_link_flow_volume_array;
+        if (m_link_PCE_volume_array)  //8
+            delete[] m_link_PCE_volume_array;
+
+        if (m_link_person_volume_array)  //8
+            delete[] m_link_person_volume_array;
 
         if (m_link_genalized_cost_array) //9
             delete[] m_link_genalized_cost_array;
@@ -155,7 +158,8 @@ public:
     // predecessor for this node points to the previous link that updates its label cost (as part of optimality condition) (for easy referencing)
     int* m_link_predecessor;
 
-    double* m_link_flow_volume_array;
+    double* m_link_PCE_volume_array;
+    double* m_link_person_volume_array;
 
     double* m_link_genalized_cost_array;
     int* m_link_outgoing_connector_zone_seq_no_array;
@@ -176,8 +180,8 @@ public:
         m_link_predecessor = new int[number_of_nodes];  //6
         m_node_label_cost = new double[number_of_nodes];  //7
 
-        m_link_flow_volume_array = new double[number_of_links];  //8
-
+        m_link_PCE_volume_array = new double[number_of_links];  //8
+        m_link_person_volume_array = new double[number_of_links];  //8
         m_link_genalized_cost_array = new double[number_of_links];  //9
         m_link_outgoing_connector_zone_seq_no_array = new int[number_of_links]; //10
     }
@@ -471,13 +475,7 @@ public:
                 volume = ODvolume * k_path_prob;
                 // this is contributed path volume from OD flow (O, D, k, per time period
 
-                if (ODvolume > 0.000001 ||
-                    assignment.zone_seq_no_2_activity_mapping.find(m_origin_zone_seq_no) != assignment.zone_seq_no_2_activity_mapping.end() ||
-                    assignment.zone_seq_no_2_activity_mapping.find(destination_zone_seq_no) != assignment.zone_seq_no_2_activity_mapping.end() ||
-                    (
-                        assignment.zone_seq_no_2_info_mapping.find(m_origin_zone_seq_no) != assignment.zone_seq_no_2_info_mapping.end()
-                        && assignment.g_AgentTypeVector[agent_type].real_time_information >= 1)
-                    )
+                if (ODvolume > 0.000001)
                 {
                     l_node_size = 0;  // initialize local node size index
                     l_link_size = 0;
@@ -489,7 +487,10 @@ public:
                     current_node_seq_no = i;  // destination node
                     current_link_seq_no = -1;
 
+                    if(m_link_predecessor[current_node_seq_no]>=0)
+                    {
                     total_origin_least_cost += ODvolume * m_node_label_cost[current_node_seq_no];
+                    }
                     // backtrace the sp tree from the destination to the root (at origin)
                     while (current_node_seq_no >= 0 && current_node_seq_no < number_of_nodes)
                     {
@@ -511,12 +512,25 @@ public:
                             if (current_link_seq_no >= 0 && current_link_seq_no < number_of_links)
                             {
                                 temp_path_link_vector[l_link_size++] = current_link_seq_no;
+                                //fprintf(g_pFileDebugLog, "--------origin  %d ; destination node: %d ; (zone: %d) -------\n", origin_node + 1, i+1, g_node_vector[i].zone_id);
 
                                 // pure link based computing mode
                                 if (assignment.assignment_mode == 0)
                                 {
                                     // this is critical for parallel computing as we can write the volume to data
-                                    m_link_flow_volume_array[current_link_seq_no] += volume;
+                                    m_link_PCE_volume_array[current_link_seq_no] += volume * PCE_ratio;  // for this network object volume from OD demand table
+                                    m_link_person_volume_array[current_link_seq_no] += volume * OCC_ratio;
+                                    //cout << "node = " << g_node_vector[i].node_id 
+                                    //    << "zone id= " << g_node_vector[i].zone_id << ","
+                                    //    << "l_link_size= " << l_link_size << ","
+                                    //    << "link " << g_node_vector[g_link_vector[current_link_seq_no].from_node_seq_no].node_id
+                                    //    << "->" << g_node_vector[g_link_vector[current_link_seq_no].to_node_seq_no].node_id
+                                    //    << ": add volume " << volume << endl;
+
+                                    //if (m_link_PCE_volume_array[current_link_seq_no] > 7001)
+                                    //{
+                                    //    int idebug = 1;
+                                    //}
                                 }
 
                                 //path_travel_time += g_link_vector[current_link_seq_no].travel_time_per_period[tau];
@@ -592,7 +606,7 @@ public:
 
         bool negative_cost_flag = UpdateGeneralizedLinkCost(agent_type, p_assignment, origin_zone, iteration_k);
 
-        if (iteration_k <= 2) 
+        if (iteration_k == 1) 
         {
             if (g_zone_vector[origin_zone].zone_id == p_assignment->shortest_path_log_zone_id)
                 local_debugging_flag = 1;
@@ -626,9 +640,9 @@ public:
             m_node_status_array[i] = 0;
             m_node_label_cost[i] = MAX_LABEL_COST;
             // pointer to previous NODE INDEX from the current label at current node and time
-            m_link_predecessor[i] = -1;
+            m_link_predecessor[i] = -9999;
             // pointer to previous NODE INDEX from the current label at current node and time
-            m_node_predecessor[i] = -1;
+            m_node_predecessor[i] = -9999;
             // comment out to speed up comuting
             ////m_label_time_array[i] = 0;
             ////m_label_distance_array[i] = 0;
@@ -645,9 +659,9 @@ public:
 
         // Peiheng, 02/05/21, duplicate initialization, remove them later
         // pointer to previous NODE INDEX from the current label at current node and time
-        m_link_predecessor[origin_node] = -1;
+        m_link_predecessor[origin_node] = -9999;
         // pointer to previous NODE INDEX from the current label at current node and time
-        m_node_predecessor[origin_node] = -1;
+        m_node_predecessor[origin_node] = -9999;
 
         SEList_clear();
         SEList_push_back(origin_node);
@@ -897,9 +911,9 @@ public:
             m_node_status_array[i] = 0;
             m_node_label_cost[i] = MAX_LABEL_COST;
             // pointer to previous NODE INDEX from the current label at current node and time
-            m_link_predecessor[i] = -1;
+            m_link_predecessor[i] = -9999;
             // pointer to previous NODE INDEX from the current label at current node and time
-            m_node_predecessor[i] = -1;
+            m_node_predecessor[i] = -9999;
             // comment out to speed up comuting
             ////m_label_time_array[i] = 0;
             ////m_label_distance_array[i] = 0;
@@ -918,9 +932,9 @@ public:
 
         // Peiheng, 02/05/21, duplicate initialization, remove them later
         // pointer to previous NODE INDEX from the current label at current node and time
-        m_link_predecessor[origin_node] = -1;
+        m_link_predecessor[origin_node] = -9999;
         // pointer to previous NODE INDEX from the current label at current node and time
-        m_node_predecessor[origin_node] = -1;
+        m_node_predecessor[origin_node] = -9999;
 
         SEList_clear();
         SEList_push_back(origin_node);

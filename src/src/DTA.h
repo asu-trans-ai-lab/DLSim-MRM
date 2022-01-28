@@ -247,7 +247,7 @@ void Deallocate4DDynamicArray(T**** dArray, int nM, int nX, int nY)
 
 class CDemand_Period {
 public:
-    CDemand_Period() : demand_period{ 0 }, starting_time_slot_no{ 0 }, ending_time_slot_no{ 0 }, t2_peak_in_hour{ 0 }, time_period_in_hour{ 1 }
+    CDemand_Period() : demand_period{ 0 }, starting_time_slot_no{ 0 }, ending_time_slot_no{ 0 }, t2_peak_in_hour{ 0 }, time_period_in_hour{ 1 }, number_of_demand_files{ 0 }
     {
     }
 
@@ -263,6 +263,7 @@ public:
     float time_period_in_hour;
     float t2_peak_in_hour;
     string time_period;
+    int number_of_demand_files;
     int demand_period_id;
 };
 
@@ -678,6 +679,7 @@ public:
     {
 
         sp_log_file.open("model_label_correcting_log.txt");
+        assign_log_file.open("model_assignment.txt");
     }
 
     ~Assignment()
@@ -686,11 +688,13 @@ public:
             Deallocate4DDynamicArray(g_column_pool, g_number_of_zones, g_number_of_zones, g_number_of_agent_types);
 
         sp_log_file.close();
-
+        assign_log_file.close();
         DeallocateLinkMemory4Simulation();
     }
 
     std::ofstream sp_log_file;
+    std::ofstream assign_log_file;
+
 
     void InitializeDemandMatrix(int number_of_zones, int number_of_agent_types, int number_of_time_periods)
     {
@@ -845,26 +849,24 @@ class CLink
 {
 public:
     // construction
-    CLink() :main_node_id{ -1 }, obs_count{ -1 }, upper_bound_flag{ 0 }, est_count_dev{ 0 }, free_speed{ 100 }, v_cutoff{ 100 }, v_critical{ 100},
+    CLink() :main_node_id{ -1 }, free_speed{ 100 }, v_congestion_cutoff{ 100 }, v_critical { 60 },
         BWTT_in_simulation_interval{ 100 }, zone_seq_no_for_outgoing_connector{ -1 }, number_of_lanes{ 1 }, lane_capacity{ 1999 },
         link_distance_VDF{ 1 }, free_flow_travel_time_in_min{ 1 }, link_spatial_capacity{ 100 }, 
         timing_arc_flag{ false }, traffic_flow_code{ 0 }, spatial_capacity_in_vehicles{ 999999 }, link_type{ 2 }, subarea_id{ -1 }, RT_flow_volume{ 0 },
         cell_type{ -1 }, saturation_flow_rate{ 1800 }, dynamic_link_reduction_start_time_slot_no{ 99999 }, b_automated_generated_flag{ false }, time_to_be_released{ -1 },
-        RT_travel_time{ 0 }, FT{ 1 }, AT{ 1 }, s3_m{ 4 }, tmc_road_order{ 0 }, tmc_road_sequence{ -1 }, k_critical{ 45 }, vdf_type{ 0 }
+        RT_travel_time{ 0 }, FT{ 1 }, AT{ 1 }, s3_m{ 4 }, tmc_road_order{ 0 }, tmc_road_sequence{ -1 }, k_critical{ 45 }, vdf_type{ 0 }, 
+        tmc_corridor_id{ -1 }
+
     {
         for (int tau = 0; tau < MAX_TIMEPERIODS; ++tau)
         {
-            vehicle_flow_volume_per_period[tau] = 0;
-            person_flow_volume_per_period[tau] = 0;
+            PCE_volume_per_period[tau] = 0;
+            person_volume_per_period[tau] = 0;
             queue_link_distance_VDF_perslot[tau] = 0;
             travel_time_per_period[tau] = 0;
-            TDBaseTT[tau] = 0;
-            TDBaseCap[tau] = 0;
-            TDBaseFlow[tau] = 0;
-            TDBaseQueue[tau] = 0;
-           //cost_perhour[tau] = 0;
+                       //cost_perhour[tau] = 0;
             for (int at = 0; at < MAX_AGNETTYPES; ++at)
-                volume_per_period_per_at[tau][at] = 0;
+                person_volume_per_period_per_at[tau][at] = 0;
         }
 
     }
@@ -881,16 +883,7 @@ public:
     void calculate_dynamic_VDFunction(int inner_iteration_number, bool congestion_bottleneck_sensitivity_analysis_mode, int vdf_type);
 
 
-    float get_VOC_ratio(int tau)
-    {
-        return (vehicle_flow_volume_per_period[tau] + TDBaseFlow[tau]) / max(0.00001, TDBaseCap[tau]);
-    }
-
-    float get_speed(int tau)
-    {
-        return link_distance_VDF / max(travel_time_per_period[tau], 0.0001) * 60;  // per hour
-    }
-
+   
     void calculate_marginal_cost_for_agent_type(int tau, int agent_type_no, float PCE_agent_type)
     {
         // volume * dervative
@@ -913,14 +906,11 @@ public:
 
     int main_node_id;
 
-    float obs_count;
-    int upper_bound_flag;
-    float est_count_dev;
 
     int BWTT_in_simulation_interval;
     int zone_seq_no_for_outgoing_connector;
 
-    int number_of_lanes;
+    double number_of_lanes;
     double lane_capacity;
     double saturation_flow_rate;
 
@@ -931,6 +921,28 @@ public:
 
     float est_avg_waiting_time_in_min[MAX_TIMEINTERVAL_PerDay]; // at link level
     float est_queue_length_per_lane[MAX_TIMEINTERVAL_PerDay];
+
+    float get_model_15_min_speed(int time_in_min)
+    {
+        int t = time_in_min / 5;
+        float total_speed_value = 0;
+        int total_speed_count = 0;
+
+        for (int tt = 0; tt < 3; tt++)
+        {
+
+            if (t + tt >= 0 && t + tt < MAX_TIMEINTERVAL_PerDay)
+            {
+                if (model_speed[t + tt] >= 1)
+                {
+                    total_speed_value += model_speed[t + tt];
+                    total_speed_count++;
+                }
+            }
+        }
+
+        return total_speed_value / max(1, total_speed_count);
+    }
 
 
     float get_model_hourly_speed(int time_in_min)
@@ -1007,11 +1019,11 @@ public:
 
     int FT;
     int AT;
-    string VDF_code;
+    string vdf_code;
     float PCE;
 
-    float v_cutoff; // cut-off speed;
-    float v_critical; // critical speed;
+    float v_congestion_cutoff; // critical speed;
+    float v_critical;
     float k_critical; // critical density;
     float s3_m; // m factor in s3 model
 
@@ -1087,12 +1099,8 @@ public:
     string link_type_code;
 
     int    vdf_type;
-    CPeriod_VDF VDF_period[MAX_TIMEPERIODS];
 
-    double TDBaseTT[MAX_TIMEPERIODS];
-    double TDBaseCap[MAX_TIMEPERIODS];
-    double TDBaseFlow[MAX_TIMEPERIODS];
-    double TDBaseQueue[MAX_TIMEPERIODS];
+    CPeriod_VDF VDF_period[MAX_TIMEPERIODS];
 
     int type;
 
@@ -1101,12 +1109,12 @@ public:
     //float travel_time;
 
     int subarea_id;
-    double vehicle_flow_volume_per_period[MAX_TIMEPERIODS];
-    double person_flow_volume_per_period[MAX_TIMEPERIODS];
+    double PCE_volume_per_period[MAX_TIMEPERIODS];
+    double person_volume_per_period[MAX_TIMEPERIODS];
     double RT_flow_volume;
-    double background_vehicle_flow_volume_per_period[MAX_TIMEPERIODS];
+    double background_PCE_volume_per_period[MAX_TIMEPERIODS];
 
-    double  volume_per_period_per_at[MAX_TIMEPERIODS][MAX_AGNETTYPES];
+    double  person_volume_per_period_per_at[MAX_TIMEPERIODS][MAX_AGNETTYPES];
 
     double  queue_link_distance_VDF_perslot[MAX_TIMEPERIODS];  // # of vehicles in the vertical point queue
     double travel_time_per_period[MAX_TIMEPERIODS];
@@ -1135,7 +1143,6 @@ public:
     GDPoint TMC_from, TMC_to;
     float TMC_highest_speed;
 
-
     //end of TMC
 
     //std::vector <SLinkMOE> m_LinkMOEAry;
@@ -1156,6 +1163,59 @@ public:
 
 };
 
+
+class CVDF_Type
+{
+public:
+    CVDF_Type()   {}
+    string vdf_code;
+    CPeriod_VDF VDF_period_sum[MAX_TIMEPERIODS];
+    void record_qvdf_data(CPeriod_VDF element, int tau)
+    {
+        if (tau >= MAX_TIMEPERIODS)
+            return;
+
+        if (VDF_period_sum[tau].vdf_data_count == 0)
+        {
+            VDF_period_sum[tau].queue_demand_factor = element.queue_demand_factor;
+            VDF_period_sum[tau].Q_alpha = element.Q_alpha;
+            VDF_period_sum[tau].Q_beta = element.Q_beta;
+            VDF_period_sum[tau].Q_cp = element.Q_cp;
+            VDF_period_sum[tau].Q_n = element.Q_n;
+            VDF_period_sum[tau].Q_s = element.Q_s;
+            VDF_period_sum[tau].Q_cd = element.Q_cd;
+        }
+        else
+        {
+            VDF_period_sum[tau].queue_demand_factor += element.queue_demand_factor;
+            VDF_period_sum[tau].Q_alpha +=  element.Q_alpha;
+            VDF_period_sum[tau].Q_beta +=  element.Q_beta;
+            VDF_period_sum[tau].Q_cp += element.Q_cp;
+            VDF_period_sum[tau].Q_n +=  element.Q_n;
+            VDF_period_sum[tau].Q_s += element.Q_s;
+            VDF_period_sum[tau].Q_cd += element.Q_cd;
+
+        }
+
+        VDF_period_sum[tau].vdf_data_count++;
+    }
+
+    void computer_avg_parameter(int tau)
+    {
+        float count = VDF_period_sum[tau].vdf_data_count;
+        if(count>=1)
+        {
+        VDF_period_sum[tau].queue_demand_factor /= count;
+        VDF_period_sum[tau].Q_alpha /= count;
+        VDF_period_sum[tau].Q_beta /= count;
+        VDF_period_sum[tau].Q_cp /= count;
+        VDF_period_sum[tau].Q_n /= count;
+        VDF_period_sum[tau].Q_s /= count;
+        VDF_period_sum[tau].Q_cd /= count;
+        }
+    }
+
+};
 
 
 
@@ -1401,6 +1461,7 @@ public:
 
 extern std::vector<CNode> g_node_vector;
 extern std::vector<CLink> g_link_vector;
+extern std::map<string, CVDF_Type> g_vdf_type_map;
 
 extern std::map<int, DTAVehListPerTimeInterval> g_AgentTDListMap;
 extern vector<CAgent_Simu*> g_agent_simu_vector;

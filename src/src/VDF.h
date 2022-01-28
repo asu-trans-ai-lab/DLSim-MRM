@@ -51,10 +51,10 @@ using std::ofstream;
 class CPeriod_VDF
 {
 public:
-    CPeriod_VDF() : vdf_type{ 0 }, Q_cd{ 0.954946463 }, Q_n{ 1.124 }, Q_cp{0.6},  Q_s{ 1 }, vf{ 60 }, v_cutoff{ 45 }, FFTT{ 1 }, VCTT{ 1 }, peak_load_factor{ 1 }, queue_demand_factor{ 0 }, DOC{ 0 }, VOC{ 0 }, vt2{ -1 },
-        alpha{ 0.52f }, beta{ 1.29 }, Q_alpha{ 0.368 }, Q_beta{ 1.38 }, rho{ 1 }, preload{ 0 }, penalty{ 0 }, sa_lanes_change{ 0 }, LR_price{ 0 }, LR_RT_price{ 0 }, starting_time_in_hour{ 0 }, ending_time_in_hour{ 0 },
+    CPeriod_VDF() : vdf_type{ 0 }, vdf_data_count{ 0 }, Q_cd{ 0.954946463 }, Q_n{ 1.141574427 }, Q_cp{ 0.400089684 }, Q_s{ 1 }, vf{ 60 }, v_congestion_cutoff{ 45 }, FFTT{ 1 }, BPR_period_capacity{ 1 }, peak_load_factor{ 1 }, queue_demand_factor{ -1 }, DOC{ 0 }, VOC{ 0 }, vt2{ -1 },
+        alpha{ 0.39999993}, beta{ 4 }, Q_alpha{ 0.272876961}, Q_beta{ 1.141574427}, rho{ 1 }, preload{ 0 }, penalty{ 0 }, sa_lanes_change{ 0 }, LR_price{ 0 }, LR_RT_price{ 0 }, starting_time_in_hour{ 0 }, ending_time_in_hour{ 0 },
         cycle_length{ -1 }, red_time{ 0 }, effective_green_time{ 0 }, t0{ -1 }, t3{ -1 }, start_green_time{ -1 }, end_green_time{ -1 }, L{ 1 },
-        queue_length{ 0 }, avg_waiting_time{ 0 }, P{ -1 }, Severe_Congestion_P{ -1 }, lane_based_D{ 0 }, lane_based_Vph{ 0 }, avg_speed_BPR{ -1 }, avg_queue_speed{ -1 }, nlanes{ 1 }, sa_volume{ 0 }, t2{ 1 }, k_critical{ 45 }
+        queue_length{ 0 }, obs_count{ 0 }, upper_bound_flag{ 1 }, est_count_dev{ 0 }, avg_waiting_time{ 0 }, P{ -1 }, Severe_Congestion_P{ -1 }, lane_based_D{ 0 }, lane_based_Vph{ 0 }, avg_speed_BPR{ -1 }, avg_queue_speed{ -1 }, nlanes{ 1 }, sa_volume{ 0 }, t2{ 1 }, k_critical{ 45 }
 {
         for (int at = 0; at < MAX_AGNETTYPES; at++)
         {
@@ -77,7 +77,7 @@ public:
 
     //    return uniform_delay;
     //}
-
+    int vdf_data_count;
 
     double get_speed_from_volume(float hourly_volume, float vf, float k_critical, float s3_m)
     {
@@ -136,6 +136,7 @@ public:
         float model_speed[MAX_TIMEINTERVAL_PerDay], float est_volume_per_hour_per_lane[MAX_TIMEINTERVAL_PerDay])    
     {
         // QVDF
+            double dc_transition_ratio = 1;
 
             // step 1: calculate lane_based D based on plf and nlanes from link volume V over the analysis period  take nonnegative values
             lane_based_D = max(0.0, volume) * queue_demand_factor / max(1, nlanes);
@@ -144,55 +145,68 @@ public:
             // congested states D > C, leading to P > 1
             DOC = lane_based_D / max(0.00001, lane_based_ultimate_hourly_capacity);
             
-            //step 3.1 fetch vf and v_cutoff based on FFTT, VCTT (to be compartible with transit data, such as waiting time )
+            //step 3.1 fetch vf and v_congestion_cutoff based on FFTT, VCTT (to be compartible with transit data, such as waiting time )
             // we could have a period based FFTT, so we need to convert FFTT to vfree
-            // if we only have one period, then we can directly use vf and v_cutoff. 
+            // if we only have one period, then we can directly use vf and v_congestion_cutoff. 
 
             //step 3.2 calculate speed from VDF based on D/C ratio
-            avg_queue_speed = v_cutoff / (1.0 + Q_alpha * pow(DOC, Q_beta));
+            avg_queue_speed = v_congestion_cutoff / (1.0 + Q_alpha * pow(DOC, Q_beta));
             // step 3.3 taking the minimum of BPR- v and Q VDF v based on log sum function 
+
+           // let us use link_length_in_km = 1 for the following calculation 
+            double  link_length_in_1km = 1.0;
+            double RTT = 0;
+            RTT = link_length_in_1km / v_congestion_cutoff;
+            double Q_n_current_value = Q_n;
+            if (DOC < dc_transition_ratio)  // free flow regime
+            {
+
+                double vf_alpha = (1.0 + Q_alpha) * vf / max(0.0001, v_congestion_cutoff) - 1.0;
+                // fixed to pass through vcutoff point vf/ (1+vf_alpha) = vc / (1+ qvdf_alpha) -> 
+                // 1+vf_alpha = vf/vc *(1+qvdf_alpha) 
+                // vf_qlpha =  vf/vc *(1+qvdf_alpha) - 1 
+                // revised BPR DC
+                double vf_beta = beta; // to be calibrated 
+                double vf_avg_speed = vf / (1.0 + vf_alpha * pow(DOC, vf_beta));
+                avg_queue_speed = vf_avg_speed; // rewrite with vf based speed
+                Q_n_current_value = beta;
+                RTT = link_length_in_1km / max(0.01, vf);  // in hour
+            }
 
 
        // BPR
-            lane_based_Vph = max(0.0, volume) * peak_load_factor / max(1, nlanes);
             // step 2: D_ C ratio based on lane-based D and lane-based ultimate hourly capacity, 
             // uncongested states D <C 
             // congested states D > C, leading to P > 1
-            VOC = lane_based_Vph / max(0.00001, lane_based_ultimate_hourly_capacity);
+            VOC = volume/ max(0.00001, BPR_period_capacity);
 
-            //step 3.1 fetch vf and v_cutoff based on FFTT, VCTT (to be compartible with transit data, such as waiting time )
+            //step 3.1 fetch vf and v_congestion_cutoff based on FFTT, VCTT (to be compartible with transit data, such as waiting time )
             // we could have a period based FFTT, so we need to convert FFTT to vfree
-            // if we only have one period, then we can directly use vf and v_cutoff. 
+            // if we only have one period, then we can directly use vf and v_congestion_cutoff. 
 
             //step 3.2 calculate speed from VDF based on D/C ratio
             avg_speed_BPR = vf / (1.0 + alpha * pow(VOC, beta));
             avg_travel_time = FFTT * vf / max(0.1, avg_speed_BPR); // Mark: FFTT should be vctt
 
+
+
             if (vdf_type == 0)  // pure BPR form
                 avg_travel_time = FFTT * vf / max(0.1, avg_speed_BPR); // Mark: FFTT should be vctt
-            else if (vdf_type == 1) // pure QVDF form
+            else if (vdf_type == 1) //QVDF form
             {
-                avg_travel_time = VCTT * v_cutoff / max(0.1, avg_queue_speed); // Mark: FFTT should be vctt
-
-            }else        // BPR-X form
-            {
-                if (DOC > 0.2)
-                {
-                    avg_travel_time = VCTT * v_cutoff / max(0.1, avg_queue_speed);
-                }
-                else
-                {
-                    avg_travel_time = FFTT * vf / max(0.1, avg_speed_BPR); // Mark: FFTT should be vctt
-                }
+                 avg_travel_time = FFTT * vf / max(0.1, avg_queue_speed); // Mark: FFTT should be vctt
 
             }
             
-
+            avg_waiting_time = avg_travel_time - FFTT;
             //step 4.4 compute vt2
 //            vt2 = avg_queue_speed * 8.0 / 15.0;  // 8/15 is a strong assumption 
-            P = Q_cd * pow(DOC, Q_n);  // applifed for both uncongested and congested conditions
+
+
+            P = Q_cd * pow(DOC, Q_n_current_value);  // applifed for both uncongested and congested conditions
+
             double base = Q_cp*pow(P, Q_s) + 1.0;
-            vt2 = v_cutoff / max(0.001, base);
+            vt2 = v_congestion_cutoff / max(0.001, base);
             //step 4.1: compute congestion duration P
             
             
@@ -209,12 +223,16 @@ public:
            if (nonpeak_hourly_flow > lane_based_ultimate_hourly_capacity)
                nonpeak_hourly_flow = lane_based_ultimate_hourly_capacity;
 
-           double nonpeak_avg_speed = (vf + v_cutoff) / 2.0; // later we will use piecewise approximation 
+           double nonpeak_avg_speed = (vf + v_congestion_cutoff) / 2.0; // later we will use piecewise approximation 
 
            //step 4.2 t0 and t3
            t0 = t2 - 0.5 * P;
            t3 = t2 + 0.5 * P;
 
+           if (P >= 2)
+           {
+               int idebug = 1;
+           }
            // work on congested condition
            //step 4.3 compute mu
             double mu = min(lane_based_ultimate_hourly_capacity, lane_based_D / P);
@@ -222,13 +240,8 @@ public:
            //use  as the lower speed compared to 8/15 values for the congested states 
 
 
-           // let us use link_length_in_km = 1 for the following calculation 
-           double  link_length_in_1km = 1.0;
-           double RTT = link_length_in_1km / max(0.01,avg_queue_speed);  // in hour
-           if (P > 1)  // congested
-           {
-               RTT = link_length_in_1km / v_cutoff;
-           }
+
+
 
 
            double wt2 = link_length_in_1km / vt2 - RTT; // in hour
@@ -250,7 +263,9 @@ public:
            double td_w = 0;
            //step scan the entire analysis period
            Severe_Congestion_P = 0;
-           for (int t_in_min = starting_time_in_hour * 60; t_in_min < ending_time_in_hour * 60; t_in_min += 5)
+
+           
+           for (int t_in_min = starting_time_in_hour * 60; t_in_min <= ending_time_in_hour * 60; t_in_min += 5)
            {
                double t = t_in_min / 60.0;  // t in hour
                double td_queue = 0;
@@ -268,24 +283,29 @@ public:
                {
                  td_queue = 0;
                  double factor = (t - starting_time_in_hour) / max(0.001, t0 - starting_time_in_hour);
-                 td_speed =  (1 - factor)* vf + factor * max(v_cutoff,avg_queue_speed);
+                 td_speed =  (1 - factor)* vf + factor * max(v_congestion_cutoff,avg_queue_speed);
                }
                else  // t> t3
                {
                    td_queue = 0;
                    double factor = (t - t3) / max(0.001, ending_time_in_hour - t3);
-                   td_speed = (1 - factor) * max(v_cutoff, avg_queue_speed) + (factor)*vf;
+                   td_speed = (1 - factor) * max(v_congestion_cutoff, avg_queue_speed) + (factor)*vf;
                }
 
                // cout << "td_queue t" << t << " =  " << td_queue << ", speed =" << td_speed << endl;
 
             int t_interval = t_in_min / 5;
+
+            if (t_in_min <= 410)
+            {
+                int idebug = 1;
+            }
             double td_flow = 0; // default: get_volume_from_speed(td_speed, vf, k_critical, s3_m);
             model_speed[t_interval] = td_speed;
             est_volume_per_hour_per_lane[t_interval] = td_flow;
 
             if(td_speed < vf*0.5)
-                Severe_Congestion_P += 5.0/16;  // 5 min interval
+                Severe_Congestion_P += 5.0/60;  // 5 min interval
                 
            }
 
@@ -345,6 +365,7 @@ public:
     //peak hour factor
     double alpha;
     double beta;
+    double BPR_period_capacity;
 
     double Q_alpha;
     double Q_beta;
@@ -352,6 +373,10 @@ public:
     double Q_cp;
     double Q_n;
     double Q_s;
+
+    double obs_count;
+    int upper_bound_flag;
+    double est_count_dev;
 
 
     double starting_time_in_hour;
@@ -362,7 +387,7 @@ public:
     double peak_load_factor;  // peak load factor
     double queue_demand_factor;  // queue_demand_factor
 
-    double v_cutoff;
+    double v_congestion_cutoff;
     double vf;
 
     double sa_volume;
@@ -395,7 +420,6 @@ public:
     double nlanes;
 
     double FFTT;
-    double VCTT;
     double P;
     double Severe_Congestion_P;
     double L;
@@ -410,7 +434,6 @@ public:
     //output
     double avg_delay;
     double avg_travel_time;
-    double total_travel_time;
 
     //// t starting from starting_time_slot_no if we map back to the 24 hour horizon
     float queue_length;

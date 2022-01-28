@@ -106,6 +106,7 @@ std::map<int, DTAVehListPerTimeInterval> g_AgentTDListMap;
 vector<CAgent_Simu*> g_agent_simu_vector;
 std::vector<CNode> g_node_vector;
 std::vector<CLink> g_link_vector;
+std::map<string, CVDF_Type> g_vdf_type_map;
 std::vector<COZone> g_zone_vector;
 
 Assignment assignment;
@@ -133,22 +134,27 @@ void g_reset_link_volume_in_master_program_without_columns(int number_of_links, 
             for (int tau = 0; tau < number_of_demand_periods; ++tau)
             {
                 // used in travel time calculation
-                g_link_vector[i].vehicle_flow_volume_per_period[tau] = 0;
+                g_link_vector[i].PCE_volume_per_period[tau] = 0;
             }
         }
     }
     else
     {
+        double ratio = 1;
         for (int i = 0; i < number_of_links; ++i)
         {
             for (int tau = 0; tau < number_of_demand_periods; ++tau)
             {
                 if (b_self_reducing_path_volume)
                 {
+                    ratio = double(iteration_index) / double(iteration_index + 1);
                     // after link volumn "tally", self-deducting the path volume by 1/(k+1) (i.e. keep k/(k+1) ratio of previous flow)
                     // so that the following shortes path will be receiving 1/(k+1) flow
-                    g_link_vector[i].vehicle_flow_volume_per_period[tau] = g_link_vector[i].vehicle_flow_volume_per_period[tau] * (float(iteration_index) / float(iteration_index + 1));
-                    g_link_vector[i].person_flow_volume_per_period[tau] = g_link_vector[i].vehicle_flow_volume_per_period[tau] * (float(iteration_index) / float(iteration_index + 1));
+                    g_link_vector[i].PCE_volume_per_period[tau] = g_link_vector[i].PCE_volume_per_period[tau] * ratio;
+                    g_link_vector[i].person_volume_per_period[tau] = g_link_vector[i].person_volume_per_period[tau] * ratio;
+
+                    for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
+                        g_link_vector[i].person_volume_per_period_per_at[tau][at] *= ratio;
                 }
             }
         }
@@ -266,7 +272,7 @@ void g_deallocate_computing_tasks_from_memory_blocks()
 //        //Initialization for all non-origin nodes
 //        int number_of_links = assignment.g_number_of_links;
 //        for (int i = 0; i < number_of_links; ++i)
-//            pNetwork->m_link_flow_volume_array[i] = 0;
+//            pNetwork->m_link_PCE_volume_array[i] = 0;
 //    }
 //}
 
@@ -286,7 +292,11 @@ void g_reset_link_volume_for_all_processors()
 			//Initialization for all non-origin nodes
 			int number_of_links = assignment.g_number_of_links;
 			for (int i = 0; i < number_of_links; ++i)
-				pNetwork->m_link_flow_volume_array[i] = 0;
+            {
+				pNetwork->m_link_PCE_volume_array[i] = 0;
+                pNetwork->m_link_person_volume_array[i] = 0;
+
+            }
 
             }
 		}
@@ -303,8 +313,10 @@ void g_fetch_link_volume_for_all_processors()
 
         for (int i = 0; i < g_link_vector.size(); ++i)
         {
-            g_link_vector[i].vehicle_flow_volume_per_period[pNetwork->m_tau] += pNetwork->m_link_flow_volume_array[i]*pNetwork->PCE_ratio;
-            g_link_vector[i].person_flow_volume_per_period[pNetwork->m_tau] += pNetwork->m_link_flow_volume_array[i] * pNetwork->OCC_ratio;
+            g_link_vector[i].PCE_volume_per_period[pNetwork->m_tau] += pNetwork->m_link_PCE_volume_array[i];
+            g_link_vector[i].person_volume_per_period[pNetwork->m_tau] += pNetwork->m_link_person_volume_array[i];
+
+            g_link_vector[i].person_volume_per_period_per_at[pNetwork->m_tau][pNetwork->m_agent_type_no] += pNetwork->m_link_person_volume_array[i];
         }
     }
     // step 1: travel time based on VDF
@@ -319,9 +331,9 @@ void  CLink::calculate_dynamic_VDFunction(int inner_iteration_number, bool conge
         // for each time period
         for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
         {
-            float volume_to_be_assigned = vehicle_flow_volume_per_period[tau] + VDF_period[tau].sa_volume;
+            float volume_to_be_assigned = PCE_volume_per_period[tau] + VDF_period[tau].preload + VDF_period[tau].sa_volume;
 
-                if (link_id == "201102BA" && tau == 0)
+                if (link_id == "201065BA")
                 {
                     int idebug = 1;
                 }
@@ -346,7 +358,7 @@ void  CLink::calculate_dynamic_VDFunction(int inner_iteration_number, bool conge
         for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
         {
             VDF_period[tau].queue_length = 0;
-            VDF_period[tau].arrival_flow_volume = vehicle_flow_volume_per_period[tau];
+            VDF_period[tau].arrival_flow_volume = PCE_volume_per_period[tau];
             VDF_period[tau].discharge_rate = VDF_period[tau].lane_based_ultimate_hourly_capacity;
             VDF_period[tau].avg_waiting_time = 0;
         }
@@ -395,12 +407,12 @@ void  CLink::calculate_dynamic_VDFunction(int inner_iteration_number, bool conge
 
 }
 
-double network_assignment(int assignment_mode, int iteration_number, int column_updating_iterations, int ODME_iterations, int sensitivity_analysis_iterations, int simulation_iterations, int number_of_memory_blocks)
+double network_assignment(int assignment_mode, int column_generation_iterations, int column_updating_iterations, int ODME_iterations, int sensitivity_analysis_iterations, int simulation_iterations, int number_of_memory_blocks)
 {
     int signal_updating_iterations = 0;
 
     // k iterations for column generation
-    assignment.g_number_of_column_generation_iterations = iteration_number;
+    assignment.g_number_of_column_generation_iterations = column_generation_iterations;
     assignment.g_number_of_column_updating_iterations = column_updating_iterations;
     assignment.g_number_of_ODME_iterations = ODME_iterations;
     assignment.g_number_of_sensitivity_analysis_iterations = sensitivity_analysis_iterations;
@@ -420,6 +432,7 @@ double network_assignment(int assignment_mode, int iteration_number, int column_
     {
         assignment.map_tmc_reading();  // read reading file
         g_output_tmc_file();
+        g_output_qvdf_file();
 
         for (int i = 0; i < g_link_vector.size(); ++i)
         {
@@ -499,7 +512,7 @@ double network_assignment(int assignment_mode, int iteration_number, int column_
             for (int i = 0; i < g_link_vector.size(); ++i) {
                 dtalog.output() << "link: " << g_node_vector[g_link_vector[i].from_node_seq_no].node_id << "-->"
                                 << g_node_vector[g_link_vector[i].to_node_seq_no].node_id << ", "
-                                << "flow count:" << g_link_vector[i].vehicle_flow_volume_per_period[0] << endl;
+                                << "flow count:" << g_link_vector[i].PCE_volume_per_period[0] << endl;
             }
         }
 
@@ -584,8 +597,9 @@ double network_assignment(int assignment_mode, int iteration_number, int column_
 
         // last iteraion before performing signal timing updating
 		double relative_gap = (total_system_travel_time - total_least_system_travel_time) / max(0.00001, total_least_system_travel_time);
-		dtalog.output() << "iteration: " << iteration_number << ",systemTT: " << total_system_travel_time << ", least system TT:" <<
-			total_least_system_travel_time << ",gap=" << relative_gap << endl;
+		dtalog.output() << "iteration: " << iteration_number << ",systemTT: " << total_system_travel_time << endl;
+        //dtalog.output() << "iteration: " << iteration_number << ",systemTT: " << total_system_travel_time << ", least system TT:" <<
+        //    total_least_system_travel_time << ",gap=" << relative_gap << endl;
  }
     dtalog.output() << endl;
 
@@ -604,13 +618,13 @@ double network_assignment(int assignment_mode, int iteration_number, int column_
     {
         // we can have a recursive formulat to reupdate the current link volume by a factor of k/(k+1),
         // and use the newly generated path flow to add the additional 1/(k+1)
-        g_reset_and_update_link_volume_based_on_columns(g_link_vector.size(), iteration_number, false);
+        g_reset_and_update_link_volume_based_on_columns(g_link_vector.size(), column_generation_iterations, false);
     }
     else
-        g_reset_link_volume_in_master_program_without_columns(g_link_vector.size(), iteration_number, false);
+        g_reset_link_volume_in_master_program_without_columns(g_link_vector.size(), column_generation_iterations, false);
 
     // initialization at the first iteration of shortest path
-    update_link_travel_time_and_cost(iteration_number);
+    update_link_travel_time_and_cost(column_generation_iterations);
 
    if (assignment.assignment_mode == 3)
     {
@@ -644,6 +658,25 @@ double network_assignment(int assignment_mode, int iteration_number, int column_
     g_output_accessibility_result(assignment);
     g_output_assignment_result(assignment);
     g_output_simulation_result(assignment);
+
+
+    // at the end of simulation 
+    // validation step if reading data are available
+    bool b_sensor_reading_data_available = false; 
+    CCSVParser parser_reading;
+    if (parser_reading.OpenCSVFile("Reading.csv", false))
+    {
+        parser_reading.CloseCSVFile();
+        b_sensor_reading_data_available = true;
+    }
+
+    if(b_sensor_reading_data_available)
+    {
+        assignment.map_tmc_reading();  // read reading file
+        g_output_tmc_file();
+    }
+//    g_output_dynamic_queue_profile();
+    //
 
     end_t = clock();
     total_t = (end_t - start_t);

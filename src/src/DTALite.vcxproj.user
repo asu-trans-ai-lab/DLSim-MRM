@@ -1,12 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerWorkingDirectory>C:\testbed\DLSim\Aalto Otaniemi Campus\micro_network_v2</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\testbed\MAG_golden</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerWorkingDirectory>C:\testbed\DLSim\Aalto Otaniemi Campus\micro_network_v2</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\testbed\MAG_golden</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerAttach>false</LocalDebuggerAttach>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LocalDebuggerWorkingDirectory>C:\testbed\AZ_101</LocalDebuggerWorkingDirectory>

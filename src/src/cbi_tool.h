@@ -113,6 +113,18 @@ public:
         return FD_vcutoff / max(1, free_speed) * highest_speed;  // return the final cutoff speed
     }
 
+    float check_feasible_range(float input_value, float default_value, float lower_bound, float upper_bound)
+    {
+        float output_value = input_value;
+
+        if (input_value < lower_bound || input_value >upper_bound)
+        {
+            output_value = default_value;
+        }
+        return output_value;
+    }
+
+
     float scan_congestion_duration(int peak_no, float starting_time_in_hour, float ending_time_in_hour, float assign_period_t2_peak_in_hour, float& FD_vcutoff, CLink* pLink,  /* input*/
         float& obs_t0_in_hour, float& obs_t3_in_hour, float& obs_P_in_hour,
         float& V, float& peak_hour_volume, float&D, float& VOC_ratio, float& DOC_ratio,
@@ -125,6 +137,7 @@ public:
        Q_cd = 1;
        Q_cp = 0.6;
 
+       
         obs_t0_in_hour = -1;
         obs_t3_in_hour = -1;
         obs_P_in_hour = 0;
@@ -142,9 +155,11 @@ public:
         int obs_ts_in_interval = starting_time_in_hour * 12;
         int obs_te_in_interval = ending_time_in_hour * 12;
 
+
         float L = ending_time_in_hour - starting_time_in_hour;
-        plf = 1.0/L;
-        qdf = 0;
+        plf = 1.0/max(0.1, L);
+        qdf = 1.0/max(0.1, L);
+
         float total_speed_value = 0;
         float total_speed_count = 0;
 
@@ -194,7 +209,7 @@ public:
         bool b_t0_found_flag = false;
         bool b_t3_found_flag = false;
         //step 5: 
-        if (avg_speed[t_mid] < FD_vcutoff)  // exit if the speed is higher than v_cutoff
+        if (avg_speed[t_mid] < FD_vcutoff)  // exit if the speed is higher than v_congestion_cutoff
         {
             obs_t3_in_interval = t_mid;
             obs_t3_in_hour = t_mid * 1.0 / 12.0;
@@ -215,7 +230,7 @@ public:
                 break;
             }
 
-           if (avg_speed[t] > FD_vcutoff)  // exit if the speed is higher than v_cutoff
+           if (avg_speed[t] > FD_vcutoff)  // exit if the speed is higher than v_congestion_cutoff
             {
                 break;
             }
@@ -290,7 +305,7 @@ public:
 
         mean_speed_QVDF = FD_vcutoff;  
 
-        if (b_t0_found_flag == false || b_t3_found_flag == false)  // two boundaries are not found
+        if (b_t0_found_flag == false || b_t3_found_flag == false)  // two boundaries are not found or P < 1;
         {
             //uncongested states
 
@@ -303,7 +318,7 @@ public:
             D = 0;
             DOC_ratio = 0;
 
-            qdf = 0;
+            qdf = 1.0 / L;
 
         }else
         {  // congested states
@@ -333,16 +348,30 @@ public:
 
             // test
             obs_P_in_hour = (obs_t3_in_hour - obs_t0_in_hour);  // congestion duration P
-            DOC_ratio = D / max(1, pLink->lane_capacity);  // unit: demand: # of vehicles, lane_capacity # of vehicles per hours: dc ratio has a unit of hour, but it is different from P
-            VOC_ratio = max(VOC_ratio, DOC_ratio);
+
+                DOC_ratio = D / max(1, pLink->lane_capacity);  // unit: demand: # of vehicles, lane_capacity # of vehicles per hours: dc ratio has a unit of hour, but it is different from P
+                VOC_ratio = max(VOC_ratio, DOC_ratio);
 
             mean_speed_QVDF = total_speed_value / max(1, total_speed_count);
 
             t2_speed = lowest_speed;  // if we use a pure second order model, we should consider t2= 2/3(t3-t0)+ t0
 
-           // calibration
-            qdf = D / max(1, V);
-            plf = max(plf, qdf);
+            if (pLink->link_id == "10360AB")
+            {
+                int idebug = 1;
+
+            }
+            if (obs_P_in_hour > 2.5)
+            {
+                int idebug = 1;
+            }
+            // calibration
+            double exact_qdf = D / max(1, V);
+            double exact_plf = peak_hour_volume / max(1, V);
+            double exact_bound = 1.0 / L;
+            plf = qdf = max(exact_bound, max( exact_plf, exact_qdf));  // pure qdf
+
+            //revise qdf output as the result of plf 
             // P = cd * (D/C) ^n  --> log (P) = log(cd) + n *Log (D/C)
             double part1 = (log(obs_P_in_hour) - log(Q_cd));
             double part2 = log(DOC_ratio);
@@ -365,6 +394,17 @@ public:
 
 
         }
+
+        Q_n = check_feasible_range(Q_n, 1.24, 1, 5);
+        Q_s = check_feasible_range(Q_s, 1, 0.5, 2);
+        Q_cd = check_feasible_range(Q_cd, 1, 0.5, 2);
+        Q_cp = check_feasible_range(Q_cp, 0.6, 0.0, 2);
+        DOC_ratio = check_feasible_range(DOC_ratio, 0.5, 0.0, 1.1);
+        plf = check_feasible_range(plf, 1.0 / L, 0.0, 1);
+        qdf = check_feasible_range(qdf, 1.0 / L, 0.0, 1);
+
+        obs_P_in_hour = check_feasible_range(obs_P_in_hour, 0.0, 0.0, 10);
+        t2_speed = check_feasible_range(t2_speed, FD_vcutoff, 0.0, 200);
         return obs_P_in_hour;
     }
 
@@ -726,7 +766,7 @@ void g_output_tmc_file()
     if (p_file_tmc_link != NULL)
     {
         fprintf(p_file_tmc_link, "link_id,tmc,tmc_corridor_name,tmc_corridor_id,tmc_road_order,tmc_road_sequence,tmc_road,tmc_direction,tmc_intersection,tmc_highest_speed,link_no,from_node_id,to_node_id,link_type,");
-        fprintf(p_file_tmc_link, "link_type_code,FT,AT,VDF_code,nlanes,link_distance_VDF,free_speed,capacity,k_critical,vcutoff,highest_speed,vcutoff_updated,vcutoff_ratio,");
+        fprintf(p_file_tmc_link, "link_type_code,FT,AT,vdf_code,nlanes,link_distance_VDF,free_speed,capacity,k_critical,vcutoff,highest_speed,vcutoff_updated,vcutoff_ratio,v_critical_s3,");
 
         for (int tau = 0; tau < min(3, assignment.g_DemandPeriodVector.size()); tau++)
         {
@@ -900,13 +940,13 @@ void g_output_tmc_file()
                 g_link_vector[i].link_type_code.c_str(),
                 g_link_vector[i].FT,
                 g_link_vector[i].AT,
-                g_link_vector[i].VDF_code.c_str(),
+                g_link_vector[i].vdf_code.c_str(),
                 g_link_vector[i].number_of_lanes,
                 g_link_vector[i].link_distance_VDF,
                 g_link_vector[i].free_speed,
                 g_link_vector[i].lane_capacity,
                 g_link_vector[i].k_critical,
-                g_link_vector[i].v_cutoff
+                g_link_vector[i].v_congestion_cutoff
 
             );
 
@@ -927,15 +967,22 @@ void g_output_tmc_file()
                 CLink* pLink = &(g_link_vector[i]);
 
 
-                float updated_vc = g_TMC_vector[tmc_index].scan_highest_speed_and_vc(pLink->v_cutoff, pLink->free_speed, highest_speed);
-                pLink->v_cutoff = updated_vc;
+
+                float updated_vc = g_TMC_vector[tmc_index].scan_highest_speed_and_vc(pLink->v_congestion_cutoff, pLink->free_speed, highest_speed);
+                pLink->v_congestion_cutoff = updated_vc;
                 pLink->update_kc(free_speed);
-                fprintf(p_file_tmc_link, "%f,%f,%f,", highest_speed, pLink->v_cutoff, pLink->v_cutoff / max(1, highest_speed));
+                fprintf(p_file_tmc_link, "%f,%f,%f,", highest_speed, pLink->v_congestion_cutoff, pLink->v_congestion_cutoff / max(1, highest_speed));
+                fprintf(p_file_tmc_link, "%f,", pLink->v_critical);
 
                 int analysis_hour_flag[25];
 
                 for (int hour = 0; hour <= 24; hour++)
                     analysis_hour_flag[hour] = 0;
+
+
+                //pLink->VDF_period[0].queue_demand_factor = 0.46;  //AM
+                //pLink->VDF_period[1].queue_demand_factor = 0.24;  //MD
+                //pLink->VDF_period[2].queue_demand_factor = 0.50;  //PM
 
                 for (int tau = 0; tau < min (3, assignment.g_DemandPeriodVector.size()); tau++)
                 {
@@ -969,7 +1016,7 @@ void g_output_tmc_file()
                     float mean_speed_QVDF = 0;
                     float t2_speed = 0;
                     float plf= 1;
-                    float qdf = 0;
+                    float qdf = 1;
 
                     float Q_n = 1;
                     float Q_s = 1;
@@ -981,57 +1028,65 @@ void g_output_tmc_file()
                         assign_period_start_time_in_hour,
                         assign_period_end_time_in_hour,
                         assign_period_t2_peak_in_hour,
-                        pLink->v_cutoff, pLink,
+                        pLink->v_congestion_cutoff, pLink,
                         obs_t0_in_hour, obs_t3_in_hour, obs_P,
                         V, peak_hour_volume, D, VOC_ratio, DOC_ratio,
                         mean_speed_BPR, mean_speed_QVDF, highest_speed, t2_speed,
                         plf, qdf,
                         Q_n, Q_s, Q_cd, Q_cp);
 
-                    if (pLink->link_id == "4833AB" && tau == 0)
-                    {
-                        int idebug = 1;
-                    }
-                    if (g_link_vector[i].link_id == "201342AB")
-                    {
-                        int idebug = 1;
-                    }
-                    pLink->VDF_period[tau].sa_volume = V * pLink->number_of_lanes;  // make the data ready for sensitivity analysis
-                    pLink->VDF_period[tau].peak_load_factor = plf;
-                    pLink->VDF_period[tau].queue_demand_factor = qdf;
-                    pLink->VDF_period[tau].v_cutoff = pLink->v_cutoff;
-                    pLink->VDF_period[tau].v_cutoff = pLink->v_cutoff;
+                    qdf = plf;
 
-                    // location based parameters 
+                    // replacing the model data  based on observations only if the VDF setting has not been setup yet
+                    // thus, if we have assignment results in a post processing step, we will use the assignment volume directly 
+                        // location based parameters 
                     double Q_alpha = 8.0 / 15 * Q_cp * pow(Q_cd, Q_s);
                     double Q_beta = Q_n * Q_s;
 
-                    pLink->VDF_period[tau].Q_alpha = Q_alpha;
-                    pLink->VDF_period[tau].Q_beta = Q_beta;
-                    pLink->VDF_period[tau].Q_cd = Q_cd;
-                    pLink->VDF_period[tau].Q_n = Q_n;
-                    pLink->VDF_period[tau].Q_cp = Q_cp;
-                    pLink->VDF_period[tau].Q_s = Q_s;
+                    Q_alpha = g_TMC_vector[tmc_index].check_feasible_range(Q_alpha, 0.27, 0.01, 1);
+                    Q_alpha = g_TMC_vector[tmc_index].check_feasible_range(Q_beta, 1.14, 0.5, 5);
 
+                    if (pLink->link_id == "201065AB")
+                    {
+                        int idebug = 1;
+
+                    }
+                    if (pLink->VDF_period[tau].queue_demand_factor < 0)
+                    {
+
+                        pLink->VDF_period[tau].sa_volume = V * pLink->number_of_lanes;  // make the data ready for sensitivity analysis
+                        pLink->VDF_period[tau].peak_load_factor = plf;
+                        pLink->VDF_period[tau].queue_demand_factor = qdf;
+                        pLink->VDF_period[tau].v_congestion_cutoff = pLink->v_congestion_cutoff;
+                        pLink->VDF_period[tau].v_congestion_cutoff = pLink->v_congestion_cutoff;
+
+                        pLink->VDF_period[tau].Q_alpha = Q_alpha;
+                        pLink->VDF_period[tau].Q_beta = Q_beta;
+                        pLink->VDF_period[tau].Q_cd = Q_cd;
+                        pLink->VDF_period[tau].Q_n = Q_n;
+                        pLink->VDF_period[tau].Q_cp = Q_cp;
+                        pLink->VDF_period[tau].Q_s = Q_s;
+                    }
+                    //we still update free speed for a comparison based on speed data
                     pLink->free_speed = highest_speed; // update or not, here is the question
                     pLink->VDF_period[tau].vf = highest_speed;
-                    pLink->VDF_period[tau].v_cutoff = pLink->v_cutoff;
+                    pLink->VDF_period[tau].v_congestion_cutoff = pLink->v_congestion_cutoff;
 
                     pLink->calculate_dynamic_VDFunction(0, false, pLink->vdf_type);
 
 
                     //            fprintf(p_file_tmc_link, "AM_t0,AM_t3,AM_P,AM_V,AM_D,AM_DC_ratio,AM_mu,AM_vu,AM_vf_reference, AM_v_mean,AM_vt2,AM_plf,");
                     float speed_reduction_factor = 0;
-                    if (obs_P > 0.25 && t2_speed < pLink->v_cutoff)
+                    if (obs_P > 0.25 && t2_speed < pLink->v_congestion_cutoff)
                     {
-                        speed_reduction_factor = pLink->v_cutoff / max(1, t2_speed) - 1;
+                        speed_reduction_factor = pLink->v_congestion_cutoff / max(1, t2_speed) - 1;
                     }
                     else
                     {
                         speed_reduction_factor = 0;
                     }
 
-                    float queue_vc_delay_index = pLink->v_cutoff / max(1, mean_speed_QVDF) - 1;
+                    float queue_vc_delay_index = pLink->v_congestion_cutoff / max(1, mean_speed_QVDF) - 1;
                     if (queue_vc_delay_index < 0)
                     {
                         queue_vc_delay_index = 0;
@@ -1201,6 +1256,197 @@ void g_output_tmc_file()
     {
                     dtalog.output() << "Error: File link_cbi_summary cannot be open." << endl;
                     g_program_stop();
+
+    }
+
+}
+void g_output_qvdf_file()
+{
+    // if 
+    FILE* p_file_tmc_link = fopen("link_qvdf.csv", "w");
+
+
+    if (p_file_tmc_link != NULL)
+    {
+        fprintf(p_file_tmc_link, "data_type,link_id,tmc_corridor_name,from_node_id,to_node_id,vdf_code,");
+
+        for (int tau = 0; tau < min(3, assignment.g_DemandPeriodVector.size()); tau++)
+        {
+            fprintf(p_file_tmc_link, "QVDF_qdf%d,QVDF_n%d,QVDF_s%d,QVDF_cp%d,QVDF_cd%d,QVDF_alpha%d,QVDF_beta%d,", tau+1, tau + 1, tau + 1, tau + 1, tau + 1, tau + 1, tau + 1);
+        }
+
+
+        fprintf(p_file_tmc_link, "\n");
+
+        std::map<_int64, int> TMC_long_id_mapping;  // this is used to mark if this cell_id has been identified or not
+
+        //// sort data records
+        for (int i = 0; i < g_link_vector.size(); i++)
+        {
+            if (g_link_vector[i].tmc_code.size() > 0)
+            {
+                _int64 TMC_long_key = (g_link_vector[i].tmc_corridor_id * 10000 + g_link_vector[i].tmc_road_sequence) * 10 + g_link_vector[i].link_seq_no;
+                TMC_long_id_mapping[TMC_long_key] = g_link_vector[i].link_seq_no;
+            }
+        }
+
+
+        std::map<_int64, int>::iterator it;
+
+        for (it = TMC_long_id_mapping.begin(); it != TMC_long_id_mapping.end(); ++it)
+        {
+            int i = it->second;
+            float highest_speed = g_link_vector[i].free_speed;
+
+            if (assignment.m_TMClink_map.find(g_link_vector[i].tmc_code) != assignment.m_TMClink_map.end())
+            {
+                int tmc_index = assignment.m_TMClink_map[g_link_vector[i].tmc_code];
+
+                if (g_TMC_vector[tmc_index].b_with_sensor_speed_data == false)
+                    continue;
+
+                highest_speed = g_TMC_vector[tmc_index].get_highest_speed();
+            }
+            else
+            {
+                continue; // no tmc record data
+            }
+
+
+            float free_speed = g_link_vector[i].free_speed;
+
+            if (g_link_vector[i].lane_capacity > 5000)  // skip connectors
+                continue;
+
+            g_link_vector[i].update_kc(g_link_vector[i].free_speed);
+
+//            fprintf(p_file_tmc_link, "link_id,tmc_corridor_name,from_node_id,to_node_id,vdf_code,");
+
+            fprintf(p_file_tmc_link, "link,%s,%s,%d,%d,%s,",
+                g_link_vector[i].link_id.c_str(),
+                g_link_vector[i].tmc_corridor_name.c_str(),
+                g_node_vector[g_link_vector[i].from_node_seq_no].node_id,
+                g_node_vector[g_link_vector[i].to_node_seq_no].node_id,
+                g_link_vector[i].vdf_code.c_str()
+            );
+
+
+           if (assignment.m_TMClink_map.find(g_link_vector[i].tmc_code) != assignment.m_TMClink_map.end())
+            {
+                int tmc_index = assignment.m_TMClink_map[g_link_vector[i].tmc_code];
+
+
+                float highest_speed = 0;
+                CLink* pLink = &(g_link_vector[i]);
+
+
+                float updated_vc = g_TMC_vector[tmc_index].scan_highest_speed_and_vc(pLink->v_congestion_cutoff, pLink->free_speed, highest_speed);
+                pLink->v_congestion_cutoff = updated_vc;
+                pLink->update_kc(free_speed);
+
+                for (int tau = 0; tau < min(3, assignment.g_DemandPeriodVector.size()); tau++)
+                {
+
+                    float assign_period_start_time_in_hour = assignment.g_DemandPeriodVector[tau].starting_time_slot_no * MIN_PER_TIMESLOT / 60.0;
+                    float assign_period_end_time_in_hour = assignment.g_DemandPeriodVector[tau].ending_time_slot_no * MIN_PER_TIMESLOT / 60.0;
+                    float assign_period_t2_peak_in_hour = assignment.g_DemandPeriodVector[tau].t2_peak_in_hour;
+
+                    float obs_t0_in_hour, obs_t3_in_hour, obs_P;
+
+                    obs_t0_in_hour = obs_t3_in_hour = obs_P = 0;
+
+                    float V, D, VOC_ratio, DOC_ratio;
+                    V = D = VOC_ratio = DOC_ratio = 0;
+
+                    float peak_hour_volume = 0;
+                    float mean_speed_BPR = 0;
+                    float mean_speed_QVDF = 0;
+                    float t2_speed = 0;
+                    float plf = 1;
+                    float qdf = 1;
+
+                    float Q_n = 1;
+                    float Q_s = 1;
+                    float Q_cd = 1;
+                    float Q_cp = 1;
+
+
+                    obs_P = g_TMC_vector[tmc_index].scan_congestion_duration(tau,
+                        assign_period_start_time_in_hour,
+                        assign_period_end_time_in_hour,
+                        assign_period_t2_peak_in_hour,
+                        pLink->v_congestion_cutoff, pLink,
+                        obs_t0_in_hour, obs_t3_in_hour, obs_P,
+                        V, peak_hour_volume, D, VOC_ratio, DOC_ratio,
+                        mean_speed_BPR, mean_speed_QVDF, highest_speed, t2_speed,
+                        plf, qdf,
+                        Q_n, Q_s, Q_cd, Q_cp);
+
+                    qdf = plf;
+
+                    double Q_alpha = 8.0 / 15 * Q_cp * pow(Q_cd, Q_s);
+                    double Q_beta = Q_n * Q_s;
+
+                    Q_alpha = g_TMC_vector[tmc_index].check_feasible_range(Q_alpha, 0.27, 0.01, 1);
+                    Q_beta = g_TMC_vector[tmc_index].check_feasible_range(Q_beta, 1.14, 0.5, 5);
+
+                    pLink->VDF_period[tau].Q_alpha = Q_alpha;
+                    pLink->VDF_period[tau].Q_beta = Q_beta;
+                    pLink->VDF_period[tau].Q_cd = Q_cd;
+                    pLink->VDF_period[tau].Q_n = Q_n;
+                    pLink->VDF_period[tau].Q_cp = Q_cp;
+                    pLink->VDF_period[tau].Q_s = Q_s;
+
+                    if (pLink->vdf_code.size() > 0)
+                    {
+                        g_vdf_type_map[pLink->vdf_code].record_qvdf_data(pLink->VDF_period[tau], tau);
+                    }
+
+                        g_vdf_type_map["all"].record_qvdf_data(pLink->VDF_period[tau], tau);
+
+//                    fprintf(p_file_tmc_link, "QVDF_qdf%d,QVDF_n%d,QVDF_s%d,QVDF_cp%d,QVDF_cd%d,QVDF_alpha%d,QVDF_beta%d\n");
+                    fprintf(p_file_tmc_link, "%f,%f,%f,%f,%f,%f,%f,",
+                        qdf, Q_n, Q_s, Q_cp, Q_cd, Q_alpha, Q_beta 
+                    );
+
+                }
+
+
+                fprintf(p_file_tmc_link, "\n");
+
+            }
+
+        }
+
+        {
+            std::map<string, CVDF_Type>::iterator it;
+            for (it = g_vdf_type_map.begin(); it != g_vdf_type_map.end(); ++it)
+            {
+                fprintf(p_file_tmc_link, "vdf_code,,,,,%s,", it->first.c_str());
+                for (int tau = 0; tau < min(3, assignment.g_DemandPeriodVector.size()); tau++)
+                {
+                    it->second.computer_avg_parameter(tau);
+                    fprintf(p_file_tmc_link, "%f,%f,%f,%f,%f,%f,%f,",
+                        it->second.VDF_period_sum[tau].queue_demand_factor,
+                        it->second.VDF_period_sum[tau].Q_n,
+                        it->second.VDF_period_sum[tau].Q_s,
+                        it->second.VDF_period_sum[tau].Q_cp,
+                        it->second.VDF_period_sum[tau].Q_cd,
+                        it->second.VDF_period_sum[tau].Q_alpha,
+                        it->second.VDF_period_sum[tau].Q_beta);
+
+                }
+                fprintf(p_file_tmc_link, "\n");
+
+            }
+        }
+
+        fclose(p_file_tmc_link);
+    }
+    else
+    {
+        dtalog.output() << "Error: File link_qvdf cannot be open." << endl;
+        g_program_stop();
 
     }
 

@@ -86,8 +86,6 @@ void g_add_new_access_link(int internal_from_node_seq_no, int internal_to_node_s
         link.VDF_period[tau].alpha = 0;
         link.VDF_period[tau].beta = 0;
         link.VDF_period[tau].allowed_uses += assignment.g_AgentTypeVector[agent_type_no].agent_type;
-        link.TDBaseTT[tau] = link.free_flow_travel_time_in_min;
-        link.TDBaseCap[tau] = 99999;
         link.travel_time_per_period[tau] = link.free_flow_travel_time_in_min;
     }
 
@@ -108,66 +106,10 @@ void g_add_new_access_link(int internal_from_node_seq_no, int internal_to_node_s
 double g_random_generate_activity_nodes(Assignment& assignment)
 {
 
-    int activity_node_count = 0;                    // check how many actiity nodes
-    for (int i = 0; i < g_node_vector.size(); i++)  
-    {
-
-        if (g_node_vector[i].is_activity_node >= 1)
-        {
-            activity_node_count++;
-        }
-    }
-
-
-    if (activity_node_count <= 1    )       // random generation of activity locations 
-    {
-        activity_node_count = 0;
-        int sampling_rate = 10;
-
-        for (int i = 0; i < g_node_vector.size(); i++)
-        {
-
-            if (i % sampling_rate == 0)
-            {
-                g_node_vector[i].is_activity_node = 10;//random generation
-                activity_node_count++;
-            }
-        }
-
-        if (activity_node_count <= 1)
-        {
-            activity_node_count = 0;
-            sampling_rate = 2;
-
-            for (int i = 0; i < g_node_vector.size(); i++)
-            {
-
-                if (i % sampling_rate == 0)
-                {
-                    g_node_vector[i].is_activity_node = 10;//random generation
-                    activity_node_count++;
-                }
-            }
-            // still no activity nodes, define all nodes as activity nodes
-            if (activity_node_count <= 1)
-            {
-                activity_node_count = 0;
-
-                for (int i = 0; i < g_node_vector.size(); i++)
-                {
-
-                    g_node_vector[i].is_activity_node = 10;//random generation
-                    activity_node_count++;
-                }
-            }
-        }
-
-    }
-
 
     // calculate avg near by distance; 
     double total_near_by_distance = 0;
-    activity_node_count = 0;
+    int activity_node_count = 0;
     for (int i = 0; i < g_node_vector.size(); i++)
     {
         double min_near_by_distance = 100;
@@ -199,11 +141,43 @@ double g_random_generate_activity_nodes(Assignment& assignment)
 
 void g_grid_zone_generation(Assignment& assignment)
 {
+    int number_of_is_boundary = 0;
+    int number_of_nodes = 0;
 
     CCSVParser parser;
+    if (parser.OpenCSVFile("node.csv", true))
+    {
+        while (parser.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
+        {
 
-    int number_of_zones = 0;
-    int number_of_is_boundary = 0;
+            int node_id;
+            if (!parser.GetValueByFieldName("node_id", node_id))
+                continue;
+
+            int is_boundary = 0;
+
+
+            parser.GetValueByFieldName("is_boundary", is_boundary, false, false);
+
+
+            if (is_boundary != 0)
+                number_of_is_boundary++;
+
+            number_of_nodes++;
+
+        }
+
+        // fprintf(g_pFileOutputLog, "number of nodes =,%d\n", assignment.g_number_of_nodes);
+        parser.CloseCSVFile();
+    }
+
+    int sampling_rate = 10;
+    if (number_of_is_boundary <= 1)       // random generation of activity locations // no boundary nodes
+    {
+        if (number_of_nodes > 1000)
+            sampling_rate = number_of_nodes / 100;
+    }
+
 
     std::vector<CNode> l_node_vector; // l as local
 
@@ -221,13 +195,16 @@ void g_grid_zone_generation(Assignment& assignment)
             int is_boundary = 0;
 
 
-            parser.GetValueByFieldName("is_boundary", is_boundary,false,false);
+            parser.GetValueByFieldName("is_boundary", is_boundary, false, false);
 
-
-            if (node_id == 2235)
+            if (number_of_is_boundary <= 1)       // random generation of activity locations // no boundary nodes
             {
-                int idebug = 1;
+                if (l_node_vector.size() % sampling_rate == 0)
+                {
+                    is_boundary = 2;
+                }
             }
+
             if (is_boundary != 0)
                 node.is_activity_node = 1;
 
@@ -253,103 +230,135 @@ void g_grid_zone_generation(Assignment& assignment)
         g_program_stop();
     }
 
-        fprintf(g_pFileZone, "first_column,zone_id,access_node_vector,cell_code,cell_id,access_distance,x_coord,y_coord,");
-        fprintf(g_pFileZone, "geometry,");
+    fprintf(g_pFileZone, "first_column,zone_id,access_node_vector,cell_code,cell_id,access_distance,x_coord,y_coord,");
+    fprintf(g_pFileZone, "geometry,");
 
-        fprintf(g_pFileZone, "production,attraction,");
+    fprintf(g_pFileZone, "production,attraction,");
 
-        fprintf(g_pFileZone, "\n");
+    fprintf(g_pFileZone, "\n");
 
 
-        double activity_nearbydistance = g_random_generate_activity_nodes(assignment);
-        // initialization of grid rectangle boundary
-        double left = 100000000;
-        double right = -100000000;
-        double top = -1000000000;
-        double  bottom = 1000000000;
+    double activity_nearbydistance = g_random_generate_activity_nodes(assignment);
+    // initialization of grid rectangle boundary
+    double left = 100000000;
+    double right = -100000000;
+    double top = -1000000000;
+    double  bottom = 1000000000;
 
-        for (int i = 0; i < l_node_vector.size(); i++)
+    for (int i = 0; i < l_node_vector.size(); i++)
+    {
+        // exapnd the grid boundary according to the nodes
+        left = min(left, l_node_vector[i].x);
+        right = max(right, l_node_vector[i].x);
+        top = max(top, l_node_vector[i].y);
+        bottom = min(bottom, l_node_vector[i].y);
+
+    }
+
+    int grid_size = 8;
+
+    if (l_node_vector.size() > 3000)
+        grid_size = 10;
+
+
+    double temp_resolution = (((right - left) / grid_size + (top - bottom) / grid_size)) / 2.0;
+
+    //if (activity_nearbydistance * 4 < temp_resolution)
+    //{
+    //    temp_resolution = activity_nearbydistance * 40;
+
+    //}
+
+
+    vector<double> ResolutionVector;
+
+    ResolutionVector.push_back(0.00005);
+    ResolutionVector.push_back(0.0001);
+    ResolutionVector.push_back(0.0002);
+    ResolutionVector.push_back(0.00025);
+    ResolutionVector.push_back(0.0005);
+    ResolutionVector.push_back(0.00075);
+    ResolutionVector.push_back(0.001);
+    ResolutionVector.push_back(0.002);
+    ResolutionVector.push_back(0.0025);
+    ResolutionVector.push_back(0.005);
+    ResolutionVector.push_back(0.0075);
+    ResolutionVector.push_back(0.01);
+    ResolutionVector.push_back(0.02);
+    ResolutionVector.push_back(0.025);
+    ResolutionVector.push_back(0.05);
+    ResolutionVector.push_back(0.075);
+    ResolutionVector.push_back(0.1);
+    ResolutionVector.push_back(0.2);
+    ResolutionVector.push_back(0.25);
+    ResolutionVector.push_back(0.5);
+    ResolutionVector.push_back(0.75);
+    ResolutionVector.push_back(1);
+    ResolutionVector.push_back(2);
+    ResolutionVector.push_back(2.5);
+    ResolutionVector.push_back(5);
+    ResolutionVector.push_back(7.5);
+    ResolutionVector.push_back(10);
+    ResolutionVector.push_back(20);
+    ResolutionVector.push_back(25);
+    ResolutionVector.push_back(50);
+    ResolutionVector.push_back(75);
+
+    double ClosestResolution = 1;
+
+    if (temp_resolution < ResolutionVector[0])
+        temp_resolution = ResolutionVector[0];
+
+    for (unsigned int i = 0; i < ResolutionVector.size() - 1; i++)
+    {
+        if ((temp_resolution > ResolutionVector[i] + 0.000001) && temp_resolution < ResolutionVector[i + 1])
         {
-            // exapnd the grid boundary according to the nodes
-            left = min(left, l_node_vector[i].x);
-            right = max(right, l_node_vector[i].x);
-            top = max(top, l_node_vector[i].y);
-            bottom = min(bottom, l_node_vector[i].y);
+            temp_resolution = ResolutionVector[i + 1]; // round up
+            break;
 
         }
+    }
 
-        int grid_size = 8;
+    assignment.m_GridResolution = temp_resolution;
 
-        if (l_node_vector.size() > 3000)
-            grid_size = 10;
-        if (l_node_vector.size() > 10000)
-            grid_size = 20;
-        if (l_node_vector.size() > 40000)
-            grid_size = 30;
+    dtalog.output() << "Step 1.4.2: Grid Resolution " << assignment.m_GridResolution << endl;
 
-        double temp_resolution = (((right - left) / grid_size + (top - bottom) / grid_size)) / 2.0;
+    int activity_node_count = 0;
+    // check # of access nodes
+    // check # of nodes
 
-        if (activity_nearbydistance * 4 < temp_resolution)
+    int total_number_of_zones = 0;
+    float total_number_of_trips_expected_lower_bound = 10000;
+
+    if (l_node_vector.size() > 10000) //  regional model
+    {
+        total_number_of_trips_expected_lower_bound = 50000;
+    }
+
+
+    float production_rate_per_zone = 10;
+
+    std::map<_int64, int> local_cell_id_2_zone_mapping;
+
+    for (int i = 0; i < l_node_vector.size(); i++)
+    {
+
+        if (l_node_vector[i].is_activity_node != 0)
         {
-            temp_resolution = activity_nearbydistance * 4;
 
-        }
+            __int64 cell_id = g_get_cell_ID(l_node_vector[i].x, l_node_vector[i].y, assignment.m_GridResolution);
+            int zone_id;
 
-
-        vector<double> ResolutionVector;
-
-        ResolutionVector.push_back(0.00005);
-        ResolutionVector.push_back(0.0001);
-        ResolutionVector.push_back(0.0002);
-        ResolutionVector.push_back(0.00025);
-        ResolutionVector.push_back(0.0005);
-        ResolutionVector.push_back(0.00075);
-        ResolutionVector.push_back(0.001);
-        ResolutionVector.push_back(0.002);
-        ResolutionVector.push_back(0.0025);
-        ResolutionVector.push_back(0.005);
-        ResolutionVector.push_back(0.0075);
-        ResolutionVector.push_back(0.01);
-        ResolutionVector.push_back(0.02);
-        ResolutionVector.push_back(0.025);
-        ResolutionVector.push_back(0.05);
-        ResolutionVector.push_back(0.075);
-        ResolutionVector.push_back(0.1);
-        ResolutionVector.push_back(0.2);
-        ResolutionVector.push_back(0.25);
-        ResolutionVector.push_back(0.5);
-        ResolutionVector.push_back(0.75);
-        ResolutionVector.push_back(1);
-        ResolutionVector.push_back(2);
-        ResolutionVector.push_back(2.5);
-        ResolutionVector.push_back(5);
-        ResolutionVector.push_back(7.5);
-        ResolutionVector.push_back(10);
-        ResolutionVector.push_back(20);
-        ResolutionVector.push_back(25);
-        ResolutionVector.push_back(50);
-        ResolutionVector.push_back(75);
-
-        double ClosestResolution = 1;
-
-        if (temp_resolution < ResolutionVector[0])
-            temp_resolution = ResolutionVector[0];
-
-        for (unsigned int i = 0; i < ResolutionVector.size() - 1; i++)
-        {
-            if ((temp_resolution > ResolutionVector[i] + 0.000001) && temp_resolution < ResolutionVector[i + 1])
+            if (local_cell_id_2_zone_mapping.find(cell_id) == local_cell_id_2_zone_mapping.end())  // create a cell
             {
-                temp_resolution = ResolutionVector[i + 1]; // round up
-                break;
-
+                //create zone
+                local_cell_id_2_zone_mapping[cell_id] = l_node_vector[i].node_id;
             }
         }
+    }
 
-        double m_GridResolution = temp_resolution;
-
-        dtalog.output() << "Step 1.4.2: Grid Resolution " << assignment.m_GridResolution << endl;
-
-        int activity_node_count = 0;
+    total_number_of_zones = local_cell_id_2_zone_mapping.size();
+    production_rate_per_zone = total_number_of_trips_expected_lower_bound / max(1, total_number_of_zones);
 
 
         for (int i = 0; i < l_node_vector.size(); i++)
@@ -426,7 +435,7 @@ void g_grid_zone_generation(Assignment& assignment)
 
                     for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
                     {
-                        fprintf(g_pFileZone, "%d,%d,", access_node_vector.size()*100, access_node_vector.size() * 100);
+                        fprintf(g_pFileZone, "%.2f,%.2f,", access_node_vector.size()* production_rate_per_zone, access_node_vector.size() * production_rate_per_zone);
                     }
 
 
