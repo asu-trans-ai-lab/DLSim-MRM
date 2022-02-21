@@ -1,6 +1,8 @@
 #ifndef GUARD_DTA_H
 #define GUARD_DTA_H
-#define BUILD_EXE //self-use
+
+#include <algorithm>
+#include <iomanip>
 
 constexpr auto MAX_LABEL_COST = 1.0e+15;
 constexpr auto _INFO_ZONE_ID = 100000;
@@ -362,7 +364,7 @@ public:
             {
 
                 double slot_fraction = cumulative_departure_time_ratio[s] - cumulative_departure_time_ratio[s-1];
-                double floating_point = std::max(0.0, (r - cumulative_departure_time_ratio[s - 1]) / std::max(0.00001, slot_fraction));
+                double floating_point = max(0.0, (r - cumulative_departure_time_ratio[s - 1]) / max(0.00001, slot_fraction));
 
                 double time_in_min = (s- starting_time_slot_no + floating_point )* MIN_PER_TIMESLOT;
                 if (idebug)
@@ -795,7 +797,7 @@ public:
         g_number_of_zones = number_of_zones;
         g_number_of_agent_types = number_of_agent_types;
 
-        g_column_pool = Allocate4DDynamicArray<CColumnVector>(number_of_zones, number_of_zones, std::max(1, number_of_agent_types), number_of_time_periods);
+        g_column_pool = Allocate4DDynamicArray<CColumnVector>(number_of_zones, number_of_zones, max(1, number_of_agent_types), number_of_time_periods);
 
         for (int i = 0; i < number_of_zones; ++i)
         {
