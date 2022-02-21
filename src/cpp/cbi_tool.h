@@ -17,6 +17,9 @@
 #include "pch.h"
 #endif
 
+#include "config.h"
+#include "utils.h"
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -33,9 +36,6 @@
 #include <vector>
 #include <map>
 #include <omp.h>
-#include "config.h"
-#include "utils.h"
-
 
 using std::max;
 using std::min;
@@ -110,7 +110,7 @@ public:
                 highest_speed = avg_speed;
         }
 
-        return FD_vcutoff / max(1, free_speed) * highest_speed;  // return the final cutoff speed
+        return FD_vcutoff / max(1.0f, free_speed) * highest_speed;  // return the final cutoff speed
     }
 
     float check_feasible_range(float input_value, float default_value, float lower_bound, float upper_bound)
@@ -157,8 +157,8 @@ public:
 
 
         float L = ending_time_in_hour - starting_time_in_hour;
-        plf = 1.0/max(0.1, L);
-        qdf = 1.0/max(0.1, L);
+        plf = 1.0/max(0.1f, L);
+        qdf = 1.0/max(0.1f, L);
 
         float total_speed_value = 0;
         float total_speed_count = 0;
@@ -298,10 +298,10 @@ public:
 
         }
 
-        mean_speed_BPR = total_speed_value / max(1, total_speed_count);
+        mean_speed_BPR = total_speed_value / max(1.0f, total_speed_count);
 
-        plf = peak_hour_volume / max(1, V);
-        VOC_ratio = peak_hour_volume / max(1, p_link->lane_capacity);  // unit: demand: # of vehicles, lane_capacity # of vehicles per hours: dc ratio has a unit of hour, but it is different from P
+        plf = peak_hour_volume / max(1.0f, V);
+        VOC_ratio = peak_hour_volume / max(1.0, p_link->lane_capacity);  // unit: demand: # of vehicles, lane_capacity # of vehicles per hours: dc ratio has a unit of hour, but it is different from P
 
         mean_speed_QVDF = FD_vcutoff;  
 
@@ -361,10 +361,10 @@ public:
             // test
             obs_P_in_hour = (obs_t3_in_hour - obs_t0_in_hour);  // congestion duration P
 
-                DOC_ratio = D / max(1, p_link->lane_capacity);  // unit: demand: # of vehicles, lane_capacity # of vehicles per hours: dc ratio has a unit of hour, but it is different from P
+                DOC_ratio = D / max(1.0, p_link->lane_capacity);  // unit: demand: # of vehicles, lane_capacity # of vehicles per hours: dc ratio has a unit of hour, but it is different from P
                 VOC_ratio = max(VOC_ratio, DOC_ratio);
 
-            mean_speed_QVDF = total_speed_value / max(1, total_speed_count);
+            mean_speed_QVDF = total_speed_value / max(1.0f, total_speed_count);
 
             t2_speed = lowest_speed;  // if we use a pure second order model, we should consider t2= 2/3(t3-t0)+ t0
 
@@ -373,8 +373,8 @@ public:
                 int idebug = 1;
             }
             // calibration
-            double exact_qdf = D / max(1, V);
-            double exact_plf = peak_hour_volume / max(1, V);
+            double exact_qdf = D / max(1.0f, V);
+            double exact_plf = peak_hour_volume / max(1.0f, V);
             double exact_bound = 1.0 / L;
             plf = qdf = max(exact_bound, max( exact_plf, exact_qdf));  // pure qdf
 
@@ -392,11 +392,11 @@ public:
             {
                 Q_n = 1.124; // default, to ensure the mu is decreasing pattern as a function of D/C
                 //Cd = P / (D / C) ^ n
-                Q_cd = obs_P_in_hour / max(0.0001, pow(DOC_ratio, Q_n));
+                Q_cd = obs_P_in_hour / max(0.0001f, pow(DOC_ratio, Q_n));
             }
 
             //vc / vt2 - 1 = cp * (P)^s, --> cp = [ vc/vt2 - 1] / (P^s)  // assume s is fixed
-            Q_cp = (FD_vcutoff / max(0.0001, t2_speed) - 1.0) / max(0.00001, pow(obs_P_in_hour, Q_s));
+            Q_cp = (FD_vcutoff / max(0.0001f, t2_speed) - 1.0) / max(0.00001f, pow(obs_P_in_hour, Q_s));
             //backward derivation
 
 
@@ -407,7 +407,7 @@ public:
         Q_s = check_feasible_range(Q_s, 1, 0.5, 4);
         Q_cd = check_feasible_range(Q_cd, 1, 0.5, 2);
         Q_cp = check_feasible_range(Q_cp, 0.2, 0.0, 2);
-        double largest_DOC_ratio = max (1, L);
+        double largest_DOC_ratio = max (1.0f, L);
         DOC_ratio = check_feasible_range(DOC_ratio, 0.5, 0.0, largest_DOC_ratio);
         plf = check_feasible_range(plf, 1.0 / L, 0.0, 1);
         qdf = check_feasible_range(qdf, 1.0 / L, 0.0, 1);
@@ -457,7 +457,7 @@ public:
         if (t >= 0 && t < MAX_TIMEINTERVAL_PerDay)
         {
 
-            avg_speed[t] = speed_sum[t] / max(1, speed_count[t]);
+            avg_speed[t] = speed_sum[t] / max(1.0f, speed_count[t]);
             return avg_speed[t];
         }
 
@@ -472,7 +472,7 @@ public:
         if (t >= 0 && t < MAX_TIMEINTERVAL_PerDay)
         {
 
-            return speed_sum[t] / max(1, speed_count[t]);
+            return speed_sum[t] / max(1.0f, speed_count[t]);
 
         }
         return -1;
@@ -487,7 +487,7 @@ public:
         if (volume_count[t] >0 && t >= 0 && t < MAX_TIMEINTERVAL_PerDay)
         {
 
-            return volume_sum[t] / max(1, volume_count[t]) *12;  // 5 min to hourly volume
+            return volume_sum[t] / max(1.0f, volume_count[t]) *12;  // 5 min to hourly volume
 
         }
         else  // default 
@@ -508,7 +508,7 @@ public:
 
             if (t + tt >= 0 && t + tt < MAX_TIMEINTERVAL_PerDay)
             {
-                total_speed_value += speed_sum[t + tt] / max(1, speed_count[t + tt]);
+                total_speed_value += speed_sum[t + tt] / max(1.0f, speed_count[t + tt]);
                 total_speed_count++;
             }
         }
@@ -529,7 +529,7 @@ public:
 
             if (t + tt >= 0 && t + tt < MAX_TIMEINTERVAL_PerDay)
             {
-                total_speed_value += speed_sum[t + tt] / max(1, speed_count[t + tt]);
+                total_speed_value += speed_sum[t + tt] / max(1.0f, speed_count[t + tt]);
                 total_speed_count++;
             }
         }
@@ -551,7 +551,7 @@ public:
 
             if (t + tt >= 0 && t + tt < MAX_TIMEINTERVAL_PerDay)
             {
-                total_volume_value += volume_sum[t + tt] / max(1, volume_count[t + tt]);
+                total_volume_value += volume_sum[t + tt] / max(1.0f, volume_count[t + tt]);
                 total_volume_count++;
             }
         }
@@ -777,7 +777,7 @@ void g_output_tmc_file()
         fprintf(p_file_tmc_link, "link_id,tmc,tmc_corridor_name,tmc_corridor_id,tmc_road_order,tmc_road_sequence,tmc_road,tmc_direction,tmc_intersection,tmc_highest_speed,link_no,from_node_id,to_node_id,link_type,");
         fprintf(p_file_tmc_link, "link_type_code,FT,AT,vdf_code,nlanes,link_distance_VDF,free_speed,capacity,k_critical,vcutoff,highest_speed,vcutoff_updated,vcutoff_ratio,v_critical_s3,");
 
-        for (int tau = 0; tau < min(3, assignment.g_DemandPeriodVector.size()); tau++)
+        for (int tau = 0; tau < min((size_t)3, assignment.g_DemandPeriodVector.size()); tau++)
         {
 
             fprintf(p_file_tmc_link, "%s_t0,%s_t3,%s_V,%s_peak_hour_volume,%s_D,%s_VC_ratio,%s_DC_ratio,%s_P,%s_vc/vt2-1,%s_vf_delay_index,%s_vc_delay_index,%s_speed_ph,%s_queue_speed,%s_vt2,%s_qdf,%s_Q_n,%s_Q_cp,%s_Q_alpha,%s_Q_beta,%s_mV,%s_mD,%s_mDC_ratio,%s_mP,%s_mv_QVDF,%s_mvt2_QVDF,%s_m_mu_QVDF,%s_m_gamma_QVDF,%s_m_peak_hour_volume,%s_mVC_ratio,%s_mv_BPR,",
@@ -880,7 +880,7 @@ void g_output_tmc_file()
 
         fprintf(p_file_tmc_link, "\n");
 
-        std::map<_int64, int> TMC_long_id_mapping;  // this is used to mark if this cell_id has been identified or not
+        std::map<__int64, int> TMC_long_id_mapping;  // this is used to mark if this cell_id has been identified or not
 
         //// sort data records
         for (int i = 0; i < g_link_vector.size(); i++)
@@ -890,13 +890,13 @@ void g_output_tmc_file()
             if (g_link_vector[i].tmc_code.size() > 0)
             {
 
-                _int64 TMC_long_key = (g_link_vector[i].tmc_corridor_id * 10000 + g_link_vector[i].tmc_road_sequence) * 10 + g_link_vector[i].link_seq_no;
+                __int64 TMC_long_key = (g_link_vector[i].tmc_corridor_id * 10000 + g_link_vector[i].tmc_road_sequence) * 10 + g_link_vector[i].link_seq_no;
                 TMC_long_id_mapping[TMC_long_key] = g_link_vector[i].link_seq_no;
             }
         }
 
 
-        std::map<_int64, int>::iterator it;
+        std::map<__int64, int>::iterator it;
 
         for (it = TMC_long_id_mapping.begin(); it != TMC_long_id_mapping.end(); ++it)
         {
@@ -978,7 +978,7 @@ void g_output_tmc_file()
                 float updated_vc = g_TMC_vector[tmc_index].scan_highest_speed_and_vc(p_link->v_congestion_cutoff, p_link->free_speed, highest_speed);
                 p_link->v_congestion_cutoff = updated_vc;
                 p_link->update_kc(free_speed);
-                fprintf(p_file_tmc_link, "%f,%f,%f,", highest_speed, p_link->v_congestion_cutoff, p_link->v_congestion_cutoff / max(1, highest_speed));
+                fprintf(p_file_tmc_link, "%f,%f,%f,", highest_speed, p_link->v_congestion_cutoff, p_link->v_congestion_cutoff / max(1.0f, highest_speed));
                 fprintf(p_file_tmc_link, "%f,", p_link->v_critical);
 
                 int analysis_hour_flag[25];
@@ -991,7 +991,7 @@ void g_output_tmc_file()
                 //p_link->VDF_period[1].queue_demand_factor = 0.24;  //MD
                 //p_link->VDF_period[2].queue_demand_factor = 0.50;  //PM
 
-                for (int tau = 0; tau < min (3, assignment.g_DemandPeriodVector.size()); tau++)
+                for (int tau = 0; tau < min ((size_t)3, assignment.g_DemandPeriodVector.size()); tau++)
                 {
 
                     float assign_period_start_time_in_hour = assignment.g_DemandPeriodVector[tau].starting_time_slot_no * MIN_PER_TIMESLOT / 60.0;
@@ -1086,20 +1086,20 @@ void g_output_tmc_file()
                     float speed_reduction_factor = 0;
                     if (obs_P > 0.25 && t2_speed < p_link->v_congestion_cutoff)
                     {
-                        speed_reduction_factor = p_link->v_congestion_cutoff / max(1, t2_speed) - 1;
+                        speed_reduction_factor = p_link->v_congestion_cutoff / max(1.0f, t2_speed) - 1;
                     }
                     else
                     {
                         speed_reduction_factor = 0;
                     }
 
-                    float queue_vc_delay_index = p_link->v_congestion_cutoff / max(1, mean_speed_QVDF) - 1;
+                    float queue_vc_delay_index = p_link->v_congestion_cutoff / max(1.0f, mean_speed_QVDF) - 1;
                     if (queue_vc_delay_index < 0)
                     {
                         queue_vc_delay_index = 0;
                     }
 
-                    float BPR_vf_delay_index = max(highest_speed, p_link->free_speed) / max(1, mean_speed_BPR) - 1;
+                    float BPR_vf_delay_index = max(highest_speed, (float)p_link->free_speed) / max(1.0f, mean_speed_BPR) - 1;
                     if (BPR_vf_delay_index < 0)
                     {
                         BPR_vf_delay_index = 0;
@@ -1212,7 +1212,7 @@ void g_output_tmc_file()
                             {
                                 EstSpeedDiff[hour] = fabs(EstSpeed[hour] - ObsSpeed[hour]);
                                 MAE_total += fabs(EstSpeedDiff[hour]);
-                                MAPE_total += fabs(EstSpeedDiff[hour]) / max(1, ObsSpeed[hour]);
+                                MAPE_total += fabs(EstSpeedDiff[hour]) / max(1.0, ObsSpeed[hour]);
                                 RMSE_total += EstSpeedDiff[hour] * EstSpeedDiff[hour];
                                 count_total += 1;
                             }
@@ -1236,7 +1236,7 @@ void g_output_tmc_file()
                             int hour = t / 60;
                             ObsSpeed[hour] = g_TMC_vector[tmc_index].get_avg_hourly_speed(t);
 
-                            float speed_ratio = ObsSpeed[hour] / max(1, g_link_vector[i].TMC_highest_speed);
+                            float speed_ratio = ObsSpeed[hour] / max(1.0f, g_link_vector[i].TMC_highest_speed);
 
                             if (speed_ratio >= 1)
                                 speed_ratio = 1;
@@ -1276,12 +1276,11 @@ void g_output_tmc_file()
     }
     else
     {
-                    dtalog.output() << "Error: File link_cbi_summary cannot be open." << endl;
-                    g_program_stop();
-
+        dtalog.output() << "Error: File link_cbi_summary cannot be open." << endl;
+        g_program_stop();
     }
-
 }
+
 void g_output_qvdf_file()
 {
     // if 
@@ -1292,7 +1291,7 @@ void g_output_qvdf_file()
     {
         fprintf(p_file_tmc_link, "data_type,link_id,tmc_corridor_name,from_node_id,to_node_id,vdf_code,");
 
-        for (int tau = 0; tau < min(3, assignment.g_DemandPeriodVector.size()); tau++)
+        for (int tau = 0; tau < min((size_t)3, assignment.g_DemandPeriodVector.size()); tau++)
         {
             fprintf(p_file_tmc_link, "QVDF_qdf%d,QVDF_n%d,QVDF_s%d,QVDF_cp%d,QVDF_cd%d,QVDF_alpha%d,QVDF_beta%d,", tau+1, tau + 1, tau + 1, tau + 1, tau + 1, tau + 1, tau + 1);
         }
@@ -1300,20 +1299,20 @@ void g_output_qvdf_file()
 
         fprintf(p_file_tmc_link, "\n");
 
-        std::map<_int64, int> TMC_long_id_mapping;  // this is used to mark if this cell_id has been identified or not
+        std::map<__int64, int> TMC_long_id_mapping;  // this is used to mark if this cell_id has been identified or not
 
         //// sort data records
         for (int i = 0; i < g_link_vector.size(); i++)
         {
             if (g_link_vector[i].tmc_code.size() > 0)
             {
-                _int64 TMC_long_key = (g_link_vector[i].tmc_corridor_id * 10000 + g_link_vector[i].tmc_road_sequence) * 10 + g_link_vector[i].link_seq_no;
+                __int64 TMC_long_key = (g_link_vector[i].tmc_corridor_id * 10000 + g_link_vector[i].tmc_road_sequence) * 10 + g_link_vector[i].link_seq_no;
                 TMC_long_id_mapping[TMC_long_key] = g_link_vector[i].link_seq_no;
             }
         }
 
 
-        std::map<_int64, int>::iterator it;
+        std::map<__int64, int>::iterator it;
 
         for (it = TMC_long_id_mapping.begin(); it != TMC_long_id_mapping.end(); ++it)
         {
@@ -1366,7 +1365,7 @@ void g_output_qvdf_file()
                 p_link->v_congestion_cutoff = updated_vc;
                 p_link->update_kc(free_speed);
 
-                for (int tau = 0; tau < min(3, assignment.g_DemandPeriodVector.size()); tau++)
+                for (int tau = 0; tau < min((size_t)3, assignment.g_DemandPeriodVector.size()); tau++)
                 {
 
                     float assign_period_start_time_in_hour = assignment.g_DemandPeriodVector[tau].starting_time_slot_no * MIN_PER_TIMESLOT / 60.0;
@@ -1445,7 +1444,7 @@ void g_output_qvdf_file()
             for (it = g_vdf_type_map.begin(); it != g_vdf_type_map.end(); ++it)
             {
                 fprintf(p_file_tmc_link, "vdf_code,,,,,%s,", it->first.c_str());
-                for (int tau = 0; tau < min(3, assignment.g_DemandPeriodVector.size()); tau++)
+                for (int tau = 0; tau < min((size_t)3, assignment.g_DemandPeriodVector.size()); tau++)
                 {
                     it->second.computer_avg_parameter(tau);
                     fprintf(p_file_tmc_link, "%f,%f,%f,%f,%f,%f,%f,",

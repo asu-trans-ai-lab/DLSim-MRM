@@ -17,7 +17,7 @@
 #endif
 
 #ifdef BUILD_EXE
-network_assignment(int assignment_mode, int iteration_number, int column_updating_iterations, int ODME_iterations, int sensitivity_analysis_iterations, int simulation_iterations, int number_of_memory_blocks);
+    double network_assignment(int assignment_mode, int iteration_number, int column_updating_iterations, int ODME_iterations, int sensitivity_analysis_iterations, int simulation_iterations, int number_of_memory_blocks);
 #else
     #ifdef _WIN32
         #define DTALIBRARY_API __declspec(dllexport)

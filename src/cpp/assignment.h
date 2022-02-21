@@ -17,6 +17,10 @@
 #include "pch.h"
 #endif
 
+#include "config.h"
+#include "utils.h"
+#include "DTA.h"
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -33,9 +37,6 @@
 #include <vector>
 #include <map>
 #include <omp.h>
-#include "config.h"
-#include "utils.h"
-
 
 using std::max;
 using std::min;
@@ -47,8 +48,6 @@ using std::map;
 using std::ifstream;
 using std::ofstream;
 using std::istringstream;
-
-#include "DTA.h"
 
 
 void g_reset_and_update_link_volume_based_on_columns(int number_of_links, int iteration_index, bool b_self_reducing_path_volume, bool b_sensitivity_analysis_flag)
@@ -671,7 +670,7 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
 
 									//if(it->second.path_gradient_cost_difference >0.0001f)
 									{
-										it->second.path_gradient_cost_relative_difference = it->second.path_gradient_cost_difference / max(0.0001f, least_gradient_cost);
+										it->second.path_gradient_cost_relative_difference = it->second.path_gradient_cost_difference / max(0.0001, least_gradient_cost);
 									}
 
 #pragma omp critical

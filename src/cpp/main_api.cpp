@@ -17,6 +17,9 @@
 #include "pch.h"
 #endif
 
+#include "config.h"
+#include "utils.h"
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -33,9 +36,6 @@
 #include <vector>
 #include <map>
 #include <omp.h>
-#include "config.h"
-#include "utils.h"
-
 
 using std::max;
 using std::min;
@@ -47,7 +47,6 @@ using std::map;
 using std::ifstream;
 using std::ofstream;
 using std::istringstream;
-
 
 
 __int64 g_get_cell_ID(double x, double y, double grid_resolution)
@@ -427,7 +426,7 @@ void  CLink::calculate_dynamic_VDFunction(int inner_iteration_number, bool conge
 		//time-slot based queue evolution
 		for (int tau = 1; tau < assignment.g_number_of_demand_periods; ++tau)
 		{
-			VDF_period[tau].queue_length = max(0, VDF_period[tau - 1].queue_length + VDF_period[tau].arrival_flow_volume - VDF_period[tau].discharge_rate);
+			VDF_period[tau].queue_length = max(0.0f, VDF_period[tau - 1].queue_length + VDF_period[tau].arrival_flow_volume - VDF_period[tau].discharge_rate);
 
 			if (inner_iteration_number == 1 && g_node_vector[this->from_node_seq_no].node_id == 1 &&
 				g_node_vector[this->to_node_seq_no].node_id == 3)
@@ -449,7 +448,7 @@ void  CLink::calculate_dynamic_VDFunction(int inner_iteration_number, bool conge
 			float total_waiting_time = (prevailing_queue_length + VDF_period[tau].queue_length) / 2.0 * VDF_period[tau].L;  // unit min
 			// to do: 
 
-			VDF_period[tau].avg_waiting_time = total_waiting_time / max(1, VDF_period[tau].arrival_flow_volume);
+			VDF_period[tau].avg_waiting_time = total_waiting_time / max(1.0f, VDF_period[tau].arrival_flow_volume);
 			VDF_period[tau].avg_travel_time = VDF_period[tau].FFTT + VDF_period[tau].avg_waiting_time;
 			VDF_period[tau].DOC = (prevailing_queue_length + VDF_period[tau].arrival_flow_volume) / max(0.01, VDF_period[tau].lane_based_ultimate_hourly_capacity * VDF_period[tau].nlanes);
 			//to do:
@@ -460,16 +459,13 @@ void  CLink::calculate_dynamic_VDFunction(int inner_iteration_number, bool conge
 			// apply queue length at the time period to all the time slots included in this period
 			for (int slot_no = assignment.g_DemandPeriodVector[tau].starting_time_slot_no; slot_no < assignment.g_DemandPeriodVector[tau].ending_time_slot_no; slot_no++)
 			{
-				this->est_queue_length_per_lane[slot_no] = VDF_period[tau].queue_length / max(1, this->number_of_lanes);
+				this->est_queue_length_per_lane[slot_no] = VDF_period[tau].queue_length / max(1.0, this->number_of_lanes);
 				this->est_avg_waiting_time_in_min[slot_no] = VDF_period[tau].avg_waiting_time;
 				float number_of_hours = assignment.g_DemandPeriodVector[tau].time_period_in_hour;  // unit hour
-				this->est_volume_per_hour_per_lane[slot_no] = VDF_period[tau].arrival_flow_volume / max(0.01, number_of_hours) / max(1, this->number_of_lanes);
+				this->est_volume_per_hour_per_lane[slot_no] = VDF_period[tau].arrival_flow_volume / max(0.01f, number_of_hours) / max(1.0, this->number_of_lanes);
 			}
-
 		}
-
 	}
-
 }
 
 double network_assignment(int assignment_mode, int column_generation_iterations, int column_updating_iterations, int ODME_iterations, int sensitivity_analysis_iterations, int simulation_iterations, int number_of_memory_blocks)
@@ -691,13 +687,13 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 
 		if(iteration_number==0)
 		{ 
-		g_output_accessibility_result(assignment);
+			g_output_accessibility_result(assignment);
 		}
-}
+	}
 	assignment.summary_file << "Step 4: Column Generation for Traffic Assignment" << endl;
 	dtalog.output() << ",# of column generation (shortest path finding) iterations=, " << assignment.g_number_of_column_generation_iterations << endl;
 
-		dtalog.output() << endl;
+	dtalog.output() << endl;
 
 	// step 1.8: column updating stage: for given column pool, update volume assigned for each column
 	dtalog.output() << "Step 4.2: Column Pool Updating" << endl;
