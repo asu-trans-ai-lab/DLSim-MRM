@@ -392,14 +392,12 @@ public:
             {
                 Q_n = 1.124; // default, to ensure the mu is decreasing pattern as a function of D/C
                 //Cd = P / (D / C) ^ n
-                Q_cd = obs_P_in_hour / max(0.0001f, pow(DOC_ratio, Q_n));
+                Q_cd = obs_P_in_hour / max(0.0001, pow(DOC_ratio, Q_n));
             }
 
             //vc / vt2 - 1 = cp * (P)^s, --> cp = [ vc/vt2 - 1] / (P^s)  // assume s is fixed
-            Q_cp = (FD_vcutoff / max(0.0001f, t2_speed) - 1.0) / max(0.00001f, pow(obs_P_in_hour, Q_s));
+            Q_cp = (FD_vcutoff / max(0.0001f, t2_speed) - 1.0) / max(0.00001, pow(obs_P_in_hour, Q_s));
             //backward derivation
-
-
         }
 
         // modified with Mohammad A. 02/15/2022 

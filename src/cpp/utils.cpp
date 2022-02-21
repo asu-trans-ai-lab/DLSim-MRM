@@ -8,6 +8,9 @@
  * http://www.gnu.org/licenses/gpl-howto.html
  */
 
+#include "teestream.h"
+#include "utils.h"
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -15,8 +18,7 @@
 #include <string>
 #include <cstring>
 #include <vector>
-#include "teestream.h"
-#include "utils.h"
+#include <cmath>
 
 using std::endl;
 using std::string;
@@ -24,6 +26,14 @@ using std::vector;
 using std::ofstream;
 using std::istringstream;
 using std::ostringstream;
+
+using std::asin;
+using std::sin;
+using std::cos;
+using std::pow;
+using std::sqrt;
+using std::min;
+using std::fmin;
 
 void g_program_stop()
 {

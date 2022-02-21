@@ -4,6 +4,9 @@
 #include <algorithm>
 #include <iomanip>
 
+// Peiheng, 02/21/22, a temporary fix (bad practice)
+using std::max;
+
 constexpr auto MAX_LABEL_COST = 1.0e+15;
 constexpr auto _INFO_ZONE_ID = 100000;
 
@@ -591,7 +594,9 @@ public:
 
 
 };
-extern class NetworkForSP;
+
+// Peiheng, 02/21/22 remove extern to make it forward declaration
+class NetworkForSP;
 
 class CColumnVector {
 
