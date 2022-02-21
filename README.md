@@ -1,4 +1,4 @@
-![alt text](https://github.com/asu-trans-ai-lab/DLSim/blob/main/media/DLSIM-LOGO2.jpg)
+![alt text](https://github.com/asu-trans-ai-lab/DLSim/blob/main/media/DLSIM_Logo_4.jpg)
 
 "Dynamic Traffic Simulation Package" (DLSIM) is an open source, high-fidelity multi-resolution (i.e., macroscopic, mesoscopic, and microscopic simulation) traffic simulation package which users jointly apply varying temporal and spatial resolutions to solve a single question or set of questions that mirror the physical world with complex intersections. Users can perform traffic assignments and feed results from one model to another while maintaining consistency between the model assumptions. DLSIM typically takes the following steps for simulation based on [General Modeling Network Specification (GMNS)](https://github.com/zephyr-data-specs/GMNS) format, as shown in Figure 1:
 1.	Use demand forecasting models to determine overall trip patterns in a regional network, including trip generation, trip distribution, mode split, and initial O-D matrices.
