@@ -59,7 +59,7 @@ class DTALog{
     int ue;
 public:
 
-DTALog(): logfile {"log.txt"}, ts {std::cout, logfile}
+    DTALog() : logfile{ "log.txt" }, ts{ std::cout, logfile }, db{ 0 }, sig{ 0 }, odme{ 0 }, path{ 0 }, dta{ 0 }, ue{ 0 }
 {
 }
 

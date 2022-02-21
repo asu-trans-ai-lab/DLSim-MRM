@@ -1,11 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerWorkingDirectory>C:\testbed\MAG_golden</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\osm2gmns\ASU\lesson_1_learning_NeXTA_GMNS\Tempe_ASU_network\network_auto</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerWorkingDirectory>C:\testbed\MAG_golden</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\Users\18016\Documents\GitHub\gmns_education_data_sets\universities\North America\United_States\07_NWU_US\MRM_network\network\mesonet</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerAttach>false</LocalDebuggerAttach>
   </PropertyGroup>

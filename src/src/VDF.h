@@ -51,15 +51,17 @@ using std::ofstream;
 class CPeriod_VDF
 {
 public:
-    CPeriod_VDF() : vdf_type{ 0 }, vdf_data_count{ 0 }, Q_cd{ 0.954946463 }, Q_n{ 1.141574427 }, Q_cp{ 0.400089684 }, Q_s{ 1 }, vf{ 60 }, v_congestion_cutoff{ 45 }, FFTT{ 1 }, BPR_period_capacity{ 1 }, peak_load_factor{ 1 }, queue_demand_factor{ -1 }, DOC{ 0 }, VOC{ 0 }, vt2{ -1 },
-        alpha{ 0.39999993}, beta{ 4 }, Q_alpha{ 0.272876961}, Q_beta{ 1.141574427}, rho{ 1 }, preload{ 0 }, penalty{ 0 }, sa_lanes_change{ 0 }, LR_price{ 0 }, LR_RT_price{ 0 }, starting_time_in_hour{ 0 }, ending_time_in_hour{ 0 },
+    CPeriod_VDF() : vdf_type{ 0 }, vdf_data_count{ 0 }, Q_cd{ 0.954946463 }, Q_n{ 1.141574427 }, Q_cp{ 0.400089684 }, Q_s{ 4 }, vf{ 60 }, v_congestion_cutoff{ 45 }, FFTT{ 1 }, BPR_period_capacity{ 1 }, peak_load_factor{ 1 }, queue_demand_factor{ -1 }, DOC{ 0 }, VOC{ 0 }, vt2{ -1 },
+        alpha{ 0.39999993}, beta{ 4 }, Q_alpha{ 0.272876961}, Q_beta{ 4}, rho{ 1 }, preload{ 0 }, penalty{ 0 }, sa_lanes_change{ 0 }, LR_price{ 0 }, LR_RT_price{ 0 }, starting_time_in_hour{ 0 }, ending_time_in_hour{ 0 },
         cycle_length{ -1 }, red_time{ 0 }, effective_green_time{ 0 }, t0{ -1 }, t3{ -1 }, start_green_time{ -1 }, end_green_time{ -1 }, L{ 1 },
-        queue_length{ 0 }, obs_count{ 0 }, upper_bound_flag{ 1 }, est_count_dev{ 0 }, avg_waiting_time{ 0 }, P{ -1 }, Severe_Congestion_P{ -1 }, lane_based_D{ 0 }, lane_based_Vph{ 0 }, avg_speed_BPR{ -1 }, avg_queue_speed{ -1 }, nlanes{ 1 }, sa_volume{ 0 }, t2{ 1 }, k_critical{ 45 }
+        queue_length{ 0 }, obs_count{ 0 }, upper_bound_flag{ 1 }, est_count_dev{ 0 }, avg_waiting_time{ 0 }, P{ -1 }, Severe_Congestion_P{ -1 }, lane_based_D{ 0 }, lane_based_Vph{ 0 }, avg_speed_BPR{ -1 }, avg_queue_speed{ -1 }, nlanes{ 1 }, sa_volume{ 0 }, t2{ 1 }, k_critical{ 45 }, link_volume {0},
+        Q_mu{ 0 }, Q_gamma{ 0 }, network_design_flag{ 0 }
 {
         for (int at = 0; at < MAX_AGNETTYPES; at++)
         {
             toll[at] = 0;
             pce[at] = 1;
+            RT_allowed_use[at] = true;
         }
 
     }
@@ -133,12 +135,12 @@ public:
   
 
     double calculate_travel_time_based_on_QVDF(double volume, 
-        float model_speed[MAX_TIMEINTERVAL_PerDay], float est_volume_per_hour_per_lane[MAX_TIMEINTERVAL_PerDay])    
+        float model_speed[MAX_TIMEINTERVAL_PerDay], float est_volume_per_hour_per_lane[MAX_TIMEINTERVAL_PerDay])
     {
         // QVDF
             double dc_transition_ratio = 1;
 
-            // step 1: calculate lane_based D based on plf and nlanes from link volume V over the analysis period  take nonnegative values
+             // step 1: calculate lane_based D based on plf and nlanes from link volume V over the analysis period  take nonnegative values
             lane_based_D = max(0.0, volume) * queue_demand_factor / max(1, nlanes);
             // step 2: D_ C ratio based on lane-based D and lane-based ultimate hourly capacity, 
             // uncongested states D <C 
@@ -235,11 +237,9 @@ public:
            }
            // work on congested condition
            //step 4.3 compute mu
-            double mu = min(lane_based_ultimate_hourly_capacity, lane_based_D / P);
+           Q_mu = min(lane_based_ultimate_hourly_capacity, lane_based_D / P);
 
            //use  as the lower speed compared to 8/15 values for the congested states 
-
-
 
 
 
@@ -248,11 +248,11 @@ public:
 
 
            //step 5 compute gamma parameter is controlled by the maximum queue
-           double gamma = wt2 * 64*mu / pow(P, 4);  // because q_tw = w*mu =1/4 * gamma (P/2)^4, => 1/vt2 * mu = 1/4 * gamma  * (P/2)^4
+           Q_gamma = wt2 * 64*Q_mu / pow(P, 4);  // because q_tw = w*mu =1/4 * gamma (P/2)^4, => 1/vt2 * mu = 1/4 * gamma  * (P/2)^4
 
             //QL(t2) = gamma / (4 * 4 * 4) * power(P, 4)
-           double test_QL_t2 = gamma / 64.0 * pow(P, 4);
-           double test_wt2 = test_QL_t2 / mu;
+           double test_QL_t2 = Q_gamma / 64.0 * pow(P, 4);
+           double test_wt2 = test_QL_t2 / Q_mu;
 
            //L/[(w(t)+RTT_in_hour]
            double test_vt2 = link_length_in_1km/(test_wt2 + RTT);
@@ -274,8 +274,8 @@ public:
                if (t0 <= t && t <= t3)  // within congestion duration P
                {
                    //1/4*gamma*(t-t0)^2(t-t3)^2
-                   td_queue = 0.25 * gamma * pow((t - t0), 2) * pow((t - t3), 2);
-                   td_w = td_queue / max(0.001,mu);
+                   td_queue = 0.25 * Q_gamma * pow((t - t0), 2) * pow((t - t3), 2);
+                   td_w = td_queue / max(0.001,Q_mu);
                    //L/[(w(t)+RTT_in_hour]
                    td_speed = link_length_in_1km / (td_w + RTT);
                }
@@ -373,6 +373,8 @@ public:
     double Q_cp;
     double Q_n;
     double Q_s;
+    double Q_mu;
+    double Q_gamma;
 
     double obs_count;
     int upper_bound_flag;
@@ -392,13 +394,17 @@ public:
 
     double sa_volume;
     double sa_lanes_change;
+    int network_design_flag; // 0: normal: 1: adding lanes, -1: capacity reduction 
     double preload;
     double toll[MAX_AGNETTYPES];
     double pce[MAX_AGNETTYPES];
-    double occ[MAX_AGNETTYPES]; // person based occupancy 
+    double occ[MAX_AGNETTYPES];
+
+    double dsr[MAX_AGNETTYPES]; // desired speed ratio with respect to free-speed
     double penalty;
     double LR_price[MAX_AGNETTYPES];
     double LR_RT_price[MAX_AGNETTYPES];;
+    bool   RT_allowed_use[MAX_AGNETTYPES];
     string allowed_uses;
 
     double rho;
@@ -429,7 +435,8 @@ public:
     double avg_speed_BPR;  // normal BPR
     double avg_queue_speed;  // queue VDF speed
     // inpput
-    double volume;
+    double link_volume;
+    std::map <int, double> link_volume_per_iteration_map;
 
     //output
     double avg_delay;

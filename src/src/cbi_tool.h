@@ -125,7 +125,7 @@ public:
     }
 
 
-    float scan_congestion_duration(int peak_no, float starting_time_in_hour, float ending_time_in_hour, float assign_period_t2_peak_in_hour, float& FD_vcutoff, CLink* pLink,  /* input*/
+    float scan_congestion_duration(int peak_no, float starting_time_in_hour, float ending_time_in_hour, float assign_period_t2_peak_in_hour, float& FD_vcutoff, CLink* p_link,  /* input*/
         float& obs_t0_in_hour, float& obs_t3_in_hour, float& obs_P_in_hour,
         float& V, float& peak_hour_volume, float&D, float& VOC_ratio, float& DOC_ratio,
         float& mean_speed_BPR, float &mean_speed_QVDF, float& highest_speed,  float& t2_speed,
@@ -133,9 +133,9 @@ public:
     {
 
        Q_n = 1.24;
-       Q_s = 1;
+       Q_s = 4;
        Q_cd = 1;
-       Q_cp = 0.6;
+       Q_cp = 0.24;
 
        
         obs_t0_in_hour = -1;
@@ -188,7 +188,7 @@ public:
             {
 
                 float avg_speed = record_avg_speed(t_in_min);
-                float volume = get_avg_volume(t_in_min,pLink,avg_speed, highest_speed);
+                float volume = get_avg_volume(t_in_min,p_link,avg_speed, highest_speed);
                 V += volume / 12; // 12 5-min interval per hour
 
                 if (avg_speed < lowest_speed)
@@ -226,7 +226,7 @@ public:
             if (avg_speed[t] < 1)
             {
                 int i_no_data = 1;
-                //                dtalog.output() << " Error: TMC_link " << pLink->tmc_code.c_str() << " has no data at timt t " << t << g_time_coding(t * 5).c_str() << endl;;
+                //                dtalog.output() << " Error: TMC_link " << p_link->tmc_code.c_str() << " has no data at timt t " << t << g_time_coding(t * 5).c_str() << endl;;
                 break;
             }
 
@@ -248,7 +248,7 @@ public:
             if (avg_speed[t] < 1)
             {
                 int i_no_data = 1;
-                //dtalog.output() << " Error: TMC link " << pLink->tmc_code.c_str() << " has no data at timt t =" << t * 5 << " min" << endl;;
+                //dtalog.output() << " Error: TMC link " << p_link->tmc_code.c_str() << " has no data at timt t =" << t * 5 << " min" << endl;;
                 break;
             }
             if (avg_speed[t] > FD_vcutoff)
@@ -276,7 +276,7 @@ public:
 
         peak_hour_volume = 0;
 
-        if (pLink->link_id == "201102BA")
+        if (p_link->link_id == "201102BA")
             int debug_flag = 1;
 
         // consider voluem in peak hour
@@ -285,12 +285,12 @@ public:
             if (avg_speed[t] >= 1)
             {
                 total_speed_value += avg_speed[t];
-                float volume = get_avg_volume(t, pLink, avg_speed[t], highest_speed);
+                float volume = get_avg_volume(t, p_link, avg_speed[t], highest_speed);
 
                 if (volume < 0)
                 {
                     int idebug = 1;
-                    get_avg_volume(t, pLink, avg_speed[t], highest_speed);
+                    get_avg_volume(t, p_link, avg_speed[t], highest_speed);
                 }
                 peak_hour_volume += volume / 12; // 12 5-min interval per hour
                 total_speed_count++;
@@ -301,9 +301,21 @@ public:
         mean_speed_BPR = total_speed_value / max(1, total_speed_count);
 
         plf = peak_hour_volume / max(1, V);
-        VOC_ratio = peak_hour_volume / max(1, pLink->lane_capacity);  // unit: demand: # of vehicles, lane_capacity # of vehicles per hours: dc ratio has a unit of hour, but it is different from P
+        VOC_ratio = peak_hour_volume / max(1, p_link->lane_capacity);  // unit: demand: # of vehicles, lane_capacity # of vehicles per hours: dc ratio has a unit of hour, but it is different from P
 
         mean_speed_QVDF = FD_vcutoff;  
+
+        if (b_t0_found_flag == false && b_t3_found_flag == true)
+        {
+            obs_t0_in_hour = assign_period_t2_peak_in_hour;
+            b_t0_found_flag = true; // reset
+        }
+
+        if (b_t0_found_flag == true && b_t3_found_flag == false)
+        {
+            obs_t3_in_hour = assign_period_t2_peak_in_hour;
+            b_t3_found_flag = true;
+        }
 
         if (b_t0_found_flag == false || b_t3_found_flag == false)  // two boundaries are not found or P < 1;
         {
@@ -333,7 +345,7 @@ public:
                 if (avg_speed[t] >= 1)
                 {
                     total_speed_value += avg_speed[t];
-                    float volume = get_avg_volume(t, pLink, avg_speed[t], highest_speed);
+                    float volume = get_avg_volume(t, p_link, avg_speed[t], highest_speed);
                     D += volume / 12; // 12 5-min interval per hour
                     total_speed_count++;
 
@@ -349,18 +361,13 @@ public:
             // test
             obs_P_in_hour = (obs_t3_in_hour - obs_t0_in_hour);  // congestion duration P
 
-                DOC_ratio = D / max(1, pLink->lane_capacity);  // unit: demand: # of vehicles, lane_capacity # of vehicles per hours: dc ratio has a unit of hour, but it is different from P
+                DOC_ratio = D / max(1, p_link->lane_capacity);  // unit: demand: # of vehicles, lane_capacity # of vehicles per hours: dc ratio has a unit of hour, but it is different from P
                 VOC_ratio = max(VOC_ratio, DOC_ratio);
 
             mean_speed_QVDF = total_speed_value / max(1, total_speed_count);
 
             t2_speed = lowest_speed;  // if we use a pure second order model, we should consider t2= 2/3(t3-t0)+ t0
 
-            if (pLink->link_id == "10360AB")
-            {
-                int idebug = 1;
-
-            }
             if (obs_P_in_hour > 2.5)
             {
                 int idebug = 1;
@@ -395,11 +402,13 @@ public:
 
         }
 
-        Q_n = check_feasible_range(Q_n, 1.24, 1, 5);
-        Q_s = check_feasible_range(Q_s, 1, 0.5, 2);
+        // modified with Mohammad A. 02/15/2022 
+        Q_n = check_feasible_range(Q_n, 1.24, 1,1.5);
+        Q_s = check_feasible_range(Q_s, 1, 0.5, 4);
         Q_cd = check_feasible_range(Q_cd, 1, 0.5, 2);
-        Q_cp = check_feasible_range(Q_cp, 0.6, 0.0, 2);
-        DOC_ratio = check_feasible_range(DOC_ratio, 0.5, 0.0, 1.1);
+        Q_cp = check_feasible_range(Q_cp, 0.2, 0.0, 2);
+        double largest_DOC_ratio = max (1, L);
+        DOC_ratio = check_feasible_range(DOC_ratio, 0.5, 0.0, largest_DOC_ratio);
         plf = check_feasible_range(plf, 1.0 / L, 0.0, 1);
         qdf = check_feasible_range(qdf, 1.0 / L, 0.0, 1);
 
@@ -471,7 +480,7 @@ public:
 
 
 
-    float get_avg_volume(int time_in_min, CLink* pLink, float avg_speed, float highest_speed)
+    float get_avg_volume(int time_in_min, CLink* p_link, float avg_speed, float highest_speed)
     {
         int t = time_in_min / 5;
             
@@ -483,7 +492,7 @@ public:
         }
         else  // default 
         {
-            return pLink->get_volume_from_speed(avg_speed, highest_speed, pLink->lane_capacity);
+            return p_link->get_volume_from_speed(avg_speed, highest_speed, p_link->lane_capacity);
         }
 
     }
@@ -603,8 +612,8 @@ float g_measurement_tstamp_parser(string str, int& day_of_week_flag, int& day_of
     char ch, buf_hh[32] = { 0 }, buf_mm[32] = { 0 }, buf_ss[32] = { 0 };
 
     int yyyy, month, day;
-    char dd1, dd2, hh1, hh2, mm1, mm2;
-    float ddf1, ddf2, hhf1, hhf2, mmf1, mmf2;
+    char  hh1, hh2, mm1, mm2;
+    float hhf1, hhf2, mmf1, mmf2;
     float global_minute = 0;
     float dd = 0, hh = 0, mm = 0;
     int i = 11;  //2019-01-01 06:00:00,
@@ -771,15 +780,7 @@ void g_output_tmc_file()
         for (int tau = 0; tau < min(3, assignment.g_DemandPeriodVector.size()); tau++)
         {
 
-            fprintf(p_file_tmc_link, "%s_t0,%s_t3,%s_V,%s_peak_hour_volume,%s_D,%s_VC_ratio,%s_DC_ratio,%s_P,%s_vc/vt2-1,%s_vf_delay_index,%s_vc_delay_index,%s_speed_ph,%s_queue_speed,%s_vt2,%s_plf,%s_qdf,%s_Q_n,%s_Q_cp,%s_Q_alpha,%s_Q_beta,%s_ln_VC_ratio,%s_ln_DC_ratio,%s_ln_vf_delay_index,%s_ln_vc_delay_index,%s_mV,%s_mD,%s_mDC_ratio,%s_mP,%s_mv_QVDF,%s_mvt2_QVDF,%s_m_peak_hour_volume,%s_mVC_ratio,%s_mv_BPR,",
-               assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
-               assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
-               assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
-
-               assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
-               assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
-               assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
-
+            fprintf(p_file_tmc_link, "%s_t0,%s_t3,%s_V,%s_peak_hour_volume,%s_D,%s_VC_ratio,%s_DC_ratio,%s_P,%s_vc/vt2-1,%s_vf_delay_index,%s_vc_delay_index,%s_speed_ph,%s_queue_speed,%s_vt2,%s_qdf,%s_Q_n,%s_Q_cp,%s_Q_alpha,%s_Q_beta,%s_mV,%s_mD,%s_mDC_ratio,%s_mP,%s_mv_QVDF,%s_mvt2_QVDF,%s_m_mu_QVDF,%s_m_gamma_QVDF,%s_m_peak_hour_volume,%s_mVC_ratio,%s_mv_BPR,",
                assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
                assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
                assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
@@ -788,38 +789,34 @@ void g_output_tmc_file()
 
                assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
                assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
+               assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
+               assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
+               assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
+               
+               assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
+               assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
+               assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
                 assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
                 assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
+               
                 assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
                assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
                assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
-
                 assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
                 assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
+                
                 assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
                 assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
                assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
                assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
                assignment.g_DemandPeriodVector[tau].demand_period.c_str(), 
                assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
-               assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
+               
+                assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
                 assignment.g_DemandPeriodVector[tau].demand_period.c_str(), 
                 assignment.g_DemandPeriodVector[tau].demand_period.c_str(), 
-                assignment.g_DemandPeriodVector[tau].demand_period.c_str(), 
-
-                assignment.g_DemandPeriodVector[tau].demand_period.c_str(), 
-                assignment.g_DemandPeriodVector[tau].demand_period.c_str(), 
-                assignment.g_DemandPeriodVector[tau].demand_period.c_str() 
-
+                assignment.g_DemandPeriodVector[tau].demand_period.c_str()
             );
-
-            //fprintf(p_file_tmc_link, "%s_VMT,%s_VHT,%s_VDT,%s_PMT,%s_PHT,%s_PDT,",
-            //    assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
-            //    assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
-            //    assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
-            //    assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
-            //    assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
-            //    assignment.g_DemandPeriodVector[tau].demand_period.c_str());
 
         }
 
@@ -830,14 +827,14 @@ void g_output_tmc_file()
         {
             int hour = t / 60;
             int minute = t - hour * 60;
-            fprintf(p_file_tmc_link, "vh%02d,", hour, minute);
+            fprintf(p_file_tmc_link, "vh%02d,", hour);
         }
 
         for (int t = 6 * 60; t < 20 * 60; t += 60)
         {
             int hour = t / 60;
             int minute = t - hour * 60;
-            fprintf(p_file_tmc_link, "m_vh%02d,", hour, minute);
+            fprintf(p_file_tmc_link, "m_vh%02d,", hour);
         }
 
         fprintf(p_file_tmc_link, "evhMAE,evhMAPE,evhRMSE,");
@@ -846,14 +843,14 @@ void g_output_tmc_file()
         {
             int hour = t / 60;
             int minute = t - hour * 60;
-            fprintf(p_file_tmc_link, "qh%02d,", hour, minute);
+            fprintf(p_file_tmc_link, "qh%02d,", hour);
         }
 
         for (int t = 6 * 60; t < 20 * 60; t += 60)
         {
             int hour = t / 60;
             int minute = t - hour * 60;
-            fprintf(p_file_tmc_link, "vhr%02d,", hour, minute);
+            fprintf(p_file_tmc_link, "vhr%02d,", hour);
         }
 
         for (int t = 6 * 60; t < 20 * 60; t += 5)
@@ -864,6 +861,13 @@ void g_output_tmc_file()
             fprintf(p_file_tmc_link, "v%02d:%02d,", hour, minute);
         }
 
+        for (int t = 6 * 60; t < 20 * 60; t += 15)
+        {
+            int hour = t / 60;
+            int minute = t - hour * 60;
+
+            fprintf(p_file_tmc_link, "v%02d:%02d,", hour, minute);
+        }
         for (int t = 6 * 60; t < 20 * 60; t += 5)
         {
             int hour = t / 60;
@@ -922,7 +926,7 @@ void g_output_tmc_file()
             g_link_vector[i].update_kc(g_link_vector[i].free_speed);
 
 
-            fprintf(p_file_tmc_link, "%s,%s,%s,%d,%d,%d,%s,%s,%s,%.2f,%d,%d,%d,%d,%s,%d,%d,%s,%d,%f,%f,%f,%f,%f,",
+            fprintf(p_file_tmc_link, "%s,%s,%s,%d,%d,%d,%s,%s,%s,%.2f,%d,%d,%d,%d,%s,%d,%d,%s,%.1f,%f,%f,%f,%f,%f,",
                 g_link_vector[i].link_id.c_str(),
                 g_link_vector[i].tmc_code.c_str(),
                 g_link_vector[i].tmc_corridor_name.c_str(),
@@ -964,15 +968,18 @@ void g_output_tmc_file()
 
 
                 float highest_speed = 0;
-                CLink* pLink = &(g_link_vector[i]);
+                CLink* p_link = &(g_link_vector[i]);
 
 
-
-                float updated_vc = g_TMC_vector[tmc_index].scan_highest_speed_and_vc(pLink->v_congestion_cutoff, pLink->free_speed, highest_speed);
-                pLink->v_congestion_cutoff = updated_vc;
-                pLink->update_kc(free_speed);
-                fprintf(p_file_tmc_link, "%f,%f,%f,", highest_speed, pLink->v_congestion_cutoff, pLink->v_congestion_cutoff / max(1, highest_speed));
-                fprintf(p_file_tmc_link, "%f,", pLink->v_critical);
+                //if (p_link->link_id == "38644")
+                //{
+                //    int idebug = 1;
+                //}
+                float updated_vc = g_TMC_vector[tmc_index].scan_highest_speed_and_vc(p_link->v_congestion_cutoff, p_link->free_speed, highest_speed);
+                p_link->v_congestion_cutoff = updated_vc;
+                p_link->update_kc(free_speed);
+                fprintf(p_file_tmc_link, "%f,%f,%f,", highest_speed, p_link->v_congestion_cutoff, p_link->v_congestion_cutoff / max(1, highest_speed));
+                fprintf(p_file_tmc_link, "%f,", p_link->v_critical);
 
                 int analysis_hour_flag[25];
 
@@ -980,9 +987,9 @@ void g_output_tmc_file()
                     analysis_hour_flag[hour] = 0;
 
 
-                //pLink->VDF_period[0].queue_demand_factor = 0.46;  //AM
-                //pLink->VDF_period[1].queue_demand_factor = 0.24;  //MD
-                //pLink->VDF_period[2].queue_demand_factor = 0.50;  //PM
+                //p_link->VDF_period[0].queue_demand_factor = 0.46;  //AM
+                //p_link->VDF_period[1].queue_demand_factor = 0.24;  //MD
+                //p_link->VDF_period[2].queue_demand_factor = 0.50;  //PM
 
                 for (int tau = 0; tau < min (3, assignment.g_DemandPeriodVector.size()); tau++)
                 {
@@ -997,7 +1004,7 @@ void g_output_tmc_file()
 
 
                     //float scan_congestion_duration(int peak_no, float starting_time_in_hour, float ending_time_in_hour
-                     // , float& FD_vcutoff, CLink * pLink,  /* input*/
+                     // , float& FD_vcutoff, CLink * p_link,  /* input*/
                      //    float& obs_t0_in_hour, float& obs_t3_in_hour, float& obs_P,
                      //    float& V, float & peak_hour_volume, float& D, float& VOC_ratio,float& DOC_ratio,
                      //    float& mean_speed_BPR, float& mean_speed_QVDF, float& highest_speed, float& t2_speed, 
@@ -1028,7 +1035,7 @@ void g_output_tmc_file()
                         assign_period_start_time_in_hour,
                         assign_period_end_time_in_hour,
                         assign_period_t2_peak_in_hour,
-                        pLink->v_congestion_cutoff, pLink,
+                        p_link->v_congestion_cutoff, p_link,
                         obs_t0_in_hour, obs_t3_in_hour, obs_P,
                         V, peak_hour_volume, D, VOC_ratio, DOC_ratio,
                         mean_speed_BPR, mean_speed_QVDF, highest_speed, t2_speed,
@@ -1046,53 +1053,53 @@ void g_output_tmc_file()
                     Q_alpha = g_TMC_vector[tmc_index].check_feasible_range(Q_alpha, 0.27, 0.01, 1);
                     Q_alpha = g_TMC_vector[tmc_index].check_feasible_range(Q_beta, 1.14, 0.5, 5);
 
-                    if (pLink->link_id == "201065AB")
+                    if (p_link->link_id == "201065AB")
                     {
                         int idebug = 1;
 
                     }
-                    if (pLink->VDF_period[tau].queue_demand_factor < 0)
+                    if (p_link->VDF_period[tau].queue_demand_factor < 0)
                     {
 
-                        pLink->VDF_period[tau].sa_volume = V * pLink->number_of_lanes;  // make the data ready for sensitivity analysis
-                        pLink->VDF_period[tau].peak_load_factor = plf;
-                        pLink->VDF_period[tau].queue_demand_factor = qdf;
-                        pLink->VDF_period[tau].v_congestion_cutoff = pLink->v_congestion_cutoff;
-                        pLink->VDF_period[tau].v_congestion_cutoff = pLink->v_congestion_cutoff;
+                        p_link->VDF_period[tau].sa_volume = V * p_link->number_of_lanes;  // make the data ready for sensitivity analysis
+                        p_link->VDF_period[tau].peak_load_factor = plf;
+                        p_link->VDF_period[tau].queue_demand_factor = qdf;
+                        p_link->VDF_period[tau].v_congestion_cutoff = p_link->v_congestion_cutoff;
+                        p_link->VDF_period[tau].v_congestion_cutoff = p_link->v_congestion_cutoff;
 
-                        pLink->VDF_period[tau].Q_alpha = Q_alpha;
-                        pLink->VDF_period[tau].Q_beta = Q_beta;
-                        pLink->VDF_period[tau].Q_cd = Q_cd;
-                        pLink->VDF_period[tau].Q_n = Q_n;
-                        pLink->VDF_period[tau].Q_cp = Q_cp;
-                        pLink->VDF_period[tau].Q_s = Q_s;
+                        p_link->VDF_period[tau].Q_alpha = Q_alpha;
+                        p_link->VDF_period[tau].Q_beta = Q_beta;
+                        p_link->VDF_period[tau].Q_cd = Q_cd;
+                        p_link->VDF_period[tau].Q_n = Q_n;
+                        p_link->VDF_period[tau].Q_cp = Q_cp;
+                        p_link->VDF_period[tau].Q_s = Q_s;
                     }
                     //we still update free speed for a comparison based on speed data
-                    pLink->free_speed = highest_speed; // update or not, here is the question
-                    pLink->VDF_period[tau].vf = highest_speed;
-                    pLink->VDF_period[tau].v_congestion_cutoff = pLink->v_congestion_cutoff;
+                    p_link->free_speed = highest_speed; // update or not, here is the question
+                    p_link->VDF_period[tau].vf = highest_speed;
+                    p_link->VDF_period[tau].v_congestion_cutoff = p_link->v_congestion_cutoff;
 
-                    pLink->calculate_dynamic_VDFunction(0, false, pLink->vdf_type);
+                    p_link->calculate_dynamic_VDFunction(0, false, p_link->vdf_type);
 
 
                     //            fprintf(p_file_tmc_link, "AM_t0,AM_t3,AM_P,AM_V,AM_D,AM_DC_ratio,AM_mu,AM_vu,AM_vf_reference, AM_v_mean,AM_vt2,AM_plf,");
                     float speed_reduction_factor = 0;
-                    if (obs_P > 0.25 && t2_speed < pLink->v_congestion_cutoff)
+                    if (obs_P > 0.25 && t2_speed < p_link->v_congestion_cutoff)
                     {
-                        speed_reduction_factor = pLink->v_congestion_cutoff / max(1, t2_speed) - 1;
+                        speed_reduction_factor = p_link->v_congestion_cutoff / max(1, t2_speed) - 1;
                     }
                     else
                     {
                         speed_reduction_factor = 0;
                     }
 
-                    float queue_vc_delay_index = pLink->v_congestion_cutoff / max(1, mean_speed_QVDF) - 1;
+                    float queue_vc_delay_index = p_link->v_congestion_cutoff / max(1, mean_speed_QVDF) - 1;
                     if (queue_vc_delay_index < 0)
                     {
                         queue_vc_delay_index = 0;
                     }
 
-                    float BPR_vf_delay_index = max(highest_speed, pLink->free_speed) / max(1, mean_speed_BPR) - 1;
+                    float BPR_vf_delay_index = max(highest_speed, p_link->free_speed) / max(1, mean_speed_BPR) - 1;
                     if (BPR_vf_delay_index < 0)
                     {
                         BPR_vf_delay_index = 0;
@@ -1132,22 +1139,32 @@ void g_output_tmc_file()
                         log_vcdi = log(queue_vc_delay_index);
                     }
                    // CBI
-                    fprintf(p_file_tmc_link, "%f,%f,%f,%f, %f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,",
-                        obs_t0_in_hour, obs_t3_in_hour,
-                        V, peak_hour_volume, D, VOC_ratio, DOC_ratio, obs_P, speed_reduction_factor, BPR_vf_delay_index, queue_vc_delay_index,
-                        mean_speed_BPR, mean_speed_QVDF, t2_speed, plf, qdf, Q_n, Q_cp, Q_alpha, Q_beta,
-                        log_VOC, log_DOC, log_vfdi, log_vcdi
+                    fprintf(p_file_tmc_link, "%f,%f,%f,%f,%f,",
+                        obs_t0_in_hour, obs_t3_in_hour,  V, peak_hour_volume, D
                         );
+                    fprintf(p_file_tmc_link, "%f,%f,%f,%f,%f,",
+                        VOC_ratio, DOC_ratio, obs_P, speed_reduction_factor, BPR_vf_delay_index
+                    );
+                    fprintf(p_file_tmc_link, "%f,%f,%f,%f,%f,",
+                        queue_vc_delay_index, mean_speed_BPR, mean_speed_QVDF, t2_speed, qdf
+
+                    );
+                    fprintf(p_file_tmc_link, "%f,%f,%f,%f,",
+                        Q_n, Q_cp, Q_alpha, Q_beta
+                    );
 
                     //QVDF and BPR model results
-                    fprintf(p_file_tmc_link, "%f,%f,%f,%f,%f,%f,%f,%f,%f,",
-                        g_link_vector[i].VDF_period[tau].volume,
+                    fprintf(p_file_tmc_link, "%f, %f,%f,%f,%f,%f, %f,%f,%f,%f,%f,",
+                        g_link_vector[i].VDF_period[tau].link_volume,
+                        
                         g_link_vector[i].VDF_period[tau].lane_based_D,
                         g_link_vector[i].VDF_period[tau].DOC,
                         g_link_vector[i].VDF_period[tau].P,
                         g_link_vector[i].VDF_period[tau].avg_queue_speed,
                         g_link_vector[i].VDF_period[tau].vt2,
-
+                        
+                        g_link_vector[i].VDF_period[tau].Q_mu,
+                        g_link_vector[i].VDF_period[tau].Q_gamma,
                         g_link_vector[i].VDF_period[tau].lane_based_Vph,
                         g_link_vector[i].VDF_period[tau].VOC,
                         g_link_vector[i].VDF_period[tau].avg_speed_BPR
@@ -1232,6 +1249,11 @@ void g_output_tmc_file()
                             fprintf(p_file_tmc_link, "%.1f,", g_TMC_vector[tmc_index].get_avg_speed(t));
                         }
 
+                        for (int t = 6 * 60; t < 20 * 60; t += 15)
+                        {
+
+                            fprintf(p_file_tmc_link, "%.1f,", g_TMC_vector[tmc_index].get_avg_speed(t));
+                        }
 
                         for (int t = 6 * 60; t < 20 * 60; t += 5)
                         {
@@ -1337,12 +1359,12 @@ void g_output_qvdf_file()
 
 
                 float highest_speed = 0;
-                CLink* pLink = &(g_link_vector[i]);
+                CLink* p_link = &(g_link_vector[i]);
 
 
-                float updated_vc = g_TMC_vector[tmc_index].scan_highest_speed_and_vc(pLink->v_congestion_cutoff, pLink->free_speed, highest_speed);
-                pLink->v_congestion_cutoff = updated_vc;
-                pLink->update_kc(free_speed);
+                float updated_vc = g_TMC_vector[tmc_index].scan_highest_speed_and_vc(p_link->v_congestion_cutoff, p_link->free_speed, highest_speed);
+                p_link->v_congestion_cutoff = updated_vc;
+                p_link->update_kc(free_speed);
 
                 for (int tau = 0; tau < min(3, assignment.g_DemandPeriodVector.size()); tau++)
                 {
@@ -1375,7 +1397,7 @@ void g_output_qvdf_file()
                         assign_period_start_time_in_hour,
                         assign_period_end_time_in_hour,
                         assign_period_t2_peak_in_hour,
-                        pLink->v_congestion_cutoff, pLink,
+                        p_link->v_congestion_cutoff, p_link,
                         obs_t0_in_hour, obs_t3_in_hour, obs_P,
                         V, peak_hour_volume, D, VOC_ratio, DOC_ratio,
                         mean_speed_BPR, mean_speed_QVDF, highest_speed, t2_speed,
@@ -1390,19 +1412,19 @@ void g_output_qvdf_file()
                     Q_alpha = g_TMC_vector[tmc_index].check_feasible_range(Q_alpha, 0.27, 0.01, 1);
                     Q_beta = g_TMC_vector[tmc_index].check_feasible_range(Q_beta, 1.14, 0.5, 5);
 
-                    pLink->VDF_period[tau].Q_alpha = Q_alpha;
-                    pLink->VDF_period[tau].Q_beta = Q_beta;
-                    pLink->VDF_period[tau].Q_cd = Q_cd;
-                    pLink->VDF_period[tau].Q_n = Q_n;
-                    pLink->VDF_period[tau].Q_cp = Q_cp;
-                    pLink->VDF_period[tau].Q_s = Q_s;
+                    p_link->VDF_period[tau].Q_alpha = Q_alpha;
+                    p_link->VDF_period[tau].Q_beta = Q_beta;
+                    p_link->VDF_period[tau].Q_cd = Q_cd;
+                    p_link->VDF_period[tau].Q_n = Q_n;
+                    p_link->VDF_period[tau].Q_cp = Q_cp;
+                    p_link->VDF_period[tau].Q_s = Q_s;
 
-                    if (pLink->vdf_code.size() > 0)
+                    if (p_link->vdf_code.size() > 0)
                     {
-                        g_vdf_type_map[pLink->vdf_code].record_qvdf_data(pLink->VDF_period[tau], tau);
+                        g_vdf_type_map[p_link->vdf_code].record_qvdf_data(p_link->VDF_period[tau], tau);
                     }
 
-                        g_vdf_type_map["all"].record_qvdf_data(pLink->VDF_period[tau], tau);
+                        g_vdf_type_map["all"].record_qvdf_data(p_link->VDF_period[tau], tau);
 
 //                    fprintf(p_file_tmc_link, "QVDF_qdf%d,QVDF_n%d,QVDF_s%d,QVDF_cp%d,QVDF_cd%d,QVDF_alpha%d,QVDF_beta%d\n");
                     fprintf(p_file_tmc_link, "%f,%f,%f,%f,%f,%f,%f,",
