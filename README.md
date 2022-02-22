@@ -23,7 +23,9 @@ DLSim-MRM has 4 main steps in the simulation process from the beginning as shown
 
 2. In the second step, DLSim-MRM reads the agents demand for desired OD pairs, demand period and cumulative level as presented in input file.
 
-3. 
+3. Checking OD connectivity and accesibility in the microscopic level, column generation and column-pool based flow updating for traffic assingmnet, and finally OD estimation are the key processes for the traffic assignment in 3rd step.
+
+4. DLSim-MRM simulate the agents behaviour along the multi-resolution network by using queue-VDF, parallel processing, re-routing based memeory management, trajectory generation focusing internal consistency of multi-resolution road network. 
 
 ![alt text](https://github.com/asu-trans-ai-lab/DLSim/blob/main/media/DLSIMFlow2.jpg)
 
