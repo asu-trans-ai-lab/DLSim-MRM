@@ -1095,7 +1095,7 @@ void g_writing_demand_files(Assignment& assignment)
 	}
 	else
 	{
-		fprintf(g_pFileODMatrix, "agent_id,o_zone_id,d_zone_id,path_id,volume,zone_sequence,activity_agent_type\n");  // first line
+		fprintf(g_pFileODMatrix, "agent_id,o_zone_id,d_zone_id,path_id,volume,activity_zone_sequence,activity_agent_type_sequence\n");  // first line
 
 		if (g_zone_vector.size() > 4)
 		{

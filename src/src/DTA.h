@@ -15,7 +15,7 @@ constexpr auto MAX_LINK_SIZE_FOR_A_NODE = 10000;
 constexpr auto MAX_TIMESLOT_PerPeriod = 300; // max 96 5-min slots per day
 constexpr auto MAX_TIMEINTERVAL_PerDay = 300; // max 96*3 5-min slots per day
 constexpr auto MAX_DAY_PerYear = 360; // max 96*3 5-min slots per day
-constexpr auto _default_saturation_flow_rate = 1530;
+constexpr auto _default_saturation_flow_rate = 1800;
 
 constexpr auto MIN_PER_TIMESLOT = 5;
 constexpr auto simulation_discharge_period_in_min = 60;
@@ -601,7 +601,7 @@ class CColumnVector {
 
 public:
     // this is colletion of unique paths
-    CColumnVector() : cost{ 0 }, time{ 0 }, distance{ 0 }, od_volume{ 0 }, prev_od_volume{ 0 }, bfixed_route{ false }, m_passing_sensor_flag{ -1 }, information_type{ 0 }, activity_agent_type_no{ 0 },
+    CColumnVector() : cost{ 0 }, time{ 0 }, distance{ 0 }, od_volume{ 0 }, prev_od_volume{ 0 }, bfixed_route{ false }, m_passing_sensor_flag{ -1 }, information_type{ 0 },
         departure_time_profile_no{ -1 }, OD_network_design_flag{ 0 }
     {
     }
@@ -611,6 +611,9 @@ public:
     float distance;
     // od volume
     double od_volume;
+    string activity_zone_sequence;
+    string activity_agent_type_sequence;
+
 
     std::map<int, double> od_volume_per_iteration_map;
 
@@ -619,7 +622,7 @@ public:
     bool bfixed_route;
     int information_type;
     std::vector<int> activity_zone_no_vector;
-    int activity_agent_type_no;
+    std::vector<int> activity_agent_type_no_vector;
     int departure_time_profile_no;
     int m_passing_sensor_flag;
     // first key is the sum of node id;. e.g. node 1, 3, 2, sum of those node ids is 6, 1, 4, 2 then node sum is 7.
@@ -977,7 +980,7 @@ public:
          free_flow_travel_time_in_min{ 0.01 }, link_spatial_capacity{ 100 }, 
         timing_arc_flag{ false }, traffic_flow_code{ 0 }, spatial_capacity_in_vehicles{ 999999 }, link_type{ 2 }, subarea_id{ -1 }, RT_flow_volume{ 0 },
         cell_type{ -1 }, saturation_flow_rate{ 1800 }, dynamic_link_event_start_time_in_min{ 99999 }, b_automated_generated_flag{ false }, time_to_be_released{ -1 },
-        RT_waiting_time{ 0 }, FT{ 1 }, AT{ 1 }, s3_m{ 4 }, tmc_road_order{ 0 }, tmc_road_sequence{ -1 }, k_critical{ 45 }, vdf_type{ 0 }, 
+        RT_waiting_time{ 0 }, FT{ 1 }, AT{ 1 }, s3_m{ 4 }, tmc_road_order{ 0 }, tmc_road_sequence{ -1 }, k_critical{ 45 }, vdf_type{ q_vdf },
         tmc_corridor_id{ -1 }, from_node_id{ -1 }, to_node_id{ -1 }, kjam{ 300 }, link_distance_km{ 0 }, link_distance_mile{ 0 }
    {
         for (int tau = 0; tau < MAX_TIMEPERIODS; ++tau)
@@ -1220,14 +1223,14 @@ public:
     int link_type;
     bool b_automated_generated_flag;
 
-    int cell_type;
+    int cell_type;  // 2: lane changing arc
     string mvmt_txt_id;
     string link_code_str;
     string tmc_corridor_name;
     string link_type_name;
     string link_type_code;
 
-    int    vdf_type;
+    e_VDF_type    vdf_type;
     float kjam;
 
     CPeriod_VDF VDF_period[MAX_TIMEPERIODS];
@@ -1607,7 +1610,7 @@ public:
 };
 
 
-//class for vehicle scheduling states
+//class for vehicle \ states
 class CODState
 {
 public:

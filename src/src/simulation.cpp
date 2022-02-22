@@ -627,6 +627,8 @@ void Assignment::STTrafficSimulation()
 		}
 		
 
+
+
 		if (t % (number_of_simu_interval_per_min * 10) == 0)
 		{
 			dtalog.output() << std::setprecision(4) << "simu time= " << t / number_of_simu_interval_per_min << " min, CA = " << TotalCumulative_Arrival_Count << " CD=" << TotalCumulative_Departure_Count

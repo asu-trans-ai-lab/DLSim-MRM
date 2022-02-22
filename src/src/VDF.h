@@ -51,9 +51,9 @@ using std::ofstream;
 class CPeriod_VDF
 {
 public:
-    CPeriod_VDF() : vdf_type{ 0 }, vdf_data_count{ 0 }, Q_cd{ 0.954946463 }, Q_n{ 1.141574427 }, Q_cp{ 0.400089684 }, Q_s{ 4 }, vf{ 60 }, v_congestion_cutoff{ 45 }, FFTT{ 1 }, BPR_period_capacity{ 1 }, peak_load_factor{ 1 }, queue_demand_factor{ -1 }, DOC{ 0 }, VOC{ 0 }, vt2{ -1 },
+    CPeriod_VDF() : vdf_type{ q_vdf }, vdf_data_count{ 0 }, Q_cd{ 0.954946463 }, Q_n{ 1.141574427 }, Q_cp{ 0.400089684 }, Q_s{ 4 }, vf{ 60 }, v_congestion_cutoff{ 45 }, FFTT{ 1 }, BPR_period_capacity{ 1 }, peak_load_factor{ 1 }, queue_demand_factor{ -1 }, DOC{ 0 }, VOC{ 0 }, vt2{ -1 },
         alpha{ 0.39999993}, beta{ 4 }, Q_alpha{ 0.272876961}, Q_beta{ 4}, rho{ 1 }, preload{ 0 }, penalty{ 0 }, sa_lanes_change{ 0 }, LR_price{ 0 }, LR_RT_price{ 0 }, starting_time_in_hour{ 0 }, ending_time_in_hour{ 0 },
-        cycle_length{ -1 }, red_time{ 0 }, effective_green_time{ 0 }, t0{ -1 }, t3{ -1 }, start_green_time{ -1 }, end_green_time{ -1 }, L{ 1 },
+        cycle_length{ -1 }, red_time{ 0 }, effective_green_time{ 0 }, saturation_flow_rate{ _default_saturation_flow_rate }, t0{ -1 }, t3{ -1 }, start_green_time{ -1 }, end_green_time{ -1 }, L{ 1 },
         queue_length{ 0 }, obs_count{ 0 }, upper_bound_flag{ 1 }, est_count_dev{ 0 }, avg_waiting_time{ 0 }, P{ -1 }, Severe_Congestion_P{ -1 }, lane_based_D{ 0 }, lane_based_Vph{ 0 }, avg_speed_BPR{ -1 }, avg_queue_speed{ -1 }, nlanes{ 1 }, sa_volume{ 0 }, t2{ 1 }, k_critical{ 45 }, link_volume {0},
         Q_mu{ 0 }, Q_gamma{ 0 }, network_design_flag{ 0 }
 {
@@ -70,15 +70,15 @@ public:
     {
     }
 
-    //float PerformSignalVDF(float hourly_per_lane_volume, float red, float cycle_length)
-    //{
-    //    float lambda = hourly_per_lane_volume;
-    //    float mu = _default_saturation_flow_rate; //default saturation flow ratesa
-    //    float s_bar = 1.0 / 60.0 * red * red / (2 * cycle_length); // 60.0 is used to convert sec to min
-    //    float uniform_delay = s_bar / max(1 - lambda / mu, 0.1f);
+    float PerformSignalVDF(float hourly_per_lane_volume, float red, float cycle_length)
+    {
+        float lambda = hourly_per_lane_volume;
+        float mu = _default_saturation_flow_rate; //default saturation flow ratesa
+        float s_bar = 1.0 / 60.0 * red * red / (2 * cycle_length); // 60.0 is used to convert sec to min
+        float uniform_delay = s_bar / max(1 - lambda / mu, 0.1f);
 
-    //    return uniform_delay;
-    //}
+        return uniform_delay;
+    }
     int vdf_data_count;
 
     double get_speed_from_volume(float hourly_volume, float vf, float k_critical, float s3_m)
@@ -146,7 +146,7 @@ public:
             // uncongested states D <C 
             // congested states D > C, leading to P > 1
             DOC = lane_based_D / max(0.00001, lane_based_ultimate_hourly_capacity);
-            
+     
             //step 3.1 fetch vf and v_congestion_cutoff based on FFTT, VCTT (to be compartible with transit data, such as waiting time )
             // we could have a period based FFTT, so we need to convert FFTT to vfree
             // if we only have one period, then we can directly use vf and v_congestion_cutoff. 
@@ -192,14 +192,22 @@ public:
 
 
 
-            if (vdf_type == 0)  // pure BPR form
+            if (vdf_type == bpr_vdf)  // pure BPR form
                 avg_travel_time = FFTT * vf / max(0.1, avg_speed_BPR); // Mark: FFTT should be vctt
-            else if (vdf_type == 1) //QVDF form
+            else if (vdf_type == q_vdf) //QVDF form
             {
                  avg_travel_time = FFTT * vf / max(0.1, avg_queue_speed); // Mark: FFTT should be vctt
 
             }
-            
+
+            if (cycle_length >= 1)  // signal delay
+            {
+                float s_bar = 1.0 / 60.0 * red_time * red_time / (2 * cycle_length); // 60.0 is used to convert sec to min
+                double lambda = lane_based_D;
+                float uniform_delay = s_bar / max(1 - lambda / saturation_flow_rate, 0.1f);
+                avg_travel_time = uniform_delay + FFTT;
+            }
+
             avg_waiting_time = avg_travel_time - FFTT;
             //step 4.4 compute vt2
 //            vt2 = avg_queue_speed * 8.0 / 15.0;  // 8/15 is a strong assumption 
@@ -357,7 +365,7 @@ public:
             return avg_travel_time;
      }
 
-    int vdf_type;
+     e_VDF_type vdf_type;
     double DOC;
     double VOC;
     //updated BPR-X parameters
@@ -413,6 +421,7 @@ public:
     float cycle_length;
     float red_time;
     float effective_green_time;
+    float saturation_flow_rate;
     int start_green_time;
     int end_green_time;
 

@@ -222,7 +222,10 @@ public:
 				LR_price +
 				p_link->VDF_period[m_tau].toll[agent_type_no] / m_value_of_time * 60;
 
-
+			if (p_link->link_id == "7742")
+			{
+				int idebug = 1;
+			}
 			if (p_link->travel_time_per_period[m_tau] < 0)
 			{
 
@@ -757,10 +760,14 @@ public:
 
 				new_to_node_cost = m_node_label_cost[from_node] + m_link_genalized_cost_array[link_sqe_no];
 
-				if (iteration_k == 2 && g_node_vector[from_node].node_id == 19 && g_node_vector[to_node].node_id == 20)
+				if (iteration_k == 1 && g_node_vector[from_node].node_id == 2378 && g_node_vector[to_node].node_id == 4418)
 				{
 					float cost = m_link_genalized_cost_array[link_sqe_no];
 					int debug = 1;
+					p_assignment->sp_log_file << "SP:  checking from node " << g_node_vector[from_node].node_id
+						<< "  to node " << g_node_vector[to_node].node_id << " cost = " << new_to_node_cost <<
+						" , m_node_label_cost[from_node] " << m_node_label_cost[from_node] << ",m_link_genalized_cost_array[link_sqe_no] = " << m_link_genalized_cost_array[link_sqe_no]
+						<< endl;
 				}
 
 				if (local_debugging_flag)
@@ -866,28 +873,29 @@ public:
 		//origin_node = m_origin_node_vector[o_node_index]; // assigned nodes for computing
 		//origin_zone = m_origin_zone_seq_no_vector[o_node_index]; // assigned nodes for computing
 
-	  //if (iteration_k <= 1)  // only one processor
-	  //{
-	  //     if(g_zone_vector[origin_zone].zone_id == p_assignment->shortest_path_log_zone_id && p_assignment->g_origin_demand_array.find(origin_zone) != p_assignment->g_origin_demand_array.end())
-	  //     {
+		int sp_log = 1;
+	  if (sp_log == 1 && iteration_k == 1)  // only one processor
+	  {
+	       if(g_zone_vector[origin_zone].zone_id == p_assignment->shortest_path_log_zone_id && p_assignment->g_origin_demand_array.find(origin_zone) != p_assignment->g_origin_demand_array.end())
+	       {
 
-	  //     std::string s_iteration = std::to_string(iteration_k);
-	  //     std::string s_agent_type = p_assignment->g_AgentTypeVector [agent_type].agent_type;
-	  //     std::string s_origin_zone = std::to_string(g_zone_vector[origin_zone].zone_id);
+	       std::string s_iteration = std::to_string(iteration_k);
+	       std::string s_agent_type = p_assignment->g_AgentTypeVector [agent_type].agent_type;
+	       std::string s_origin_zone = std::to_string(g_zone_vector[origin_zone].zone_id);
 
-	  //     for (int i = 0; i < p_assignment->g_number_of_nodes; ++i)
-	  //     {
-	  //         std::string s_node = std::to_string(g_node_vector[i].node_id);
-	  //         std::string map_key;
+	       for (int i = 0; i < p_assignment->g_number_of_nodes; ++i)
+	       {
+	           std::string s_node = std::to_string(g_node_vector[i].node_id);
+	           std::string map_key;
 
-	  //         map_key = s_iteration+ "," + s_agent_type + "," + s_origin_zone + "," + s_node;
+	           map_key = s_iteration+ "," + s_agent_type + "," + s_origin_zone + "," + s_node;
 
-	  //         g_node_vector[i].pred_per_iteration_map[map_key] = m_node_predecessor[i];
-	  //         g_node_vector[i].label_cost_per_iteration_map[map_key] = m_node_label_cost[i];
+	           g_node_vector[i].pred_per_iteration_map[map_key] = m_node_predecessor[i];
+	           g_node_vector[i].label_cost_per_iteration_map[map_key] = m_node_label_cost[i];
 
-	  //     }
-	  //     }
-	  // }
+	       }
+	       }
+	   }
 
 
 		if (d_node_no >= 1)

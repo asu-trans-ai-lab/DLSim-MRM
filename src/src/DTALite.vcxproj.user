@@ -1,11 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerWorkingDirectory>C:\temp\osm2gmns\ASU\lesson_1_learning_NeXTA_GMNS\Tempe_ASU_network\network_auto</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\Aalto_University_Otaniemi_Campus\micronet</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerWorkingDirectory>C:\Users\18016\Documents\GitHub\gmns_education_data_sets\universities\North America\United_States\07_NWU_US\MRM_network\network\mesonet</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\Users\18016\Desktop\NewDesktop\ANL\ANL\micronet - Copy</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerAttach>false</LocalDebuggerAttach>
   </PropertyGroup>

@@ -393,10 +393,11 @@ void  CLink::calculate_dynamic_VDFunction(int inner_iteration_number, bool conge
 		{
 			double link_volume_to_be_assigned = PCE_volume_per_period[tau] + VDF_period[tau].preload + VDF_period[tau].sa_volume;
 
-			if (link_id == "201319AB" && tau == 1)
+			if (link_id == "7422")
 			{
 				int idebug = 1;
 			}
+
 
 			travel_time_per_period[tau] = VDF_period[tau].calculate_travel_time_based_on_QVDF(
 				link_volume_to_be_assigned,

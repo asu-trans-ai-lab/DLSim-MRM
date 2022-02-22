@@ -449,7 +449,7 @@ void g_output_assignment_result(Assignment& assignment)
 
 			string vdf_type_str;
 
-			if (g_link_vector[i].vdf_type == 0)
+			if (g_link_vector[i].vdf_type == bpr_vdf)
 			{
 				vdf_type_str = "bpr";
 			}
@@ -613,7 +613,7 @@ void g_output_assignment_result(Assignment& assignment)
 			g_program_stop();
 		}
 
-		fprintf(g_pFilePathMOE, "first_column,path_no,o_zone_id,d_zone_id,od_pair,within_OD_path_no,path_id,information_type,agent_type,demand_period,volume,simu_volume,subarea_flag,OD_impact_flag,");
+		fprintf(g_pFilePathMOE, "first_column,path_no,o_zone_id,d_zone_id,od_pair,within_OD_path_no,path_id,activity_zone_sequence,activity_agent_type_sequence,information_type,agent_type,demand_period,volume,simu_volume,subarea_flag,OD_impact_flag,");
 		fprintf(g_pFilePathMOE, "path_network_design_flag,toll, #_of_nodes, travel_time, VDF_travel_time, VDF_travel_time_without_access_link,distance,distance_km,distance_mile,node_sequence,link_sequence, ");
 
 		//// stage 1: column updating
@@ -994,7 +994,7 @@ void g_output_assignment_result(Assignment& assignment)
 									if (it->second.m_node_size - virtual_first_link_delta - virtual_last_link_delta <= 2)
 										continue;
 
-									fprintf(g_pFilePathMOE, ",%d,%d,%d,%d->%d,%d,%d,%d,%s,%s,%.2f,%d,%d,%d,%d,%.1f,%d,%.1f,%.4f,%.4f,%.4f,%.4f,%.4f,",
+									fprintf(g_pFilePathMOE, ",%d,%d,%d,%d->%d,%d,%d,%s,%s,%d,%s,%s,%.2f,%d,%d,%d,%d,%.1f,%d,%.1f,%.4f,%.4f,%.4f,%.4f,%.4f,",
 										count,
 										g_zone_vector[orig].zone_id,
 										g_zone_vector[dest].zone_id,
@@ -1002,6 +1002,8 @@ void g_output_assignment_result(Assignment& assignment)
 										g_zone_vector[dest].zone_id,
 										it->second.path_seq_no,
 										it->second.path_seq_no + 1,
+										p_column_pool->activity_zone_sequence.c_str(),
+										p_column_pool->activity_agent_type_sequence.c_str(),
 										information_type,
 										assignment.g_AgentTypeVector[at].agent_type.c_str(),
 										assignment.g_DemandPeriodVector[tau].demand_period.c_str(),
@@ -1703,14 +1705,17 @@ void g_output_TD_link_performance(Assignment& assignment, int output_mode = 1)
 
 		int sampling_time_interval = 1; // min by min
 
-		if (g_link_vector.size() > 10000)
-			sampling_time_interval = 5;
-
-		if (g_link_vector.size() > 50000)
+		if (g_link_vector.size() > 5000)
 			sampling_time_interval = 15;
 
-		if (g_link_vector.size() > 500000)
+		if (g_link_vector.size() > 10000)
+			sampling_time_interval = 30;
+
+		if (g_link_vector.size() > 50000)
 			sampling_time_interval = 60;
+
+		if (g_link_vector.size() > 500000)
+			sampling_time_interval = 120;
 
 		//Initialization for all nodes
 		for (int i = 0; i < g_link_vector.size(); ++i)
@@ -2091,7 +2096,7 @@ void g_output_agent_csv(Assignment& assignment)
 			g_program_stop();
 		}
 
-		fprintf(g_pFilePathMOE, "first_column,agent_id,o_zone_id,d_zone_id,OD_key,path_id,display_code,impacted_flag,info_receiving_flag,diverted_flag,agent_type_no,agent_type,PCE_unit,demand_period,volume,toll,departure_time,dt_hhmm,departure_time_in_1min,departure_time_in_5_min,travel_time,distance_mile,speed_mph,waiting_time,max_link_waiting_time,max_wait_link,\n");
+		fprintf(g_pFilePathMOE, "first_column,agent_id,o_zone_id,d_zone_id,OD_key,path_id,activity_zone_sequence,activity_agent_type_sequence,display_code,impacted_flag,info_receiving_flag,diverted_flag,agent_type_no,agent_type,PCE_unit,demand_period,volume,toll,departure_time,dt_hhmm,departure_time_in_1min,departure_time_in_5_min,travel_time,distance_mile,speed_mph,waiting_time,max_link_waiting_time,max_wait_link,\n");
 
 		int count = 1;
 
@@ -2238,13 +2243,15 @@ void g_output_agent_csv(Assignment& assignment)
 										int minute = (int)((vehicle_departure_time / 60.0 - hour) * 60);
 
 										// some bugs for output link performances before
-										fprintf(g_pFilePathMOE, ",%d,%d,%d,%d->%d,%d,%d,%d,%d,%d,%d,%s,",
+										fprintf(g_pFilePathMOE, ",%d,%d,%d,%d->%d,%d,%s,%s,%d,%d,%d,%d,%d,%s,",
 											pAgentSimu->agent_id,
 											g_zone_vector[orig].zone_id,
 											g_zone_vector[dest].zone_id,
 											g_zone_vector[orig].zone_id,
 											g_zone_vector[dest].zone_id,
 											it->second.path_seq_no,
+											p_column_pool->activity_zone_sequence.c_str(),
+											p_column_pool->activity_agent_type_sequence.c_str(),
 											0,
 											pAgentSimu->impacted_flag,
 											pAgentSimu->info_receiving_flag,
@@ -3182,53 +3189,69 @@ void g_OutputModelFiles(int mode)
 		//}
 	}
 
-	//    if (mode == 10)
-	//    {
-	//        FILE* g_pFileModel_LC = fopen("model_shortest_path_tree.csv", "w");
-	//
-	//        if (g_pFileModel_LC != NULL)
-	//        {
-	//            fprintf(g_pFileModel_LC, "iteration,agent_type,zone_id,node_id,d_zone_id,connected_flag,pred,label_cost,x_coord,y_coord,\n");
-	//            for (int i = 0; i < g_node_vector.size(); i++)
-	//            {
-	//
-	//
-	////                if (g_node_vector[i].node_id >= 0)  //for all physical links
-	//                {
-	//                    std::map<string, float> ::iterator it;
-	//
-	//                    for (it = g_node_vector[i].label_cost_per_iteration_map.begin(); it != g_node_vector[i].label_cost_per_iteration_map.end(); ++it)
-	//                    {
-	//                        int node_pred_id = -1;
-	//                        int pred_no = g_node_vector[i].pred_per_iteration_map[it->first];
-	//                        if (pred_no >= 0)
-	//                            node_pred_id = g_node_vector[pred_no].node_id;
-	//                        int d_zone_id = g_node_vector[i].zone_id;
-	//                        int connected_flag = 0;
-	//
-	//                        if (it->second < 100000)
-	//                            connected_flag = 1;
-	//
-	//                        {
-	//                        fprintf(g_pFileModel_LC, "%s,%d,%d,%d,%f,%f,%f,\n", it->first.c_str(), d_zone_id, connected_flag, node_pred_id, it->second, g_node_vector[i].x, g_node_vector[i].y);
-	//                        }
-	//                    }
-	//
-	//                }
-	//
-	//            }
-	//
-	//            fclose(g_pFileModel_LC);
-	//        }
-	//        else
-	//        {
-	//            dtalog.output() << "Error: File model_label_cost_tree.csv cannot be opened.\n It might be currently used and locked by EXCEL." << endl;
-	//            g_program_stop();
-	//
-	//
-	//        }
-	//
-	//    }
+	    if (mode == 10)
+	    {
+	        FILE* g_pFileModel_LC = fopen("model_shortest_path_tree.csv", "w");
+	
+	        if (g_pFileModel_LC != NULL)
+	        {
+	            fprintf(g_pFileModel_LC, "iteration,agent_type,zone_id,node_id,d_zone_id,connected_flag,pred,label_cost,pred_link_cost,x_coord,y_coord,\n");
+	            for (int i = 0; i < g_node_vector.size(); i++)
+	            {
+
+	
+	//                if (g_node_vector[i].node_id >= 0)  //for all physical links
+	                {
+	                    std::map<string, float> ::iterator it;
+	
+	                    for (it = g_node_vector[i].label_cost_per_iteration_map.begin(); it != g_node_vector[i].label_cost_per_iteration_map.end(); ++it)
+	                    {
+	                        int node_pred_id = -1;
+	                        int pred_no = g_node_vector[i].pred_per_iteration_map[it->first];
+							float pred_link_cost = 0;
+	                        if (pred_no >= 0)
+							{
+								std::map<string, float> ::iterator it2;
+
+								float pred_node_label_cost = 0;
+								for (it2 = g_node_vector[pred_no].label_cost_per_iteration_map.begin(); it2 != g_node_vector[pred_no].label_cost_per_iteration_map.end(); ++it2)
+								{
+									pred_node_label_cost = it2->second;
+								}
+
+								pred_link_cost = it->second - pred_node_label_cost;
+								node_pred_id = g_node_vector[pred_no].node_id;
+
+							}
+	                        int d_zone_id = g_node_vector[i].zone_id;
+	                        int connected_flag = 0;
+	
+	                        if (it->second < 100000)
+	                            connected_flag = 1;
+	
+							if(connected_flag==1)
+	                        {
+	                        fprintf(g_pFileModel_LC, "%s,%d,%d,%d,%f,%f,%f,%f,\n", it->first.c_str(), d_zone_id, connected_flag, node_pred_id, it->second, 
+								pred_link_cost,
+								g_node_vector[i].x, g_node_vector[i].y);
+	                        }
+	                    }
+	
+	                }
+	
+	            }
+	
+	            fclose(g_pFileModel_LC);
+	        }
+	        else
+	        {
+	            dtalog.output() << "Error: File model_label_cost_tree.csv cannot be opened.\n It might be currently used and locked by EXCEL." << endl;
+	            g_program_stop();
+	
+	
+	        }
+	
+	    }
 
 	FILE* g_pFileModel_LC = fopen("model_RT_shortest_tree.csv", "w");
 

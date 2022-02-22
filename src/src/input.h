@@ -287,6 +287,9 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 							from_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[o_zone_id];
 							to_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[d_zone_id];
 
+							if (assignment.shortest_path_log_zone_id == -1)  // set this to the first zone
+								assignment.shortest_path_log_zone_id = o_zone_id;
+
 							// encounter return
 							if (demand_value < -99)
 								break;
@@ -529,65 +532,104 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 
 							bool bValid = true;
 
-							string zone_sequence;
-							parser.GetValueByFieldName("zone_sequence", zone_sequence);
+							string activity_zone_sequence;
+							parser.GetValueByFieldName("activity_zone_sequence", activity_zone_sequence);
 
-							string agent_type_sequence;
-							parser.GetValueByFieldName("activity_agent_type", agent_type_sequence);
-
+							string activity_agent_type_sequence;
+							parser.GetValueByFieldName("activity_agent_type_sequence", activity_agent_type_sequence);
 
 							std::vector<int> zone_id_sequence;
 							std::vector<string> agent_type_string_sequence;
 
-							int activity_zone_size = g_ParserIntSequence(zone_sequence, zone_id_sequence);
-							int agent_type_size = g_ParserStringSequence(agent_type_sequence, agent_type_string_sequence);
+							int activity_zone_size = g_ParserIntSequence(activity_zone_sequence, zone_id_sequence);
+							int agent_type_size = g_ParserStringSequence(activity_agent_type_sequence, agent_type_string_sequence);
 
-							//if (agent_type_size != activity_zone_size + 1)
-							//{
-							//    dtalog.output() << "Error: agent_type_size != activity_zone_size + 1" << endl;
-							//    g_program_stop();
-							//}
+							if (activity_zone_size > 0 && agent_type_size != activity_zone_size + 1)
+							{
+							    dtalog.output() << "Error: agent_type_size != activity_zone_size + 1 in activity plan csv" << endl;
+								dtalog.output() << "agent_id = " << agent_id << endl;
+								dtalog.output() << "zone_sequence = " << activity_zone_sequence.c_str() << endl;
+								dtalog.output() << "agent_type_sequence = " << activity_agent_type_sequence.c_str() << endl;
+								g_program_stop();
+							}
+							std::vector<int> agent_type_no_sequence;
 
+							for (int i = 0; i < agent_type_string_sequence.size(); ++i)
+							{
+								if (assignment.agent_type_2_seqno_mapping.find(agent_type_string_sequence[i]) != assignment.agent_type_2_seqno_mapping.end())
+								{
+									int activty_type_no = assignment.agent_type_2_seqno_mapping[agent_type_string_sequence[i]];  // normal agent type
+									agent_type_no_sequence.push_back(activty_type_no);
+								}
+								else
+								{
+									dtalog.output() << "Error: agent_type in activity_agent_type_sequence cannot be found in activity plan csv" << endl;
+									dtalog.output() << "agent_type = " << agent_type_string_sequence[i].c_str() << endl;
+									continue;
+								}
 
-							assignment.agent_type_2_seqno_mapping[agent_type_sequence];
+							}
+							assignment.agent_type_2_seqno_mapping[activity_agent_type_sequence];
 
 							std::vector<int> zone_no_sequence;
 
 							for (int i = 0; i < zone_id_sequence.size(); ++i)
 							{
-								if (assignment.g_zoneid_to_zone_seq_no_mapping.find(zone_id_sequence[i]) == assignment.g_zoneid_to_zone_seq_no_mapping.end())
+								zone_no_sequence.push_back(from_zone_seq_no);  // first segment
+
+								if (assignment.g_zoneid_to_zone_seq_no_mapping.find(zone_id_sequence[i]) != assignment.g_zoneid_to_zone_seq_no_mapping.end())
 								{
-									bValid = false;
+									int internal_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[zone_id_sequence[i]];  // map external node number to internal node seq no.
+									assignment.zone_seq_no_2_activity_mapping[internal_zone_seq_no] = 1; // notify the column pool to prepare the paths for this activity zones, even no direct OD volume 
+									zone_no_sequence.push_back(internal_zone_seq_no);
+								}
+								else
+								{
+									dtalog.output() << "Error: zone in activity_zone_sequence cannot be found in activity plan csv" << endl;
+									dtalog.output() << "zone = " << zone_id_sequence[i]<< endl;
 									continue;
 								}
 
-								//if (assignment.agent_type_2_seqno_mapping.find(agent_type_string_sequence[i]) == assignment.agent_type_2_seqno_mapping.end())
-								//{
-								//    bValid = false;
-								//    continue;
-								//}
+							}
+
+							int prev_zone_seq_no = from_zone_seq_no;
 
 
+							int prev_activty_type_no = -1;
+							
+							if(zone_id_sequence.size() >=1)
+							{
+								prev_activty_type_no = agent_type_no_sequence[0];
+								zone_no_sequence.push_back(to_zone_seq_no);  // last segment;
+							}
+							
 
-								int internal_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[zone_id_sequence[i]];  // map external node number to internal node seq no.
-								assignment.zone_seq_no_2_activity_mapping[internal_zone_seq_no] = 1; // notify the column pool to prepare the paths for this activity zones, even no direct OD volume 
-								zone_no_sequence.push_back(internal_zone_seq_no);
+							for (int i = 0; i < zone_no_sequence.size()-1; ++i)
+							{  // loop through activity plan with multiple intermediate destinations
+								int current_activty_type_no = agent_type_no_sequence[i];  // normal agent type which is not activity plan type
+								assignment.g_column_pool[zone_no_sequence[i]][zone_no_sequence[i+1]][current_activty_type_no][demand_period_no].od_volume += 0.01;  // small volume to ensure column pool exist 
+								
 							}
 
 							if (bValid)
 							{
-
+								// first origin to final destination OD pair 
 								CColumnVector* pColumnVector = &(assignment.g_column_pool[from_zone_seq_no][to_zone_seq_no][agent_type_no][demand_period_no]);
-								pColumnVector->activity_zone_no_vector.push_back(from_zone_seq_no);  // first origin
-								// to be protected later by checking
-								pColumnVector->activity_agent_type_no = assignment.agent_type_2_seqno_mapping[agent_type_sequence];
 
-								for (int i = 0; i < zone_no_sequence.size(); ++i)
+								pColumnVector->od_volume = volume;
+								pColumnVector->departure_time_profile_no = this_departure_time_profile_no;
+									// to be protected later by checking
+
+								if (zone_no_sequence.size() >= 1)
 								{
-									pColumnVector->activity_zone_no_vector.push_back(zone_no_sequence[i]);  // for all intermedate activity zones
-								}
 
-								pColumnVector->activity_zone_no_vector.push_back(to_zone_seq_no);  // last destination 
+								pColumnVector->activity_zone_no_vector = zone_no_sequence;
+								pColumnVector->activity_zone_sequence = activity_zone_sequence;
+								pColumnVector->activity_agent_type_sequence = activity_agent_type_sequence;
+								pColumnVector->activity_agent_type_no_vector = agent_type_no_sequence;
+
+
+								}
 								// in total, we have # of activity zones + 2 as zone no sequence vector
 
 							}
@@ -690,6 +732,9 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 								demand_value *= loading_scale_factor;
 								if (demand_value >= 1)
 								{
+									if (assignment.shortest_path_log_zone_id == -1)  // set this to the first zone
+										assignment.shortest_path_log_zone_id = origin_zone;
+
 									critical_OD_volume += demand_value;
 									critical_OD_count += 1;
 									//dtalog.output() << origin_zone << "," << destination_zone << "," << demand_value << "," << "\"LINESTRING( " <<
@@ -1078,6 +1123,34 @@ int g_detect_if_demand_data_provided(Assignment& assignment)
 						return 2; // matrix format demand file is needed.
 					}
 				}
+				if (format_type.find("activity_plan") != string::npos)
+				{
+					// read the file formaly after the test.
+					CCSVParser parser;
+
+					if (parser.OpenCSVFile(file_name, false))
+					{
+						return 0;
+					}
+					else
+					{
+						return 2; // matrix format demand file is needed.
+					}
+				}
+				if (format_type.find("path") != string::npos)
+				{
+					// read the file formaly after the test.
+					CCSVParser parser;
+
+					if (parser.OpenCSVFile(file_name, false))
+					{
+						return 0;
+					}
+					else
+					{
+						return 2; // matrix format demand file is needed.
+					}
+				}
 			}
 		}
 	}
@@ -1230,7 +1303,7 @@ void g_read_link_qvdf_data(Assignment& assignment)
 					if (g_node_vector[internal_from_node_seq_no].m_to_node_2_link_seq_no_map.find(internal_to_node_seq_no) != g_node_vector[internal_from_node_seq_no].m_to_node_2_link_seq_no_map.end())
 					{
 						int link_seq_no = g_node_vector[internal_from_node_seq_no].m_to_node_2_link_seq_no_map[internal_to_node_seq_no];
-						if (link_seq_no >= 0 && g_link_vector[link_seq_no].vdf_type == 1 /*QVDF*/)  // data exist
+						if (link_seq_no >= 0 && g_link_vector[link_seq_no].vdf_type == q_vdf  /*QVDF*/)  // data exist
 						{
 							CLink* p_link = &(g_link_vector[link_seq_no]);
 							char VDF_field_name[50];
@@ -2014,8 +2087,6 @@ void g_read_input_data(Assignment& assignment)
 		// for each zone, we have to also create centriod
 		ozone.zone_id = it->first;  // zone_id
 
-		if (assignment.shortest_path_log_zone_id == -1)  // set this to the first zone
-			assignment.shortest_path_log_zone_id = ozone.zone_id;
 
 		ozone.zone_seq_no = g_zone_vector.size();
 		ozone.obs_production = zone_id_production[it->first];
@@ -2233,7 +2304,9 @@ void g_read_input_data(Assignment& assignment)
 			double number_of_lanes = 1;
 			parser_link.GetValueByFieldName("lanes", number_of_lanes);
 			parser_link.GetValueByFieldName("capacity", lane_capacity);
+			parser_link.GetValueByFieldName("saturation_flow_rate", link.saturation_flow_rate,false);
 
+			
 			link.free_flow_travel_time_in_min = length_in_meter / 1609.0 / free_speed * 60;  // link_distance_VDF in meter 
 			float fftt_in_sec = link.free_flow_travel_time_in_min * 60;  // link_distance_VDF in meter 
 
@@ -2406,11 +2479,11 @@ void g_read_input_data(Assignment& assignment)
 				sprintf(VDF_field_name, "VDF_penalty%d", demand_period_id);
 				parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].penalty, false, false);
 
-				if (link.cell_type >= 1) // micro lane-changing arc
-				{
-					// additinonal min: 24 seconds 0.4 min
-					link.VDF_period[tau].penalty += 0.4;
-				}
+				//if (link.cell_type >= 2) // micro lane-changing arc
+				//{
+				//	// additinonal min: 4 seconds 0.4 min
+				//	link.VDF_period[tau].penalty += 0.001;
+				//}
 
 				parser_link.GetValueByFieldName("cycle_length", link.VDF_period[tau].cycle_length, false, false);
 
@@ -2420,8 +2493,20 @@ void g_read_input_data(Assignment& assignment)
 
 					parser_link.GetValueByFieldName("start_green_time", link.VDF_period[tau].start_green_time);
 					parser_link.GetValueByFieldName("end_green_time", link.VDF_period[tau].end_green_time);
+
+					link.VDF_period[tau].effective_green_time = link.VDF_period[tau].end_green_time - link.VDF_period[tau].start_green_time;
+
+					if (link.VDF_period[tau].effective_green_time < 0)
+						link.VDF_period[tau].effective_green_time = link.VDF_period[tau].cycle_length;
+
+					link.VDF_period[tau].red_time = max(1,link.VDF_period[tau].cycle_length-  link.VDF_period[tau].effective_green_time);
 					parser_link.GetValueByFieldName("red_time", link.VDF_period[tau].red_time, false);
 					parser_link.GetValueByFieldName("green_time", link.VDF_period[tau].effective_green_time, false);
+
+					if(link.saturation_flow_rate >1000)  // protect the data attributes to be reasonable 
+					{ 
+					link.VDF_period[tau].saturation_flow_rate = link.saturation_flow_rate;
+					}
 				}
 
 			}

@@ -64,10 +64,10 @@ void write_default_setting_file_if_not_exist()
 	myfile << ",5,input_matrix.csv,,matrix,AM,truck,0.2,1," << endl;
 	myfile << ",6,input_matrix.csv,,matrix,AM,cav,0.2,1," << endl;
 	myfile << ",7,input_matrix.csv,,matrix,AM,ev,0.2,1," << endl;
-	myfile << ",8,input_activity_plan.csv,,activity_plan,AM,traveler,0.2,1," << endl;
-	myfile << ",9,input_activity_plan.csv,,activity_plan,AM,ev,0.2,1," << endl;
-	myfile << ",10,input_demand_column.csv,,column,AM,auto,0,1," << endl;
-	myfile << ",11,input_demand_path.csv,,path,AM,auto,0,1," << endl;
+	myfile << ",8,input_demand_column.csv,,column,AM,auto,0,1," << endl;
+	myfile << ",9,input_demand_path.csv,,path,AM,auto,0,1," << endl;
+	//myfile << ",8,input_activity_plan.csv,,activity_plan,AM,traveler,0.2,1," << endl;
+	//myfile << ",9,input_activity_plan.csv,,activity_plan,AM,ev,0.2,1," << endl;
 
 	myfile.close();
 	return;

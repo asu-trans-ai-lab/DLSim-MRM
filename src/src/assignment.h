@@ -1194,7 +1194,6 @@ void g_column_pool_activity_scheduling(Assignment& assignment, int inner_iterati
 						{
 							p_column_pool->path_node_sequence_map.clear();  // remove existing single OD pair based routes
 
-							int aat = p_column_pool->activity_agent_type_no;
 
 							std::vector <int> link_seq_vector;
 							// for each origin and detination pair in activity zone no to perform routing continuously
@@ -1202,6 +1201,7 @@ void g_column_pool_activity_scheduling(Assignment& assignment, int inner_iterati
 							for (int az = 0; az < p_column_pool->activity_zone_no_vector.size() - 1; az++) // key step: go through each activty OD pair
 							{ // 0 will the origin
 								// last one will destination
+								int aat = p_column_pool->activity_agent_type_no_vector[az];
 
 								CColumnVector* p_2_stage_column_pool;
 
