@@ -17,7 +17,7 @@ DLSim-MRM uses 3 open-source packages; [OSM2GMNS](https://github.com/asu-trans-a
 
 -Vol2Timing is a python tool aims to offer a light-weight computational engine to generate optimize signal control timing data, and analyze the effectiveness of signal control strategies.
 
-![alt text](https://github.com/asu-trans-ai-lab/DLSim/blob/main/media/DLSIMFlow.jpg)
+![alt text](https://github.com/asu-trans-ai-lab/DLSim/blob/main/media/DLSIMFlow2.jpg)
 
 Figure 2: Key processes of DLSim-MRM.
 
