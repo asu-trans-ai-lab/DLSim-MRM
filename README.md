@@ -17,6 +17,20 @@ DLSim-MRM uses 3 open-source packages; [OSM2GMNS](https://github.com/asu-trans-a
 
 -Vol2Timing is a python tool aims to offer a light-weight computational engine to generate optimize signal control timing data, and analyze the effectiveness of signal control strategies.
 
+DLSim-MRM has 4 main steps in the simulation process from the beginning as shown in Fig. 2. 
+
+1. After generating GMNS structured node and link files for all simulation levels, first step is reading nodes, links, lanes and agents (auto, walk, bike, bus, truck, cav or ev).
+
+2. In the second step, DLSim-MRM reads the agents demand for desired OD pairs, demand period and cumulative level as presented in input file.
+
+3. Checking OD connectivity and accesibility in the microscopic level, column generation and column-pool based flow updating for traffic assingmnet, and finally OD estimation are the key processes for the traffic assignment in 3rd step.
+
+4. DLSim-MRM simulate the agents behaviour along the multi-resolution network by using queue-VDF, parallel processing, re-routing based memeory management, trajectory generation focusing internal consistency of multi-resolution road network. 
+
+![alt text](https://github.com/asu-trans-ai-lab/DLSim/blob/main/media/DLSIMFlow2.jpg)
+
+Figure 2: Key processes of DLSim-MRM.
+
 ## Remarks:
 
 ### Developers:
