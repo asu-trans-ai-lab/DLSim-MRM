@@ -69,7 +69,7 @@ void g_record_corridor_performance_summary(Assignment& assignment, int base_case
 			if (g_link_vector[i].VDF_period[tau].avg_travel_time > 0.001f)
 				speed = g_link_vector[i].free_speed / max(0.000001, g_link_vector[i].VDF_period[tau].avg_travel_time) * g_link_vector[i].VDF_period[tau].FFTT;
 
-			float speed_ratio = speed / max(1, g_link_vector[i].free_speed);  // default speed 
+			float speed_ratio = speed / max(1.0, g_link_vector[i].free_speed);  // default speed 
 			float vehicle_volume = g_link_vector[i].PCE_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload;
 			float person_volume = g_link_vector[i].person_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload;
 			//VMT,VHT,PMT,PHT,PDT
@@ -80,7 +80,7 @@ void g_record_corridor_performance_summary(Assignment& assignment, int base_case
 			float PMT = person_volume * g_link_vector[i].link_distance_VDF;
 			float PHT = person_volume * g_link_vector[i].VDF_period[tau].avg_travel_time / 60.0;
 			float PDT_vf = person_volume * (g_link_vector[i].VDF_period[tau].avg_travel_time - g_link_vector[i].VDF_period[tau].FFTT) / 60.0;
-			float PDT_vc = max(0.0, person_volume * (g_link_vector[i].VDF_period[tau].avg_travel_time - g_link_vector[i].VDF_period[tau].FFTT * g_link_vector[i].free_speed / max(0.001, g_link_vector[i].v_congestion_cutoff)) / 60.0);
+			float PDT_vc = max(0.0, person_volume * (g_link_vector[i].VDF_period[tau].avg_travel_time - g_link_vector[i].VDF_period[tau].FFTT * g_link_vector[i].free_speed / max(0.001f, g_link_vector[i].v_congestion_cutoff)) / 60.0);
 
 			if (g_link_vector[i].tmc_corridor_name.size() > 0 || g_link_vector[i].VDF_period[tau].network_design_flag != 0)
 			{  // with corridor name
@@ -162,27 +162,18 @@ void g_OutputSummaryFiles(Assignment& assignment)
 						corridor1.corridor_period[tau].speed - it->second.corridor_period[tau].speed << "," <<
 						corridor1.corridor_period[tau].DoC - it->second.corridor_period[tau].DoC << "," <<
 						corridor1.corridor_period[tau].P - it->second.corridor_period[tau].P << "," <<
-						(corridor1.corridor_period[tau].volume - it->second.corridor_period[tau].volume) / max(1, it->second.corridor_period[tau].volume) * 100.0 << "," <<
-						(corridor1.corridor_period[tau].speed - it->second.corridor_period[tau].speed) / max(1, it->second.corridor_period[tau].speed) * 100.0 << ",";
+						(corridor1.corridor_period[tau].volume - it->second.corridor_period[tau].volume) / max(1.0, it->second.corridor_period[tau].volume) * 100.0 << "," <<
+						(corridor1.corridor_period[tau].speed - it->second.corridor_period[tau].speed) / max(1.0, it->second.corridor_period[tau].speed) * 100.0 << ",";
 
 				}
 
-
 				assignment.summary_corridor_file << endl;
 			}
-
-
 		}
-
-
 	}
-
 }
 
 // FILE* g_pFileOutputLog = nullptr;
-
-
-
 
 void g_output_dynamic_queue_profile()  // generated from VDF, from numerical queue evolution calculation
 {
@@ -275,7 +266,7 @@ void g_output_dynamic_queue_profile()  // generated from VDF, from numerical que
 				continue;
 
 			double vehicle_volume_0 = 0;
-			for (int tau = 0; tau < min(3, assignment.g_DemandPeriodVector.size()); tau++)
+			for (int tau = 0; tau < min((size_t)3, assignment.g_DemandPeriodVector.size()); tau++)
 			{
 
 				vehicle_volume_0 += g_link_vector[i].PCE_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload + g_link_vector[i].VDF_period[tau].sa_volume;
@@ -321,7 +312,7 @@ void g_output_dynamic_queue_profile()  // generated from VDF, from numerical que
 			double assignment_VMT;
 			double assignment_VHT;
 
-			for (int tau = 0; tau < min(3, assignment.g_DemandPeriodVector.size()); tau++)
+			for (int tau = 0; tau < min((size_t)3, assignment.g_DemandPeriodVector.size()); tau++)
 			{
 				double vehicle_volume = g_link_vector[i].PCE_volume_per_period[period_index] + g_link_vector[i].VDF_period[period_index].preload + g_link_vector[i].VDF_period[period_index].sa_volume;
 				double person_volume = g_link_vector[i].person_volume_per_period[period_index] + g_link_vector[i].VDF_period[period_index].preload + g_link_vector[i].VDF_period[period_index].sa_volume;
@@ -334,8 +325,8 @@ void g_output_dynamic_queue_profile()  // generated from VDF, from numerical que
 
 				assignment_PSDT = (g_link_vector[i].travel_time_per_period[period_index] - g_link_vector[i].free_flow_travel_time_in_min) * person_volume / 60.0;  // 60.0 converts min to hour
 
-				double VCTT = g_link_vector[i].link_distance_VDF / max(1, g_link_vector[i].v_congestion_cutoff) * 60;
-				assignment_VCDT = max(0, g_link_vector[i].travel_time_per_period[period_index] - VCTT) * g_link_vector[i].PCE_volume_per_period[period_index] / 60.0;  // 60.0 converts min to hour
+				double VCTT = g_link_vector[i].link_distance_VDF / max(1.0f, g_link_vector[i].v_congestion_cutoff) * 60;
+				assignment_VCDT = max(0.0, g_link_vector[i].travel_time_per_period[period_index] - VCTT) * g_link_vector[i].PCE_volume_per_period[period_index] / 60.0;  // 60.0 converts min to hour
 
 
 				fprintf(g_pFileLinkMOE, "%f,%f,%f, %f,%f,%f, %f,%f,%f,%f,",
@@ -362,7 +353,7 @@ void g_output_dynamic_queue_profile()  // generated from VDF, from numerical que
 
 			for (int t = 6 * 60; t < 20 * 60; t += 60)
 			{
-				float speed_ratio = g_link_vector[i].get_model_hourly_speed(t) / max(1, g_link_vector[i].v_congestion_cutoff);
+				float speed_ratio = g_link_vector[i].get_model_hourly_speed(t) / max(1.0f, g_link_vector[i].v_congestion_cutoff);
 				if (speed_ratio > 1)
 					speed_ratio = 1;
 
@@ -380,7 +371,7 @@ void g_output_dynamic_queue_profile()  // generated from VDF, from numerical que
 			for (int t = 6 * 60; t < 20 * 60; t += 15)
 			{
 				int time_interval = t / 5;
-				float speed_ratio = g_link_vector[i].model_speed[time_interval] / max(1, g_link_vector[i].v_congestion_cutoff);
+				float speed_ratio = g_link_vector[i].model_speed[time_interval] / max(1.0f, g_link_vector[i].v_congestion_cutoff);
 				if (speed_ratio > 1)
 					speed_ratio = 1;
 
@@ -470,7 +461,7 @@ void g_output_assignment_result(Assignment& assignment)
 				if (g_link_vector[i].VDF_period[tau].avg_travel_time > 0.001f)
 					speed = g_link_vector[i].free_speed / max(0.000001, g_link_vector[i].VDF_period[tau].avg_travel_time) * g_link_vector[i].VDF_period[tau].FFTT;
 
-				float speed_ratio = speed / max(1, g_link_vector[i].free_speed);  // default speed 
+				float speed_ratio = speed / max(1.0, g_link_vector[i].free_speed);  // default speed 
 				float vehicle_volume = g_link_vector[i].PCE_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload;
 				float person_volume = g_link_vector[i].person_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload;
 				//VMT,VHT,PMT,PHT,PDT
@@ -481,7 +472,7 @@ void g_output_assignment_result(Assignment& assignment)
 				float PMT = person_volume * g_link_vector[i].link_distance_VDF;
 				float PHT = person_volume * g_link_vector[i].VDF_period[tau].avg_travel_time / 60.0;
 				float PDT_vf = person_volume * (g_link_vector[i].VDF_period[tau].avg_travel_time - g_link_vector[i].VDF_period[tau].FFTT) / 60.0;
-				float PDT_vc = max(0.0, person_volume * (g_link_vector[i].VDF_period[tau].avg_travel_time - g_link_vector[i].VDF_period[tau].FFTT * g_link_vector[i].free_speed / max(0.001, g_link_vector[i].v_congestion_cutoff)) / 60.0);
+				float PDT_vc = max(0.0, person_volume * (g_link_vector[i].VDF_period[tau].avg_travel_time - g_link_vector[i].VDF_period[tau].FFTT * g_link_vector[i].free_speed / max(0.001f, g_link_vector[i].v_congestion_cutoff)) / 60.0);
 
 				fprintf(g_pFileLinkMOE, "%s,%s,%d,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,\"%s\",",
 					g_link_vector[i].link_id.c_str(),
@@ -1757,7 +1748,7 @@ void g_output_TD_link_performance(Assignment& assignment, int output_mode = 1)
 						avg_waiting_time_in_sec = waiting_time_in_sec / max(1, arrival_rate);
 
 						travel_time = (float)(g_link_vector[i].free_flow_travel_time_in_min + avg_waiting_time_in_sec / 60.0);
-						speed = g_link_vector[i].link_distance_VDF / (max(0.00001f, travel_time / 60.0));
+						speed = g_link_vector[i].link_distance_VDF / (max(0.00001, travel_time / 60.0));
 					}
 
 					if (speed >= 1000)

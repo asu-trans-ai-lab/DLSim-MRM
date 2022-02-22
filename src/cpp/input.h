@@ -325,9 +325,9 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 
 
 					dtalog.output() << "total demand volume is " << assignment.total_demand_volume << endl;
-					dtalog.output() << "crtical demand volume has " << critical_OD_count << " OD pairs in size," << critical_OD_volume << ", " << ", account for " << critical_OD_volume / max(0.1, assignment.total_demand_volume) * 100 << "%%" << endl;
+					dtalog.output() << "crtical demand volume has " << critical_OD_count << " OD pairs in size," << critical_OD_volume << ", " << ", account for " << critical_OD_volume / max(0.1f, assignment.total_demand_volume) * 100 << "%%" << endl;
 
-					dtalog.output() << "crtical OD zones volume has " << critical_OD_count << " OD pairs in size," << critical_OD_volume << ", " << ", account for " << critical_OD_volume / max(0.1, assignment.total_demand_volume) * 100 << "%%" << endl;
+					dtalog.output() << "crtical OD zones volume has " << critical_OD_count << " OD pairs in size," << critical_OD_volume << ", " << ", account for " << critical_OD_volume / max(0.1f, assignment.total_demand_volume) * 100 << "%%" << endl;
 
 
 					std::map<int, float>::iterator it;
@@ -630,7 +630,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 					bFileReady = false;
 
 					FILE* st;
-					fopen_s(&st, file_name.c_str(), "r");
+					fopen_ss(&st, file_name.c_str(), "r");
 					if (st != NULL)
 					{
 						// read the first line
@@ -716,9 +716,9 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 						fclose(st);
 
 						dtalog.output() << "total demand volume is " << assignment.total_demand_volume << endl;
-						dtalog.output() << "crtical demand volume has " << critical_OD_count << " OD pairs in size," << critical_OD_volume << ", " << ", account for " << critical_OD_volume / max(0.1, assignment.total_demand_volume) * 100 << "%%" << endl;
+						dtalog.output() << "crtical demand volume has " << critical_OD_count << " OD pairs in size," << critical_OD_volume << ", " << ", account for " << critical_OD_volume / max(0.1f, assignment.total_demand_volume) * 100 << "%%" << endl;
 
-						dtalog.output() << "crtical OD zones volume has " << critical_OD_count << " OD pairs in size," << critical_OD_volume << ", " << ", account for " << critical_OD_volume / max(0.1, assignment.total_demand_volume) * 100 << "%%" << endl;
+						dtalog.output() << "crtical OD zones volume has " << critical_OD_count << " OD pairs in size," << critical_OD_volume << ", " << ", account for " << critical_OD_volume / max(0.1f, assignment.total_demand_volume) * 100 << "%%" << endl;
 
 						//assignment.summary_file << "crtical demand volume has " << critical_OD_count << " OD pairs in size," << critical_OD_volume << ", " << ", account for " << critical_OD_volume / max(0.1, assignment.total_demand_volume) * 100 << "%%" << endl;
 						//assignment.summary_file << "crtical OD zones volume has " << critical_OD_count << " OD pairs in size," << critical_OD_volume << ", " << ", account for " << critical_OD_volume / max(0.1, assignment.total_demand_volume) * 100 << "%%" << endl;
@@ -791,7 +791,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 
 	assignment.summary_file << ",top 10 OD,rank,o,d,agent_type,departure_time,volume" << endl;
 
-	for (int k = 0; k < min(10, ODStateVector.size()); k++)
+	for (int k = 0; k < min(size_t(10), ODStateVector.size()); k++)
 	{
 		int o = ODStateVector[k].orig;
 		int d = ODStateVector[k].dest;
@@ -861,8 +861,8 @@ void g_ReadInformationConfiguration(Assignment& assignment)
 
 				parser.GetValueByFieldName("real_time_info_ratio", assignment.g_real_time_info_ratio, false, false);
 				dtalog.output() << "real_time_info_ratio= " << assignment.g_real_time_info_ratio << " cells" << endl;
-				assignment.g_real_time_info_ratio = max(0, assignment.g_real_time_info_ratio);
-				assignment.g_real_time_info_ratio = min(1, assignment.g_real_time_info_ratio);
+				assignment.g_real_time_info_ratio = max(0.0f, assignment.g_real_time_info_ratio);
+				assignment.g_real_time_info_ratio = min(1.0f, assignment.g_real_time_info_ratio);
 
 			}
 		}
