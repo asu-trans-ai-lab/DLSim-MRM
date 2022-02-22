@@ -17,6 +17,10 @@
 #include "pch.h"
 #endif
 
+#include "config.h"
+#include "utils.h"
+#include "DTA.h"
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -33,8 +37,7 @@
 #include <vector>
 #include <map>
 #include <omp.h>
-#include "config.h"
-#include "utils.h"
+
 
 
 using std::max;
@@ -117,7 +120,7 @@ public:
         if (speed < 0)
             return -1;
 
-        double speed_ratio = vf / max(1, speed);
+        double speed_ratio = vf / max(1.0f, speed);
         if (speed_ratio <= 1.00001)
             speed_ratio = 1.00001;
 
@@ -132,16 +135,13 @@ public:
 
     }
 
-  
-
-    double calculate_travel_time_based_on_QVDF(double volume, 
-        float model_speed[MAX_TIMEINTERVAL_PerDay], float est_volume_per_hour_per_lane[MAX_TIMEINTERVAL_PerDay])
+    double calculate_travel_time_based_on_QVDF(double volume, float model_speed[MAX_TIMEINTERVAL_PerDay], float est_volume_per_hour_per_lane[MAX_TIMEINTERVAL_PerDay])
     {
         // QVDF
             double dc_transition_ratio = 1;
 
              // step 1: calculate lane_based D based on plf and nlanes from link volume V over the analysis period  take nonnegative values
-            lane_based_D = max(0.0, volume) * queue_demand_factor / max(1, nlanes);
+            lane_based_D = max(0.0, volume) * queue_demand_factor / max(1.0, nlanes);
             // step 2: D_ C ratio based on lane-based D and lane-based ultimate hourly capacity, 
             // uncongested states D <C 
             // congested states D > C, leading to P > 1
@@ -224,7 +224,7 @@ public:
                
                if(L - P >= 10.0 / 60.0)
                {
-                   nonpeak_hourly_flow = (volume * (1- peak_load_factor)) / max(1, nlanes) / max(0.1,min(L-1, L - P - 5.0/60.0));  //5.0/60.0 as one 5 min interval, as P includes both boundary points
+                   nonpeak_hourly_flow = (volume * (1- peak_load_factor)) / max(1.0, nlanes) / max(0.1, min(L-1, L - P - 5.0/60.0));  //5.0/60.0 as one 5 min interval, as P includes both boundary points
                }
 
            //           dtalog.output() << "nonpeak_hourly_flow = " << nonpeak_hourly_flow << endl;
@@ -460,6 +460,3 @@ public:
 
     std::map<int, float> travel_time_per_iteration_map;
 };
-
-
-

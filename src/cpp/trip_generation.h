@@ -17,6 +17,9 @@
 #include "pch.h"
 #endif
 
+#include "config.h"
+#include "utils.h"
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -33,9 +36,6 @@
 #include <vector>
 #include <map>
 #include <omp.h>
-#include "config.h"
-#include "utils.h"
-
 
 using std::max;
 using std::min;
@@ -336,7 +336,7 @@ void g_grid_zone_generation(Assignment& assignment)
 	}
 
 
-	std::map<_int64, int> local_cell_id_2_zone_mapping;
+	std::map<__int64, int> local_cell_id_2_zone_mapping;
 
 	for (int i = 0; i < l_node_vector.size(); i++)
 	{

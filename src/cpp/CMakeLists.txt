@@ -35,9 +35,9 @@ set(CMAKE_BUILD_TYPE  "Release")
 set(LIBRARY_OUTPUT_PATH  ${CMAKE_BINARY_DIR}/bin)
 
 if(BUILD_EXE)
-    add_executable(DTALite utils.cpp flash_dta.cpp main_api.cpp)
+    add_executable(DTALite utils.cpp flash_dta.cpp main_api.cpp simulation.cpp)
 else()
-    add_library(DTALite SHARED utils.cpp main_api.cpp)
+    add_library(DTALite SHARED utils.cpp main_api.cpp simulation.cpp)
 endif()
 
 # using OpenMP

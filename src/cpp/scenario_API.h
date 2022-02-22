@@ -150,7 +150,7 @@ void g_load_scenario_data(Assignment& assignment)
 				if (global_minute_vector[1] < global_minute_vector[0])
 					global_minute_vector[1] = global_minute_vector[0];
 
-				g_link_vector[link_seq_no].dynamic_link_event_start_time_in_min = min(g_link_vector[link_seq_no].dynamic_link_event_start_time_in_min, global_minute_vector[0]);
+				g_link_vector[link_seq_no].dynamic_link_event_start_time_in_min = min((float)g_link_vector[link_seq_no].dynamic_link_event_start_time_in_min, global_minute_vector[0]);
 			}
 			else
 				continue;

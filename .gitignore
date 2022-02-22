@@ -1,0 +1,7 @@
+build/
+Debug/
+x64/
+.vs
+.vscode/
+.DS_Store
+**log*

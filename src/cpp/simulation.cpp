@@ -17,6 +17,10 @@
 #include "pch.h"
 #endif
 
+#include "config.h"
+#include "utils.h"
+#include "DTA.h"
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -33,9 +37,6 @@
 #include <vector>
 #include <map>
 #include <omp.h>
-#include "config.h"
-#include "utils.h"
-
 
 using std::max;
 using std::min;
@@ -48,11 +49,10 @@ using std::ifstream;
 using std::ofstream;
 using std::istringstream;
 
-#include "DTA.h"
-
 extern void g_rt_info_column_generation(Assignment* p_assignment, float current_time_in_min, int recording_flag);
 extern double g_get_random_ratio();
 extern void g_output_agent_csv(Assignment& assignment);
+
 void Assignment::AllocateLinkMemory4Simulation()
 {
 	g_number_of_simulation_intervals = (g_LoadingEndTimeInMin - g_LoadingStartTimeInMin + simulation_discharge_period_in_min) * 60 / number_of_seconds_per_interval + 2;
@@ -192,7 +192,7 @@ void Assignment::AllocateLinkMemory4Simulation()
 				}
 			}
 
-			int number_of_cycles = (g_LoadingEndTimeInMin - g_LoadingStartTimeInMin) * 60 / max(1, g_link_vector[l].VDF_period[0].cycle_length);  // unit: seconds;
+			int number_of_cycles = (g_LoadingEndTimeInMin - g_LoadingStartTimeInMin) * 60 / max(1.0f, g_link_vector[l].VDF_period[0].cycle_length);  // unit: seconds;
 
 			int cycle_length = g_link_vector[l].VDF_period[0].cycle_length;
 			int start_green_time = g_link_vector[l].VDF_period[0].start_green_time;
@@ -406,7 +406,7 @@ void Assignment::STTrafficSimulation()
 							if (slot_agent_size < 0.1)
 								slot_agent_size = 5;
 
-							double headway_in_min = max(0.033, MIN_PER_TIMESLOT / max(1, slot_agent_size));
+							double headway_in_min = max(0.033, (double) MIN_PER_TIMESLOT / max(1, slot_agent_size));
 
 							
 //							previous_headway_residual
@@ -452,7 +452,7 @@ void Assignment::STTrafficSimulation()
 									p_agent->p_RTNetwork = assignment.g_rt_network_pool[dest][at][tau];
 								}
 								p_agent->PCE_unit_size = max(1, (int)(assignment.g_AgentTypeVector[at].PCE + 0.5));  // convert a possible floating point pce to an integer value for simulation
-								p_agent->desired_free_travel_time_ratio = max(1, 1.0 / max(0.01, assignment.g_AgentTypeVector[at].DSR));
+								p_agent->desired_free_travel_time_ratio = max(1.0, 1.0 / max(0.01, assignment.g_AgentTypeVector[at].DSR));
 								p_agent->time_headway = (int)(assignment.g_AgentTypeVector[at].time_headway_in_sec / number_of_seconds_per_interval + 0.5);
 								p_agent->agent_id = g_agent_simu_vector.size();
 								p_agent->agent_type_no = assignment.g_AgentTypeVector[at].agent_type_no;
@@ -611,7 +611,7 @@ void Assignment::STTrafficSimulation()
 
 					}
 
-					p_link->RT_waiting_time = total_waiting_time_in_min / max(1, p_link->ExitQueue.size());  // average travel time
+					p_link->RT_waiting_time = total_waiting_time_in_min / max((size_t)1, p_link->ExitQueue.size());  // average travel time
 
 					//int timestamp_in_min = g_LoadingStartTimeInMin + t / number_of_simu_intervals_in_min;
 				//	p_link->RT_travel_time_map[timestamp_in_min] = p_link->ExitQueue.size() + p_link->RT_waiting_time;
@@ -705,7 +705,7 @@ void Assignment::STTrafficSimulation()
 				}
 
 				int arrival_time_in_simu_interval = p_agent->m_veh_link_arrival_time_in_simu_interval[p_agent->m_current_link_seq_no];
-				int link_travel_time_in_simu_interavls = max(1, g_link_vector[li].free_flow_travel_time_in_min * number_of_simu_intervals_in_min);
+				int link_travel_time_in_simu_interavls = max(1.0, g_link_vector[li].free_flow_travel_time_in_min * number_of_simu_intervals_in_min);
 				int fftt_simu_interval = (int)(g_link_vector[li].free_flow_travel_time_in_min * p_agent->desired_free_travel_time_ratio * number_of_simu_intervals_in_min + 0.5);
 				p_agent->m_veh_link_departure_time_in_simu_interval[p_agent->m_current_link_seq_no] = arrival_time_in_simu_interval + fftt_simu_interval;
 
@@ -1259,4 +1259,3 @@ void Assignment::STTrafficSimulation()
 }
 
 // FILE* g_pFileOutputLog = nullptr;
-
