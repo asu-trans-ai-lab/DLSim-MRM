@@ -637,6 +637,12 @@ void Assignment::STTrafficSimulation()
 				",CR=" << TotalCumulative_rerouting_count
 				<< endl;
 
+			cout << std::setprecision(4) << "simu time= " << t / number_of_simu_interval_per_min << " min, CA = " << TotalCumulative_Arrival_Count << " CD=" << TotalCumulative_Departure_Count
+				<< ", speed=" << network_wide_speed << ", travel time = " << network_wide_travel_time <<
+				",CI=" << TotalCumulative_impact_count <<
+				",CR=" << TotalCumulative_rerouting_count
+				<< endl;
+
 			assignment.summary_file << std::setprecision(5) << ",simu time=," << t / number_of_simu_interval_per_min << " min, CA =," << TotalCumulative_Arrival_Count << ",CD=," << TotalCumulative_Departure_Count
 				<< ", speed=," << network_wide_speed << ", travel time =," << network_wide_travel_time <<
 				",CI=," << TotalCumulative_impact_count <<
@@ -1160,6 +1166,21 @@ void Assignment::STTrafficSimulation()
 						m_link_TD_waiting_time[link][p_agent->m_veh_link_arrival_time_in_simu_interval[p_agent->m_current_link_seq_no] / number_of_simu_intervals_in_min] += waiting_time_in_min;
 						m_link_total_waiting_time_vector[link] += waiting_time_in_min;
 						p_agent->waiting_time_in_min += waiting_time_in_min;
+
+						p_link->total_simulated_delay_in_min += waiting_time_in_min;
+
+						int meso_link_id = p_link->meso_link_id;
+
+						if (p_agent->meso_link_id_map.find(meso_link_id) == p_agent->meso_link_id_map.end())  // detect if this is first time visit
+						{
+							p_link->total_simulated_meso_link_incoming_volume += 1;
+							p_agent->meso_link_id_map[meso_link_id] = 1;  // mark as visited
+							p_agent->path_meso_link_id_vector.push_back(meso_link_id);
+						}
+						else
+						{
+							// do nothing 
+						}
 
 						if (waiting_time_in_min < 0)
 						{

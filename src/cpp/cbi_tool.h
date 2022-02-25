@@ -125,7 +125,7 @@ public:
     }
 
 
-    float scan_congestion_duration(int peak_no, float starting_time_in_hour, float ending_time_in_hour, float assign_period_t2_peak_in_hour, float& FD_vcutoff, CLink* p_link,  /* input*/
+    float scan_congestion_duration(int peak_no, float starting_time_in_hour, float ending_time_in_hour, float outside_time_margin_in_hour, float assign_period_t2_peak_in_hour, float& FD_vcutoff, CLink* p_link,  /* input*/
         float& obs_t0_in_hour, float& obs_t3_in_hour, float& obs_P_in_hour,
         float& V, float& peak_hour_volume, float&D, float& VOC_ratio, float& DOC_ratio,
         float& mean_speed_BPR, float &mean_speed_QVDF, float& highest_speed,  float& t2_speed,
@@ -184,7 +184,7 @@ public:
         // step 3: compute volume V
         if (avg_speed[t_mid] > 0)
         {
-            for (int t_in_min = starting_time_in_hour * 60; t_in_min < ending_time_in_hour * 60; t_in_min += 5)
+            for (int t_in_min = max(6, starting_time_in_hour- outside_time_margin_in_hour) * 60; t_in_min < min(20,ending_time_in_hour+ outside_time_margin_in_hour) * 60; t_in_min += 5)
             {
 
                 float avg_speed = record_avg_speed(t_in_min);
@@ -861,12 +861,27 @@ void g_output_tmc_file()
             fprintf(p_file_tmc_link, "v%02d:%02d,", hour, minute);
         }
 
+        for (int t = 6 * 60; t < 20 * 60; t += 5)
+        {
+            int hour = t / 60;
+            int minute = t - hour * 60;
+
+            fprintf(p_file_tmc_link, "mv%02d:%02d,", hour, minute);
+        }
+
         for (int t = 6 * 60; t < 20 * 60; t += 15)
         {
             int hour = t / 60;
             int minute = t - hour * 60;
 
             fprintf(p_file_tmc_link, "v%02d:%02d,", hour, minute);
+        }
+        for (int t = 6 * 60; t < 20 * 60; t += 15)
+        {
+            int hour = t / 60;
+            int minute = t - hour * 60;
+
+            fprintf(p_file_tmc_link, "mv%02d:%02d,", hour, minute);
         }
         for (int t = 6 * 60; t < 20 * 60; t += 5)
         {
@@ -1030,10 +1045,12 @@ void g_output_tmc_file()
                     float Q_cd = 1;
                     float Q_cp = 1;
 
+                    int outside_time_margin_in_hour = 1;
 
                     obs_P = g_TMC_vector[tmc_index].scan_congestion_duration(tau,
                         assign_period_start_time_in_hour,
                         assign_period_end_time_in_hour,
+                        outside_time_margin_in_hour,
                         assign_period_t2_peak_in_hour,
                         p_link->v_congestion_cutoff, p_link,
                         obs_t0_in_hour, obs_t3_in_hour, obs_P,
@@ -1249,10 +1266,25 @@ void g_output_tmc_file()
                             fprintf(p_file_tmc_link, "%.1f,", g_TMC_vector[tmc_index].get_avg_speed(t));
                         }
 
+                        // model speed
+                        for (int t = 6 * 60; t < 20 * 60; t += 5)
+                        {
+                            double model_speed = g_link_vector[i].get_model_5_min_speed(t);
+                            fprintf(p_file_tmc_link, "%.1f,", model_speed);
+                        }
+
+
                         for (int t = 6 * 60; t < 20 * 60; t += 15)
                         {
 
                             fprintf(p_file_tmc_link, "%.1f,", g_TMC_vector[tmc_index].get_avg_speed(t));
+                        }
+
+                        // model speed
+                        for (int t = 6 * 60; t < 20 * 60; t += 15)
+                        {
+                            double model_speed = g_link_vector[i].get_model_15_min_speed(t);
+                            fprintf(p_file_tmc_link, "%.1f,", model_speed);
                         }
 
                         for (int t = 6 * 60; t < 20 * 60; t += 5)
@@ -1391,10 +1423,12 @@ void g_output_qvdf_file()
                     float Q_cd = 1;
                     float Q_cp = 1;
 
+                    float outside_time_margin_in_hour = 2;
 
                     obs_P = g_TMC_vector[tmc_index].scan_congestion_duration(tau,
                         assign_period_start_time_in_hour,
                         assign_period_end_time_in_hour,
+                        outside_time_margin_in_hour,
                         assign_period_t2_peak_in_hour,
                         p_link->v_congestion_cutoff, p_link,
                         obs_t0_in_hour, obs_t3_in_hour, obs_P,

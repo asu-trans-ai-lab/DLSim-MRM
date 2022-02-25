@@ -489,7 +489,7 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 	if (assignment_mode == 1)
 		assignment.assignment_mode = dta;
 
-	if (assignment_mode == 12)
+	if (assignment_mode == 11)
 		assignment.assignment_mode = cbi;
 
 	if (assignment_mode == 13)

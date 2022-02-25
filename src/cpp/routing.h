@@ -713,6 +713,16 @@ public:
 				// if(map (pred_link_seq_no, link_sqe_no) is prohibitted )
 				//     then continue; //skip this is not an exact solution algorithm for movement
 
+				//if (g_node_vector[from_node].node_id == 13621 && g_node_vector[to_node].node_id == 14997)
+				//{
+				//	float cost = m_link_genalized_cost_array[link_sqe_no];
+				//	int debug = 1;
+				//	p_assignment->sp_log_file << "SP:  checking from node " << g_node_vector[from_node].node_id
+				//		<< "  to node " << g_node_vector[to_node].node_id << " cost = " << new_to_node_cost <<
+				//		" , m_node_label_cost[from_node] " << m_node_label_cost[from_node] << ",m_link_genalized_cost_array[link_sqe_no] = " << m_link_genalized_cost_array[link_sqe_no]
+				//		<< endl;
+				//}
+
 				if (g_node_vector[from_node].prohibited_movement_size >= 1)
 				{
 					if (pred_link_seq_no >= 0)
@@ -760,15 +770,6 @@ public:
 
 				new_to_node_cost = m_node_label_cost[from_node] + m_link_genalized_cost_array[link_sqe_no];
 
-				if (iteration_k == 1 && g_node_vector[from_node].node_id == 2378 && g_node_vector[to_node].node_id == 4418)
-				{
-					float cost = m_link_genalized_cost_array[link_sqe_no];
-					int debug = 1;
-					p_assignment->sp_log_file << "SP:  checking from node " << g_node_vector[from_node].node_id
-						<< "  to node " << g_node_vector[to_node].node_id << " cost = " << new_to_node_cost <<
-						" , m_node_label_cost[from_node] " << m_node_label_cost[from_node] << ",m_link_genalized_cost_array[link_sqe_no] = " << m_link_genalized_cost_array[link_sqe_no]
-						<< endl;
-				}
 
 				if (local_debugging_flag)
 				{
@@ -874,7 +875,7 @@ public:
 		//origin_zone = m_origin_zone_seq_no_vector[o_node_index]; // assigned nodes for computing
 
 		int sp_log = 1;
-	  if (sp_log == 1 && iteration_k == 1)  // only one processor
+	  if (sp_log == 1 && iteration_k <= 1)  // only one processor
 	  {
 	       if(g_zone_vector[origin_zone].zone_id == p_assignment->shortest_path_log_zone_id && p_assignment->g_origin_demand_array.find(origin_zone) != p_assignment->g_origin_demand_array.end())
 	       {

@@ -707,6 +707,11 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 								if (error_count < 10)
 									dtalog.output() << endl << "Warning: destination zone " << origin_zone << "  has not been defined in node.csv" << endl;
 
+								for (int destination_zone_index = 0; destination_zone_index < number_of_zones; destination_zone_index++)
+								{
+									float demand_value = g_read_float(st);
+								}
+
 								error_count++;
 								// destination zone has not been defined, skipped.
 								continue;
@@ -1612,7 +1617,7 @@ void g_read_input_data(Assignment& assignment)
 					break;
 
 				agent_type.agent_type_no = -1;
-				parser_agent_type.GetValueByFieldName("agent_type_no", agent_type.agent_type_no,false);
+				parser_agent_type.GetValueByFieldName("agent_type_no", agent_type.agent_type_no);
 
 				if (agent_type.agent_type_no == -1)
 				{
@@ -2126,7 +2131,7 @@ void g_read_input_data(Assignment& assignment)
 
 	int demand_data_mode = g_detect_if_demand_data_provided(assignment);
 
-	if (demand_data_mode >= 1)
+	if (assignment.assignment_mode== dta && demand_data_mode >= 1)
 	{
 		g_demand_file_generation(assignment);
 	}
@@ -2199,8 +2204,11 @@ void g_read_input_data(Assignment& assignment)
 			if (parser_link.GetValueByFieldName("cell_type", cell_type, false) == true)
 				link.cell_type = cell_type;
 
+			int meso_link_id=-1;
+			parser_link.GetValueByFieldName("meso_link_id", meso_link_id, false);
 
-
+			if(meso_link_id>=0)
+				link.meso_link_id = meso_link_id;
 
 			parser_link.GetValueByFieldName("geometry", link.geometry, false);
 			parser_link.GetValueByFieldName("link_code", link.link_code_str, false);
@@ -2233,7 +2241,6 @@ void g_read_input_data(Assignment& assignment)
 					CLinkType element_vc;
 					// -1 is for virutal connector
 					element_vc.link_type = link_type;
-					element_vc.type_code = "c";
 					element_vc.link_type_name = link.link_type_name;
 					assignment.g_LinkTypeMap[element_vc.link_type] = element_vc;
 

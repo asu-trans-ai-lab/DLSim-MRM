@@ -738,6 +738,10 @@ public:
     int m_current_link_seq_no;
     int m_path_link_seq_no_vector_size;
 
+    // for tracking the meso link based statitics: working with Alicia to implement 
+    std::map<int, int> meso_link_id_map;
+    std::vector<int> path_meso_link_id_vector;
+
     int departure_time_in_simu_interval;
     float arrival_time_in_min;
     float path_travel_time_in_min;
@@ -970,7 +974,8 @@ public:
         timing_arc_flag{ false }, traffic_flow_code{ 0 }, spatial_capacity_in_vehicles{ 999999 }, link_type{ 2 }, subarea_id{ -1 }, RT_flow_volume{ 0 },
         cell_type{ -1 }, saturation_flow_rate{ 1800 }, dynamic_link_event_start_time_in_min{ 99999 }, b_automated_generated_flag{ false }, time_to_be_released{ -1 },
         RT_waiting_time{ 0 }, FT{ 1 }, AT{ 1 }, s3_m{ 4 }, tmc_road_order{ 0 }, tmc_road_sequence{ -1 }, k_critical{ 45 }, vdf_type{ q_vdf }, 
-        tmc_corridor_id{ -1 }, from_node_id{ -1 }, to_node_id{ -1 }, kjam{ 300 }, link_distance_km{ 0 }, link_distance_mile{ 0 }
+        tmc_corridor_id{ -1 }, from_node_id{ -1 }, to_node_id{ -1 }, kjam{ 300 }, link_distance_km{ 0 }, link_distance_mile{ 0 }, meso_link_id{ -1 }, total_simulated_delay_in_min{ 0 }, 
+        total_simulated_meso_link_incoming_volume{ 0 }
    {
         for (int tau = 0; tau < MAX_TIMEPERIODS; ++tau)
         {
@@ -1034,6 +1039,15 @@ public:
 
     float est_avg_waiting_time_in_min[MAX_TIMEINTERVAL_PerDay]; // at link level
     float est_queue_length_per_lane[MAX_TIMEINTERVAL_PerDay];
+
+    float get_model_5_min_speed(int time_in_min)
+    {
+        int t = time_in_min / 5;
+        float total_speed_value = 0;
+        int total_speed_count = 0;
+
+        return model_speed[t];
+    }
 
     float get_model_15_min_speed(int time_in_min)
     {
@@ -1113,6 +1127,8 @@ public:
     double link_distance_km;
     double link_distance_mile;
     double free_flow_travel_time_in_min;
+    double total_simulated_delay_in_min;
+    int total_simulated_meso_link_incoming_volume;
     double free_speed;
 
     double cost;
@@ -1133,6 +1149,7 @@ public:
     std::string link_id;
     std::string geometry;
 
+    int meso_link_id;
     int FT;
     int AT;
     std::string vdf_code;
