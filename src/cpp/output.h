@@ -503,8 +503,8 @@ void g_output_assignment_result(Assignment& assignment)
 					g_link_vector[i].VDF_period[tau].DOC,
 					g_link_vector[i].VDF_period[tau].lane_based_ultimate_hourly_capacity,
 					g_link_vector[i].VDF_period[tau].queue_length,
-					max(0,g_link_vector[i].total_simulated_delay_in_min),
-					max(0,g_link_vector[i].total_simulated_delay_in_min)/max(1, vehicle_volume),
+					max(0.0, g_link_vector[i].total_simulated_delay_in_min),
+					max(0.0, g_link_vector[i].total_simulated_delay_in_min)/max(1.0f, vehicle_volume),
 				
 					g_link_vector[i].VDF_period[tau].queue_demand_factor,
 					g_link_vector[i].VDF_period[tau].nlanes,

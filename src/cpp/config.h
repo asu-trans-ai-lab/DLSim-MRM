@@ -18,6 +18,12 @@
 
 #ifdef BUILD_EXE
     double network_assignment(int assignment_mode, int iteration_number, int column_updating_iterations, int ODME_iterations, int sensitivity_analysis_iterations, int simulation_iterations, int number_of_memory_blocks);
+    void perform_network_assignment();
+    void perform_cbi();
+    void perform_cbsa();
+    void generate_demand();
+    void generate_zones();
+    void generate_default_settings();
 #else
     #ifdef _WIN32
         #define DTALIBRARY_API __declspec(dllexport)
@@ -26,6 +32,12 @@
     #endif
 
     extern "C" DTALIBRARY_API double network_assignment(int assignment_mode, int iteration_number, int column_updating_iterations, int ODME_iterations, int sensitivity_analysis_iterations, int simulation_iterations, int number_of_memory_blocks);
+    extern "C" DTALIBRARY_API void perform_network_assignment();
+    extern "C" DTALIBRARY_API void perform_cbi();
+    extern "C" DTALIBRARY_API void perform_cbsa();
+    extern "C" DTALIBRARY_API void generate_demand();
+    extern "C" DTALIBRARY_API void generate_zones();
+    extern "C" DTALIBRARY_API void generate_default_settings();
 #endif
 
 #endif

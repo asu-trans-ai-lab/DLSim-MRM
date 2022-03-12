@@ -15,8 +15,6 @@
 #pragma warning(disable: 4267)
 #pragma warning(disable: 4477)
 
-
-
 #ifdef _WIN32
 #include "pch.h"
 #endif
@@ -128,15 +126,12 @@ void g_read_departure_time_profile(Assignment& assignment)
 				assignment.g_DepartureTimeProfileVector.push_back(dep_time);
 
 				dtalog.output() << "compute_cumulative_profile!" << endl;
-
 			}
-
-
-
 		}
 
 	}
 }
+
 void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 {
 	//	fprintf(g_pFileOutputLog, "number of zones =,%lu\n", g_zone_vector.size());
@@ -1703,24 +1698,19 @@ void g_read_input_data(Assignment& assignment)
 	//= 0, there are is boundary 
 	//=-1, no information
 
-
-
 	if (number_of_zones <=1)
 	{
 		CCSVParser parser_z;
 		if (parser_z.OpenCSVFile("zone.csv", true))
 		{
 			parser_z.CloseCSVFile();
-		}else
-		{   // without zone.csv file
-
-				if(g_TAZ_2_GMNS_zone_generation(assignment)==false)
-				{
-				g_grid_zone_generation(assignment);
-				}
-
 		}
-
+		else
+		{   
+			// without zone.csv file
+			if (!g_TAZ_2_GMNS_zone_generation(assignment))
+				g_grid_zone_generation(assignment);
+		}
 	}
 
 	int internal_node_seq_no = 0;
@@ -2506,7 +2496,7 @@ void g_read_input_data(Assignment& assignment)
 					if (link.VDF_period[tau].effective_green_time < 0)
 						link.VDF_period[tau].effective_green_time = link.VDF_period[tau].cycle_length;
 
-					link.VDF_period[tau].red_time = max(1,link.VDF_period[tau].cycle_length-  link.VDF_period[tau].effective_green_time);
+					link.VDF_period[tau].red_time = max(1.0f,link.VDF_period[tau].cycle_length-  link.VDF_period[tau].effective_green_time);
 					parser_link.GetValueByFieldName("red_time", link.VDF_period[tau].red_time, false);
 					parser_link.GetValueByFieldName("green_time", link.VDF_period[tau].effective_green_time, false);
 

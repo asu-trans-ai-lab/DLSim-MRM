@@ -184,7 +184,7 @@ public:
         // step 3: compute volume V
         if (avg_speed[t_mid] > 0)
         {
-            for (int t_in_min = max(6, starting_time_in_hour- outside_time_margin_in_hour) * 60; t_in_min < min(20,ending_time_in_hour+ outside_time_margin_in_hour) * 60; t_in_min += 5)
+            for (int t_in_min = max(6.0f, starting_time_in_hour- outside_time_margin_in_hour) * 60; t_in_min < min(20.0f,ending_time_in_hour+ outside_time_margin_in_hour) * 60; t_in_min += 5)
             {
 
                 float avg_speed = record_avg_speed(t_in_min);
@@ -688,6 +688,7 @@ float g_measurement_tstamp_parser(string str, int& day_of_week_flag, int& day_of
 
     return global_minute;
 }
+
 bool Assignment::map_tmc_reading()
 {
     // step 1: read measurement.csv
