@@ -16,6 +16,7 @@
 
 int main()
 {
+	generate_default_settings();
 	perform_network_assignment();	
 
 	return 0;

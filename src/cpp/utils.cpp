@@ -957,22 +957,22 @@ void perform_network_assignment()
 		}
 	}
 
-    if (assignment_mode = 21)
+    if (assignment_mode == 21)
     {
         dtalog.output() << "assignment mode zone2access is not implemented.\n";
         g_program_stop;
     }
 
-    if (assignment_mode = 11)
+    if (assignment_mode == 11)
     {
-        dtalog.output() << "please use perform_cbi() for cbi mode.\n";
-        g_program_stop;
+        perform_cbi();
+        return;
     }
 
-    if (assignment_mode = 21)
+    if (assignment_mode == 12)
     {
-        dtalog.output() << "please use perform_cbsa() for cbsa mode.\n";
-        g_program_stop;
+        perform_cbsa();
+        return;
     }
 
     network_assignment(assignment_mode, column_generation_iterations, column_updating_iterations, ODME_iterations, 

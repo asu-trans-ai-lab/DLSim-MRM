@@ -1143,12 +1143,9 @@ void g_writing_demand_files(Assignment& assignment)
 
 void g_demand_file_generation(Assignment& assignment)
 {
-
 	g_trip_generation(assignment);
 	g_writing_demand_files(assignment);
-
 }
-
 
 void g_zone_to_access(Assignment& assignment)
 {

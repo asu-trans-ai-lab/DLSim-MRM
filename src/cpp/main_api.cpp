@@ -968,7 +968,6 @@ void perform_cbsa()
 	{
 		// step 1: travel time based on VDF
 		g_link_vector[i].calculate_dynamic_VDFunction(0, false, g_link_vector[i].vdf_type);
-
 	}
 
 	g_output_tmc_file();
