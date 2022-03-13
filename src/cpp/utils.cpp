@@ -957,12 +957,6 @@ void perform_network_assignment()
 		}
 	}
 
-    if (assignment_mode == 21)
-    {
-        dtalog.output() << "assignment mode zone2access is not implemented.\n";
-        g_program_stop;
-    }
-
     if (assignment_mode == 11)
     {
         perform_cbi();
