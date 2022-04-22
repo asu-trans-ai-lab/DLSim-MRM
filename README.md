@@ -51,9 +51,9 @@ Tutorials in [*ASU Transportation AI Lab](https://www.youtube.com/channel/UCpwXR
 
 [Mini-lessson](https://www.youtube.com/watch?v=rorZAhNNOf0&feature=youtu.be) by Dr. Cafer Avci and Dr. Xuesong (Simon) Zhou : What is the best way to learn dynamic traffic simulation and network assignment for a beginner? Do you want to integrate a powerful traffic simulator in your deep learning framework? We would like to offer a collaborative learning experience through 500 lines of python codes and real-life data sets. This is part of our mini-lessons through teaching dialog.
 
-[In-Depth Video Discussions]()
+[In-Depth Video Discussions](https://github.com/asu-trans-ai-lab/DLSim/wiki/In-Depth-Video-Discussions)
 
-[Slides introducing DLSIM]()
+[Slides introducing DLSIM](https://github.com/asu-trans-ai-lab/DLSim/wiki/Slides-Introducing-DLSIM)
 
 ## Theory
 [DLSim-MRM-Theory](https://github.com/asu-trans-ai-lab/DLSim/wiki/DLSIM-Theory)
