@@ -1,6 +1,0 @@
-od_no,o_zone_id,d_zone_id,o_zone_agent_type_cover_flag,d_zone_agent_type_cover_flag,path_id,information_type,agent_type,demand_period,volume,assign_volume,subarea_flag,sensor_flag,toll,travel_time,VDF_travel_time,travel_time_without_access_link,distance_km
-1,1,2,0,0,0,0,sov,AM,7200.00,7200,1,0,0.0,28.8,20.5110,20.5110,18.6107
-2,1,2,0,0,1,0,sov,AM,7200.00,7200,1,0,0.0,29.6,20.5110,20.5110,18.6107
-3,1,42,0,0,0,0,sov,AM,100.00,100,1,0,0.0,14.8,9.0019,9.0019,10.0035
-4,42,43,0,0,0,0,sov,AM,100.00,100,1,0,0.0,2.1,2.3884,2.3884,4.1632
-5,43,2,0,0,0,0,sov,AM,100.00,100,1,0,0.0,5.0,5.8104,5.8104,9.3917

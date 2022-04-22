@@ -1,13 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerWorkingDirectory>C:\temp\Aalto_University_Otaniemi_Campus\micronet</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\build_micronet_Zhou</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerWorkingDirectory>C:\Users\18016\Desktop\NewDesktop\ANL\ANL\micronet - Copy</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\temp\build_micronet_Zhou</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerAttach>false</LocalDebuggerAttach>
+    <LocalDebuggerAttach>
+    </LocalDebuggerAttach>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LocalDebuggerWorkingDirectory>C:\testbed\AZ_101</LocalDebuggerWorkingDirectory>

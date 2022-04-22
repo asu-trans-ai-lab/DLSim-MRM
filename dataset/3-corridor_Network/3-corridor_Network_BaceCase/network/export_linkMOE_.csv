@@ -1,3 +1,0 @@
-project_name,aggregation_interval (min),display_link_index,from_node_id,to_node_id,link_name,timestamp (min),hour,min,Link Inflow Volume (vph),Link Outflow Volume (vph),Lane Inflow Volume(vphpl),Speed,Density (vpmpl),Queue Length as Percentage of Link Length,Cumulative Arrival Count,Cumulative Departure Count,
-network,5, ,8,9, ,300,5,295,0,0,0,0,0,0,0,0,
-network,5, ,9,10, ,300,5,295,0,0,0,0,0,0,0,0,
