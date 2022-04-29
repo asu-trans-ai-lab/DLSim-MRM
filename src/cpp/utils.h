@@ -10,7 +10,7 @@
 
 #ifndef GUARD_UTILS_H
 #define GUARD_UTILS_H
-
+#define BUILD_EXE //self-use
 // if you are using cmake, please #include <build_config.h>
 #ifndef _WIN32
 #include <build_config.h>
@@ -28,8 +28,20 @@ using __int64 = long long;
 
 constexpr auto _PI = 3.1415926;
 // utilities functions
+
+struct GDPoint //geometry data
+{
+    double x;
+    double y;
+};
 void g_program_stop();
 void g_program_exit();
+bool g_get_line_polygon_intersection(
+    double Ax, double Ay,
+    double Bx, double By,
+    std::vector<GDPoint> subarea_shape_points);
+
+int g_test_point_in_polygon(GDPoint Pt, std::vector<GDPoint> V);
 
 double g_calculate_p2p_distance_in_meter_from_latitude_longitude(double p1_x, double p1_y, double p2_x, double p2_y);
 
@@ -93,11 +105,7 @@ public:
 
 static DTALog dtalog;
 
-struct GDPoint //geometry data
-{
-    double x;
-    double y;
-};
+
 
 typedef struct
 {

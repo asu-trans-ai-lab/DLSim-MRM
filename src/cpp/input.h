@@ -54,6 +54,44 @@ using std::istringstream;
 
 #include "DTA.h"
 
+bool g_read_subarea_CSV_file(Assignment& assignment)
+{
+	CCSVParser parser;
+	if (parser.OpenCSVFile("subarea.csv",false) )
+	{
+		while (parser.ReadRecord())
+		{
+			string geo_string;
+			if (parser.GetValueByFieldName("geometry", geo_string))
+			{
+				// overwrite when the field "geometry" exists
+				CGeometry geometry(geo_string);
+
+				std::vector<CCoordinate> CoordinateVector = geometry.GetCoordinateList();
+
+				if (CoordinateVector.size() > 0)
+				{
+					for (int p = 0; p < CoordinateVector.size(); p++)
+					{
+						GDPoint pt;
+						pt.x = CoordinateVector[p].X;
+						pt.y = CoordinateVector[p].Y;
+
+						assignment.g_subarea_shape_points.push_back(pt);
+					}
+				}
+
+				break;
+			}
+
+		}
+		parser.CloseCSVFile();
+	}
+
+
+	return true;
+}
+
 void g_read_departure_time_profile(Assignment& assignment)
 {
 	CCSVParser parser;
@@ -137,12 +175,464 @@ void g_read_departure_time_profile(Assignment& assignment)
 
 	}
 }
+
+double g_pre_read_demand_file(Assignment& assignment)
+{
+
+	float total_demand_in_demand_file = 0;
+
+	CCSVParser parser;
+	dtalog.output() << endl;
+	dtalog.output() << "Step 1.8: Reading file section [demand_file_list] in setting.csv..." << endl;
+	parser.IsFirstLineHeader = false;
+
+	assignment.summary_file << "pre-read demand, defined in [demand_file_list] in settings.csv." << endl;
+
+	if (parser.OpenCSVFile("settings.csv", false))
+	{
+		while (parser.ReadRecord_Section())
+		{
+			int this_departure_time_profile_no = 0;
+
+			if (parser.SectionName == "[demand_file_list]")
+			{
+				int file_sequence_no = 1;
+
+				string format_type = "null";
+
+				int demand_format_flag = 0;
+
+				if (!parser.GetValueByFieldName("file_sequence_no", file_sequence_no))
+					break;
+
+				// skip negative sequence no
+				if (file_sequence_no <= -1)
+					continue;
+
+				double loading_scale_factor = 1.0;
+				string file_name, demand_period_str, agent_type;
+				parser.GetValueByFieldName("file_name", file_name);
+				parser.GetValueByFieldName("demand_period", demand_period_str);
+				parser.GetValueByFieldName("format_type", format_type);
+
+
+				if (format_type.find("null") != string::npos)  // skip negative sequence no
+				{
+					dtalog.output() << "Please provide format_type in section [demand_file_list.]" << endl;
+					g_program_stop();
+				}
+
+
+				if (format_type.find("column") != string::npos)  // or muliti-column
+				{
+					bool bFileReady = false;
+					int error_count = 0;
+					int critical_OD_count = 0;
+					double critical_OD_volume = 0;
+
+					// read the file formaly after the test.
+					CCSVParser parser;
+					int line_no = 0;
+					if (parser.OpenCSVFile(file_name, false))
+					{
+						// read agent file line by line,
+
+						int o_zone_id, d_zone_id;
+						string agent_type, demand_period;
+
+						std::vector <int> node_sequence;
+
+						while (parser.ReadRecord())
+						{
+							float demand_value = 0;
+							parser.GetValueByFieldName("o_zone_id", o_zone_id);
+							parser.GetValueByFieldName("d_zone_id", d_zone_id);
+							parser.GetValueByFieldName("volume", demand_value);
+
+							if (assignment.g_zoneid_to_zone_seq_no_mapping.find(o_zone_id) == assignment.g_zoneid_to_zone_seq_no_mapping.end())
+							{
+								// origin zone has not been defined, skipped.
+								continue;
+							}
+
+							if (assignment.g_zoneid_to_zone_seq_no_mapping.find(d_zone_id) == assignment.g_zoneid_to_zone_seq_no_mapping.end())
+							{
+								continue;
+							}
+
+							int from_zone_seq_no = 0;
+							int to_zone_seq_no = 0;
+							from_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[o_zone_id];
+							to_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[d_zone_id];
+
+
+							g_zone_vector[from_zone_seq_no].preread_total_O_demand += demand_value;
+							g_zone_vector[from_zone_seq_no].preread_ODdemand[to_zone_seq_no] += demand_value;
+
+							total_demand_in_demand_file += demand_value;
+							// encounter return
+							if (demand_value < -99)
+								break;
+
+
+							line_no++;
+						}  // scan lines
+					}
+
+					// pre-read complete.
+					break;
+				}
+				else if (format_type.compare("matrix") == 0)
+				{
+					bool bFileReady = false;
+					int error_count = 0;
+					int critical_OD_count = 0;
+					double critical_OD_volume = 0;
+
+					vector<int> LineIntegerVector;
+
+					CCSVParser parser;
+					parser.IsFirstLineHeader = false;
+					if (parser.OpenCSVFile(file_name, true))
+					{
+						int i = 0;
+						if (parser.ReadRecord())
+						{
+							parser.ConvertLineStringValueToIntegers();
+							LineIntegerVector = parser.LineIntegerVector;
+						}
+						parser.CloseCSVFile();
+					}
+
+					int number_of_zones = LineIntegerVector.size();
+
+
+					bFileReady = false;
+
+					FILE* st;
+					fopen_ss(&st, file_name.c_str(), "r");
+					if (st != NULL)
+					{
+						// read the first line
+						g_read_a_line(st);
+
+						cout << "number of zones to be read = " << number_of_zones << endl;
+
+						//test if a zone has been defined. 
+						for (int destination_zone_index = 0; destination_zone_index < number_of_zones; destination_zone_index++)
+						{
+							int zone = LineIntegerVector[destination_zone_index];
+							if (assignment.g_zoneid_to_zone_seq_no_mapping.find(zone) == assignment.g_zoneid_to_zone_seq_no_mapping.end())
+							{
+								if (error_count < 10)
+									dtalog.output() << endl << "Warning: destination zone " << zone << "  has not been defined in node.csv" << endl;
+
+								error_count++;
+								// destination zone has not been defined, skipped.
+								continue;
+							}
+
+						}
+
+
+						int line_no = 0;
+						for (int origin_zone_index = 0; origin_zone_index < number_of_zones; origin_zone_index++)
+						{
+							int origin_zone = (int)(g_read_float(st)); // read the origin zone number
+
+							if (assignment.g_zoneid_to_zone_seq_no_mapping.find(origin_zone) == assignment.g_zoneid_to_zone_seq_no_mapping.end())
+							{
+								if (error_count < 10)
+									dtalog.output() << endl << "Warning: destination zone " << origin_zone << "  has not been defined in node.csv" << endl;
+
+								for (int destination_zone_index = 0; destination_zone_index < number_of_zones; destination_zone_index++)
+								{
+									float demand_value = g_read_float(st);
+								}
+
+								error_count++;
+								// destination zone has not been defined, skipped.
+								continue;
+							}
+
+							cout << "Reading file no." << file_sequence_no << " " << file_name << " at zone " << origin_zone << " ... " << endl;
+
+							for (int destination_zone_index = 0; destination_zone_index < number_of_zones; destination_zone_index++)
+							{
+								int destination_zone = LineIntegerVector[destination_zone_index];
+
+								float demand_value = g_read_float(st);
+
+								int from_zone_seq_no = 0;
+								int to_zone_seq_no = 0;
+								from_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[origin_zone];
+								to_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[destination_zone];
+
+								g_zone_vector[from_zone_seq_no].preread_total_O_demand += demand_value;
+								g_zone_vector[from_zone_seq_no].preread_ODdemand[to_zone_seq_no] += demand_value;
+
+								total_demand_in_demand_file += demand_value;
+								line_no++;
+							}  // scan lines
+
+						}
+
+						fclose(st);
+					}
+
+					//preread complete
+					break;
+				}
+			}
+		}
+	}
+	return total_demand_in_demand_file;
+}
+
 void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 {
+
+	g_related_zone_vector_size = g_zone_vector.size();
+	for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
+	{
+		g_zone_vector[orig].sindex = orig;  //copy this index 
+	}
+
+	// subarea handling step 1: reading
+	g_read_subarea_CSV_file(assignment);
+	// subarea handling step 2:
+	// for each OD 
+
+	if (assignment.g_subarea_shape_points.size() >= 3) // if there is a subarea defined.
+	{
+		// for node layer
+		for (int i = 0; i < g_node_vector.size(); i++)
+		{
+			GDPoint pt;
+			pt.x = g_node_vector[i].x;
+			pt.y = g_node_vector[i].y;
+
+			if (g_test_point_in_polygon(pt, assignment.g_subarea_shape_points) == 1)
+			{
+				g_node_vector[i].subarea_id = 1;
+
+			}
+		}
+
+		// for link layer
+		for (int l = 0; l < g_link_vector.size(); l++) 
+		{
+			if (g_node_vector[g_link_vector[l].from_node_seq_no].subarea_id >= 1 || g_node_vector[g_link_vector[l].to_node_seq_no].subarea_id >= 1)
+			{
+				g_link_vector[l].subarea_id = g_node_vector[g_link_vector[l].from_node_seq_no].subarea_id;
+			}
+		}
+		double total_demand = 0;
+		double total_related_demand = 0;
+
+		int non_impact_zone_count = 0;
+		int inside_zone_count = 0;
+		// pre read demand 
+		double total_preload_demand = g_pre_read_demand_file(assignment);
+
+		cout << "total pre-load demand = " << total_preload_demand << endl;
+		if (total_preload_demand <= 1)
+		{
+			g_program_stop();
+		}
+		else
+		{
+		for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
+		{
+			GDPoint Pt;
+			Pt.x = g_zone_vector[orig].cell_x;
+			Pt.y = g_zone_vector[orig].cell_y;
+
+			total_demand += g_zone_vector[orig].preread_total_O_demand;
+
+
+
+			if (g_test_point_in_polygon(Pt, assignment.g_subarea_shape_points) == 1)
+			{
+				total_related_demand += g_zone_vector[orig].preread_total_O_demand;
+				g_zone_vector[orig].origin_zone_impact_volume = g_zone_vector[orig].preread_total_O_demand;
+				g_zone_vector[orig].subarea_inside_flag = 1;  // zoom is inside the subarea
+				inside_zone_count++;
+				continue; //inside the subarea, keep the zone anyway
+			}
+
+			g_zone_vector[orig].subarea_inside_flag = 0;
+
+
+			double origin_zone_impact_volume = 0;
+
+			for (int dest = 0; dest < g_zone_vector.size(); dest++) //d
+			{
+				if (orig == dest)
+					continue;
+
+				double Ax, Ay;
+				double Bx, By;
+
+				Ax = g_zone_vector[orig].cell_x;
+				Ay = g_zone_vector[orig].cell_y;
+
+				Bx = g_zone_vector[dest].cell_x;
+				By = g_zone_vector[dest].cell_y;
+
+				bool intersect_flag = g_get_line_polygon_intersection(Ax, Ay, Bx, By, assignment.g_subarea_shape_points);  //test if OD pair passes through the subarea
+
+				if (intersect_flag == true)
+				{
+					if (g_zone_vector[orig].preread_ODdemand.find(dest) != g_zone_vector[orig].preread_ODdemand.end())
+					{
+						total_related_demand += g_zone_vector[orig].preread_ODdemand[dest];
+						origin_zone_impact_volume += g_zone_vector[orig].preread_ODdemand[dest];
+						g_zone_vector[orig].subarea_impact_flag[dest] = true;
+					}
+				}
+
+
+
+			}  // end of destination zone loop
+
+			double impact_demand_ratio = origin_zone_impact_volume / max(0.0001, g_zone_vector[orig].preread_total_O_demand);
+			//			if (origin_zone_impact_volume < 5 && impact_demand_ratio <0.1)
+
+			g_zone_vector[orig].origin_zone_impact_volume = origin_zone_impact_volume;
+			if (origin_zone_impact_volume < 5)
+			{
+				g_zone_vector[orig].subarea_significance_flag = false;
+				non_impact_zone_count++;
+				// if there are more than y = 5 vehicles from a zone passing through the subarea(with the mark from step 2), 
+				//then we keep them in shortest path computing.
+			}
+
+
+		}
+
+		// use the following rule to determine how many zones to keep as origin zones, we still keep all destination zones
+		int cutoff_zone_size = max(inside_zone_count*1.5, max(300, g_zone_vector.size()/20));
+		int related_zone_size = g_zone_vector.size() - non_impact_zone_count;
+		if (related_zone_size > cutoff_zone_size && cutoff_zone_size > inside_zone_count)  // additional handling  remaining zones are still greater than 1000
+		{
+
+			std::vector <float> origin_zone_volume_vector;
+
+			for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
+			{
+				if (g_zone_vector[orig].subarea_significance_flag == true)
+				{
+					if(g_zone_vector[orig].subarea_inside_flag == 0)
+						origin_zone_volume_vector.push_back(g_zone_vector[orig].origin_zone_impact_volume);
+					else
+					{
+						int idebug = 1;
+					}
+				}
+
+			}
+
+			// sort 
+
+			if(origin_zone_volume_vector.size() > 0)
+			{
+			std::sort(origin_zone_volume_vector.begin(), origin_zone_volume_vector.end());
+
+
+			// determine the cut off value;
+			int cut_off_zone_index = max(0, origin_zone_volume_vector.size() - (cutoff_zone_size - inside_zone_count));
+
+			float volume_cut_off_value = origin_zone_volume_vector[cut_off_zone_index];
+
+
+			for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
+			{
+				if (g_zone_vector[orig].subarea_inside_flag == 0 && g_zone_vector[orig].subarea_significance_flag == true)
+				{
+					if (g_zone_vector[orig].origin_zone_impact_volume < volume_cut_off_value)
+					{
+						g_zone_vector[orig].subarea_significance_flag = false;
+					}
+				}
+
+			}
+
+			non_impact_zone_count = 0;
+			for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
+			{
+				if (g_zone_vector[orig].subarea_significance_flag == true)
+				{
+					non_impact_zone_count++;
+				}
+			}
+
+			}
+
+
+
+			//re select the impact origin zones 
+		}
+		}
+
+
+
+		FILE* g_pFileZone = nullptr;
+		g_pFileZone = fopen("subarea_related_zone.csv", "w");
+
+		if (g_pFileZone == NULL)
+		{
+			cout << "File zone.csv cannot be opened." << endl;
+			g_program_stop();
+		}
+
+		fprintf(g_pFileZone, "first_column,zone_id,x_coord,y_coord,subarea_index,demand,inside_flag\n");
+		for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
+		{
+			if (g_zone_vector[orig].subarea_significance_flag == true)  // no significant: skip
+			{
+				fprintf(g_pFileZone, ",%d,%f,%f,%d,%f,%d\n", g_zone_vector[orig].zone_id, g_zone_vector[orig].cell_x, g_zone_vector[orig].cell_y, g_zone_vector[orig].sindex,
+					g_zone_vector[orig].origin_zone_impact_volume, g_zone_vector[orig].subarea_inside_flag);
+			}
+		}
+
+		fclose(g_pFileZone);
+
+		dtalog.output() << endl;
+		double non_related_zone_ratio = non_impact_zone_count * 1.0 / g_zone_vector.size();
+		dtalog.output() << non_impact_zone_count << " zones are not signifantly related by the subarea. = (" << non_related_zone_ratio << ")" <<endl;
+		dtalog.output() << inside_zone_count << " zones are inside the subarea. " << endl;
+
+		
+
+		int sindex = 0;
+		for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
+		{
+			if (g_zone_vector[orig].subarea_significance_flag == false)  // no significant: skip
+			{
+				g_zone_vector[orig].sindex = -1;
+			
+			}
+			else
+			{
+				g_zone_vector[orig].sindex = sindex++;  // resort the index
+			}
+
+		}
+		g_related_zone_vector_size = sindex;
+
+
+		double related_ratio = total_related_demand / max(1, total_demand);
+		dtalog.output() << "total demand = " << total_demand << " total subarea-related demand = " << total_related_demand << " ("
+			<< related_ratio << " )" << endl;
+		
+		assignment.summary_file << ",# of significant zones =," << g_related_zone_vector_size << endl;
+	}
+
 	//	fprintf(g_pFileOutputLog, "number of zones =,%lu\n", g_zone_vector.size());
 	g_read_departure_time_profile(assignment);
 
-	assignment.InitializeDemandMatrix(g_zone_vector.size(), assignment.g_AgentTypeVector.size(), assignment.g_DemandPeriodVector.size());
+	assignment.InitializeDemandMatrix(g_related_zone_vector_size, g_zone_vector.size(), assignment.g_AgentTypeVector.size(), assignment.g_DemandPeriodVector.size());
 
 	float total_demand_in_demand_file = 0;
 
@@ -179,7 +669,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 				parser.GetValueByFieldName("file_name", file_name);
 				parser.GetValueByFieldName("demand_period", demand_period_str);
 				parser.GetValueByFieldName("format_type", format_type);
-				parser.GetValueByFieldName("scale_factor", loading_scale_factor);
+				parser.GetValueByFieldName("scale_factor", loading_scale_factor,false);
 				parser.GetValueByFieldName("departure_time_profile_no", this_departure_time_profile_no, false);
 
 				if (this_departure_time_profile_no >= assignment.g_DepartureTimeProfileVector.size())
@@ -206,6 +696,17 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 				CDemand_Period  demand_period = assignment.g_DemandPeriodVector[demand_period_no];
 				assignment.g_DemandPeriodVector[demand_period_no].number_of_demand_files++;
 
+
+				if (demand_period.starting_time_slot_no * MIN_PER_TIMESLOT < assignment.g_LoadingStartTimeInMin)
+					assignment.g_LoadingStartTimeInMin = demand_period.starting_time_slot_no * MIN_PER_TIMESLOT;
+
+				if (demand_period.ending_time_slot_no * MIN_PER_TIMESLOT > assignment.g_LoadingEndTimeInMin)
+					assignment.g_LoadingEndTimeInMin = demand_period.ending_time_slot_no * MIN_PER_TIMESLOT;
+
+				if (assignment.g_LoadingEndTimeInMin < assignment.g_LoadingStartTimeInMin)
+				{
+					assignment.g_LoadingEndTimeInMin = assignment.g_LoadingStartTimeInMin + 1; // in case user errror
+				}
 
 				if (format_type.find("null") != string::npos)  // skip negative sequence no
 				{
@@ -242,6 +743,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 					int error_count = 0;
 					int critical_OD_count = 0;
 					double critical_OD_volume = 0;
+
 
 					// read the file formaly after the test.
 					CCSVParser parser;
@@ -285,6 +787,10 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 							int from_zone_seq_no = 0;
 							int to_zone_seq_no = 0;
 							from_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[o_zone_id];
+							int from_zone_sindex = g_zone_vector[from_zone_seq_no].sindex;
+							if (from_zone_sindex == -1)
+								continue;
+
 							to_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[d_zone_id];
 
 							if (assignment.shortest_path_log_zone_id == -1)  // set this to the first zone
@@ -306,8 +812,8 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 							}
 
 							assignment.total_demand[agent_type_no][demand_period_no] += demand_value;
-							assignment.g_column_pool[from_zone_seq_no][to_zone_seq_no][agent_type_no][demand_period_no].od_volume += demand_value;
-							assignment.g_column_pool[from_zone_seq_no][to_zone_seq_no][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
+							assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].od_volume += demand_value;
+							assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
 							assignment.total_demand_volume += demand_value;
 							assignment.g_origin_demand_array[from_zone_seq_no] += demand_value;
 
@@ -318,7 +824,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 							line_no++;
 						}  // scan lines
 					}
-					else
+						else
 					{
 						// open file
 						dtalog.output() << "Error: File " << file_name << " cannot be opened.\n It might be currently used and locked by EXCEL." << endl;
@@ -334,16 +840,6 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 
 
 					std::map<int, float>::iterator it;
-					int count_zone_demand = 0;
-					for (it = assignment.g_origin_demand_array.begin(); it != assignment.g_origin_demand_array.end(); ++it)
-					{
-						//if (it->second > 5)
-						//{
-						//    dtalog.output() << "o_zone " << it->first << ", d_zone=," << it->second << endl;
-						//    count_zone_demand++;
-						//}
-					}
-					dtalog.output() << "There are  " << count_zone_demand << " zones with positive demand" << endl;
 
 				}
 				else if (format_type.compare("path") == 0)
@@ -380,6 +876,9 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 							int to_zone_seq_no = 0;
 							from_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[o_zone_id];
 							to_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[d_zone_id];
+							int from_zone_sindex = g_zone_vector[from_zone_seq_no].sindex;
+							if (from_zone_sindex == -1)
+								continue;
 
 							
 								double volume = 0;
@@ -390,8 +889,8 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 								sum_of_path_volume += agent_path_element.volume;
 
 								assignment.total_demand[agent_type_no][demand_period_no] += agent_path_element.volume;
-								assignment.g_column_pool[from_zone_seq_no][to_zone_seq_no][agent_type_no][demand_period_no].od_volume += agent_path_element.volume;
-								assignment.g_column_pool[from_zone_seq_no][to_zone_seq_no][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
+								assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].od_volume += agent_path_element.volume;
+								assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
 								assignment.total_demand_volume += agent_path_element.volume;
 								assignment.g_origin_demand_array[from_zone_seq_no] += agent_path_element.volume;
 
@@ -451,7 +950,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 								agent_path_element.node_sum = node_sum; // pointer to the node sum based path node sequence;
 								agent_path_element.path_link_sequence = link_no_sequence;
 
-								CColumnVector* pColumnVector = &(assignment.g_column_pool[from_zone_seq_no][to_zone_seq_no][agent_type_no][demand_period_no]);
+								CColumnVector* pColumnVector = &(assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no]);
 								pColumnVector->departure_time_profile_no = this_departure_time_profile_no;
 								// we cannot find a path with the same node sum, so we need to add this path into the map,
 								if (pColumnVector->path_node_sequence_map.find(node_sum) == pColumnVector->path_node_sequence_map.end())
@@ -514,6 +1013,9 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 							// add protection later for activity and path data types
 							from_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[o_zone_id];
 							to_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[d_zone_id];
+							int from_zone_sindex = g_zone_vector[from_zone_seq_no].sindex;
+							if (from_zone_sindex == -1)
+								continue;
 
 							double volume = 0;
 							parser.GetValueByFieldName("volume", volume);
@@ -523,8 +1025,8 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 							sum_of_path_volume += agent_path_element.volume;
 
 							assignment.total_demand[agent_type_no][demand_period_no] += agent_path_element.volume;
-							assignment.g_column_pool[from_zone_seq_no][to_zone_seq_no][agent_type_no][demand_period_no].od_volume += agent_path_element.volume;
-							assignment.g_column_pool[from_zone_seq_no][to_zone_seq_no][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
+							assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].od_volume += agent_path_element.volume;
+							assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
 							assignment.total_demand_volume += agent_path_element.volume;
 							assignment.g_origin_demand_array[from_zone_seq_no] += agent_path_element.volume;
 
@@ -730,9 +1232,14 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 								from_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[origin_zone];
 								to_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[destination_zone];
 
+								int from_zone_sindex = g_zone_vector[from_zone_seq_no].sindex;
+								if (from_zone_sindex == -1)
+									continue;
+
 								// encounter return
 								if (demand_value < -99)
 									break;
+
 
 								demand_value *= loading_scale_factor;
 								if (demand_value >= 1)
@@ -749,8 +1256,8 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 								}
 
 								assignment.total_demand[agent_type_no][demand_period_no] += demand_value;
-								assignment.g_column_pool[from_zone_seq_no][to_zone_seq_no][agent_type_no][demand_period_no].od_volume += demand_value;
-								assignment.g_column_pool[from_zone_seq_no][to_zone_seq_no][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
+								assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].od_volume += demand_value;
+								assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
 								assignment.total_demand_volume += demand_value;
 								assignment.g_origin_demand_array[from_zone_seq_no] += demand_value;
 
@@ -810,6 +1317,12 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 	/////
 	/// summary
 	//////
+
+
+	/// <summary>
+	///  subarea 
+	/// </summary>
+	/// <param name="assignment"></param>
 	assignment.summary_file << ",total demand =, " << assignment.total_demand_volume << endl;
 	
 	std::vector<CODState> ODStateVector;
@@ -818,13 +1331,17 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 		CColumnVector* p_column_pool;
 		int path_seq_count = 0;
 
+		int from_zone_sindex = g_zone_vector[orig].sindex;
+		if (from_zone_sindex == -1)
+			continue;
+
 		for (int dest = 0; dest < g_zone_vector.size(); dest++) //d
 		{
 			for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)  //m
 			{
 				for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); tau++)  //tau
 				{
-					p_column_pool = &(assignment.g_column_pool[orig][dest][at][tau]);
+					p_column_pool = &(assignment.g_column_pool[from_zone_sindex][dest][at][tau]);
 					if (p_column_pool->od_volume > 0)
 					{
 						CODState ods;
@@ -903,22 +1420,24 @@ void g_ReadInformationConfiguration(Assignment& assignment)
 		{
 			if (parser.SectionName == "[real_time_info]")
 			{
-				parser.GetValueByFieldName("info_updating_freq_in_min", assignment.g_info_updating_freq_in_min, false, false);
+				parser.GetValueByFieldName("info_updating_freq_in_min", assignment.g_info_updating_freq_in_min, true, false);
 				dtalog.output() << "info_updating_freq_in_min= " << assignment.g_info_updating_freq_in_min << " min" << endl;
 
-				parser.GetValueByFieldName("visual_distance_in_cells", assignment.g_visual_distance_in_cells, false, false);
+				parser.GetValueByFieldName("visual_distance_in_cells", assignment.g_visual_distance_in_cells, true, false);
 				dtalog.output() << "visual_distance_in_cells= " << assignment.g_visual_distance_in_cells << " cells" << endl;
-
-				parser.GetValueByFieldName("real_time_info_ratio", assignment.g_real_time_info_ratio, false, false);
-				dtalog.output() << "real_time_info_ratio= " << assignment.g_real_time_info_ratio << " cells" << endl;
-				assignment.g_real_time_info_ratio = max(0.0f, assignment.g_real_time_info_ratio);
-				assignment.g_real_time_info_ratio = min(1.0f, assignment.g_real_time_info_ratio);
 
 			}
 		}
 
 		parser.CloseCSVFile();
 	}
+	assignment.summary_file << "[real_time_info] " << endl;
+
+	assignment.summary_file << ",info_updating_freq_in_min= " << assignment.g_info_updating_freq_in_min << " min" << endl;
+	
+	assignment.summary_file << ",visual_distance_in_cells= " << assignment.g_visual_distance_in_cells << " cells" << endl;
+	
+
 }
 void g_add_new_virtual_connector_link(int internal_from_node_seq_no, int internal_to_node_seq_no, string agent_type_str, int zone_seq_no = -1)
 {
@@ -970,6 +1489,7 @@ void g_add_new_virtual_connector_link(int internal_from_node_seq_no, int interna
 
 	assignment.g_number_of_links++;
 }
+
 
 
 double g_CheckActivityNodes(Assignment& assignment)
@@ -1384,8 +1904,93 @@ void g_read_link_qvdf_data(Assignment& assignment)
 extern unsigned int g_RandomSeed;
 extern void InitWELLRNG512a(unsigned int* init);
 
+void g_detector_file_open_status()
+{
+	FILE* g_pFilePathMOE = nullptr;
+	fopen_ss(&g_pFilePathMOE, "agent.csv", "w");
+
+	if (!g_pFilePathMOE)
+	{
+		dtalog.output() << "File agent.csv cannot be opened." << endl;
+		g_program_stop();
+	}
+	else
+	{
+		fclose(g_pFilePathMOE);
+	}
+
+	fopen_ss(&g_pFilePathMOE, "final_summary.csv", "w");
+	if (!g_pFilePathMOE)
+	{
+		dtalog.output() << "File final_summary.csv cannot be opened." << endl;
+		g_program_stop();
+	}
+	else
+	{
+		fclose(g_pFilePathMOE);
+	}
+
+	fopen_ss(&g_pFilePathMOE, "trajectory.csv", "w");
+
+	if (!g_pFilePathMOE)
+	{
+		dtalog.output() << "File trajectory.csv cannot be opened." << endl;
+		g_program_stop();
+	}
+	else
+	{
+		fclose(g_pFilePathMOE);
+	}
+
+	fopen_ss(&g_pFilePathMOE, "link_performance.csv", "w");
+	if (!g_pFilePathMOE)
+	{
+		dtalog.output() << "File link_performance.csv cannot be opened." << endl;
+		g_program_stop();
+	}
+	else
+	{
+		fclose(g_pFilePathMOE);
+	}
+
+	fopen_ss(&g_pFilePathMOE, "subarea_link_performance.csv", "w");
+	if (!g_pFilePathMOE)
+	{
+		dtalog.output() << "File subarea_link_performance.csv cannot be opened." << endl;
+		g_program_stop();
+	}
+	else
+	{
+		fclose(g_pFilePathMOE);
+	}
+
+
+	fopen_ss(&g_pFilePathMOE, "td_link_performance.csv", "w");
+	if (!g_pFilePathMOE)
+	{
+		dtalog.output() << "File td_link_performance.csv cannot be opened." << endl;
+		g_program_stop();
+	}
+	else
+	{
+		fclose(g_pFilePathMOE);
+	}
+
+	fopen_ss(&g_pFilePathMOE, "route_assignment.csv", "w");
+	if (!g_pFilePathMOE)
+	{
+		dtalog.output() << "File route_assignment.csv cannot be opened." << endl;
+		g_program_stop();
+	}
+	else
+	{
+		fclose(g_pFilePathMOE);
+	}
+}
 void g_read_input_data(Assignment& assignment)
 {
+	g_detector_file_open_status();
+
 	unsigned int state[16];
 
 	for (int k = 0; k < 16; ++k)
@@ -1444,16 +2049,6 @@ void g_read_input_data(Assignment& assignment)
 					demand_period.time_period_in_hour = (global_minute_vector[1] - global_minute_vector[0]) / 60.0;
 					demand_period.t2_peak_in_hour = (global_minute_vector[0] + global_minute_vector[1]) / 2 / 60;
 
-					if (global_minute_vector[0] < assignment.g_LoadingStartTimeInMin)
-						assignment.g_LoadingStartTimeInMin = global_minute_vector[0];
-
-					if (global_minute_vector[1] > assignment.g_LoadingEndTimeInMin)
-						assignment.g_LoadingEndTimeInMin = global_minute_vector[1];
-
-					if (assignment.g_LoadingEndTimeInMin < assignment.g_LoadingStartTimeInMin)
-					{
-						assignment.g_LoadingEndTimeInMin = assignment.g_LoadingStartTimeInMin + 1; // in case user errror
-					}
 					//g_fout << global_minute_vector[0] << endl;
 					//g_fout << global_minute_vector[1] << endl;
 
@@ -1562,7 +2157,11 @@ void g_read_input_data(Assignment& assignment)
 				parser_link_type.GetValueByFieldName("type_code", element.type_code, true);
 
 				string vdf_type_str;
-				parser_link_type.GetValueByFieldName("vdf_type", vdf_type_str, true);
+
+				element.vdf_type = bpr_vdf;
+				parser_link_type.GetValueByFieldName("vdf_type", vdf_type_str,false);
+
+
 				if (vdf_type_str == "bpr")
 					element.vdf_type = bpr_vdf;
 				if (vdf_type_str == "qvdf")
@@ -1617,7 +2216,7 @@ void g_read_input_data(Assignment& assignment)
 					break;
 
 				agent_type.agent_type_no = -1;
-				parser_agent_type.GetValueByFieldName("agent_type_no", agent_type.agent_type_no);
+				parser_agent_type.GetValueByFieldName("agent_type_no", agent_type.agent_type_no, false);
 
 				if (agent_type.agent_type_no == -1)
 				{
@@ -1642,16 +2241,16 @@ void g_read_input_data(Assignment& assignment)
 
 				}
 
-				parser_agent_type.GetValueByFieldName("vot", agent_type.value_of_time, true, false);
+				parser_agent_type.GetValueByFieldName("vot", agent_type.value_of_time, false, false);
 
 				// scan through the map with different node sum for different paths
-				parser_agent_type.GetValueByFieldName("pce", agent_type.PCE, true, false);
-				parser_agent_type.GetValueByFieldName("person_occupancy", agent_type.OCC, true, false);
-				parser_agent_type.GetValueByFieldName("desired_speed_ratio", agent_type.DSR, true, false);
+				parser_agent_type.GetValueByFieldName("pce", agent_type.PCE, false, false);
+				parser_agent_type.GetValueByFieldName("person_occupancy", agent_type.OCC, false, false);
+				parser_agent_type.GetValueByFieldName("desired_speed_ratio", agent_type.DSR, false, false);
 
-				parser_agent_type.GetValueByFieldName("headway", agent_type.time_headway_in_sec, true, false);
-				parser_agent_type.GetValueByFieldName("display_code", agent_type.display_code, true);
-				parser_agent_type.GetValueByFieldName("real_time_info", agent_type.real_time_information, true);
+				parser_agent_type.GetValueByFieldName("headway", agent_type.time_headway_in_sec, false, false);
+				parser_agent_type.GetValueByFieldName("display_code", agent_type.display_code, false);
+				parser_agent_type.GetValueByFieldName("real_time_info", agent_type.real_time_information, false);
 
 				if (agent_type.agent_type == "dms")  // set the real time information type = 1 for dms class by default
 					agent_type.real_time_information = 1;
@@ -1786,7 +2385,7 @@ void g_read_input_data(Assignment& assignment)
 
 
 	dtalog.output() << "Step 1.4: Reading node data in node.csv..." << endl;
-
+	std::map<int, int> zone_id_to_origin_district_id_mapping;
 
 	if (parser.OpenCSVFile("node.csv", true))
 	{
@@ -1814,6 +2413,15 @@ void g_read_input_data(Assignment& assignment)
 			parser.GetValueByFieldName("node_type", node.node_type, false);// step 1 for adding access links: read node type
 			parser.GetValueByFieldName("zone_id", zone_id);
 
+			int origin_grid_id = 0;
+			parser.GetValueByFieldName("district_id", origin_grid_id, false);
+			
+			if (origin_grid_id >= MAX_ORIGIN_DISTRICTS)
+			{
+				dtalog.output() << "Error: grid_id in node.csv is larger than predefined value of 20." << endl;
+				g_program_stop();
+			}
+
 			if (node_id == 2235)
 			{
 				int idebug = 1;
@@ -1826,6 +2434,8 @@ void g_read_input_data(Assignment& assignment)
 
 			if (zone_id >= 1)
 			{
+				zone_id_to_origin_district_id_mapping[zone_id] = origin_grid_id;
+
 				node.zone_org_id = zone_id;  // this note here, we use zone_org_id to ensure we will only have super centriods with zone id positive. 
 				if (zone_id >= 1)
 					node.is_activity_node = 1;  // from zone
@@ -2101,7 +2711,13 @@ void g_read_input_data(Assignment& assignment)
 		ozone.gravity_production = zone_id_production[it->first];
 		ozone.gravity_attraction = zone_id_attraction[it->first];
 
-		assignment.g_zoneid_to_zone_seq_no_mapping[ozone.zone_id] = ozone.zone_seq_no;  // create the zone id to zone seq no mapping
+		assignment.g_zoneid_to_zone_seq_no_mapping[ozone.zone_id] = ozone.zone_seq_no;  // create the zone id to zone se&zq no mapping
+		assignment.g_zoneid_to_zone_sindex_no_mapping[ozone.zone_id] = ozone.zone_seq_no;  // create the zone id to zone se&zq no mapping
+
+		if (zone_id_to_origin_district_id_mapping[ozone.zone_id]+1 > assignment.g_number_of_origin_districts )
+			assignment.g_number_of_origin_districts = zone_id_to_origin_district_id_mapping[ozone.zone_id]+1;
+
+		assignment.g_zone_seq_no_to_origin_grid_id_mapping[ozone.zone_seq_no] = zone_id_to_origin_district_id_mapping[ozone.zone_id];
 
 		 // create a centriod
 		CNode node;
@@ -2126,7 +2742,7 @@ void g_read_input_data(Assignment& assignment)
 
 	dtalog.output() << "number of zones = " << g_zone_vector.size() << endl;
 	g_zone_to_access(assignment);  // only under zone2connector mode
-	g_OutputModelFiles(3);  // node
+//	g_OutputModelFiles(3);  // node
 
 
 	int demand_data_mode = g_detect_if_demand_data_provided(assignment);
@@ -2135,6 +2751,7 @@ void g_read_input_data(Assignment& assignment)
 	{
 		g_demand_file_generation(assignment);
 	}
+
 
 	// step 4: read link file
 
@@ -2150,11 +2767,11 @@ void g_read_input_data(Assignment& assignment)
 			string link_type_name_str;
 			parser_link.GetValueByFieldName("link_type_name", link_type_name_str, false);
 
-			int from_node_id;
+			long from_node_id= -1;
 			if (!parser_link.GetValueByFieldName("from_node_id", from_node_id))
 				continue;
 
-			int to_node_id;
+			long to_node_id =-1;
 			if (!parser_link.GetValueByFieldName("to_node_id", to_node_id))
 				continue;
 
@@ -2486,11 +3103,11 @@ void g_read_input_data(Assignment& assignment)
 				sprintf(VDF_field_name, "VDF_penalty%d", demand_period_id);
 				parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].penalty, false, false);
 
-				//if (link.cell_type >= 2) // micro lane-changing arc
-				//{
-				//	// additinonal min: 4 seconds 0.4 min
-				//	link.VDF_period[tau].penalty += 0.001;
-				//}
+				if (link.cell_type >= 2) // micro lane-changing arc
+				{
+					// additinonal min: 1 second 1/60.0 min
+					link.VDF_period[tau].penalty += 1.0/60.0;
+				}
 
 				parser_link.GetValueByFieldName("cycle_length", link.VDF_period[tau].cycle_length, false, false);
 
@@ -2607,6 +3224,7 @@ void g_read_input_data(Assignment& assignment)
 	assignment.summary_file << ",# of nodes = ," << g_node_vector.size() << endl;
 	assignment.summary_file << ",# of links =," << g_link_vector.size() << endl;
 	assignment.summary_file << ",# of zones =," << g_zone_vector.size() << endl;
+
 
 	assignment.summary_file << ",summary by multi-modal and demand types,demand_period,agent_type,# of links,avg_free_speed,total_length_in_km,total_capacity,avg_lane_capacity,avg_length_in_meter," << endl;
 	for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); ++tau)

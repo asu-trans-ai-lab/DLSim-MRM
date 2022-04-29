@@ -70,7 +70,7 @@ class NetworkForSP  // mainly for shortest path calculation
 {
 public:
 	NetworkForSP() : temp_path_node_vector_size{ MAX_LINK_SIZE_IN_A_PATH }, m_value_of_time{ 10 }, bBuildNetwork{ false }, m_memory_block_no{ 0 }, m_agent_type_no{ 0 }, m_tau{ 0 }, b_real_time_information{ false }, PCE_ratio{ 1 }, OCC_ratio{ 1 }, m_RT_dest_node{ -1 },
-		m_RT_dest_zone{ -1 }, updating_time_in_min{ 0 }
+		m_RT_dest_zone{ -1 }, updating_time_in_min{ 0 }, l_number_of_links{ 1 }, number_of_origin_grids{ 1 }
 	{
 	}
 
@@ -99,6 +99,9 @@ public:
 
 		if (m_link_person_volume_array)  //8
 			delete[] m_link_person_volume_array;
+
+		if (m_link_person_volume_per_grid_array)  //8
+			Deallocate2DDynamicArray(m_link_person_volume_per_grid_array, l_number_of_links, number_of_origin_grids);
 
 		if (m_link_genalized_cost_array) //9
 			delete[] m_link_genalized_cost_array;
@@ -161,15 +164,22 @@ public:
 	// predecessor for this node points to the previous link that updates its label cost (as part of optimality condition) (for easy referencing)
 	int* m_link_predecessor;
 
-	double* m_link_PCE_volume_array;
-	double* m_link_person_volume_array;
+	double* m_link_PCE_volume_array;  // for VDF computing based on PCE
+	double* m_link_person_volume_array;  // person delay counting based on agent type
+
+	double** m_link_person_volume_per_grid_array;  // person delay counting based on grid_id
 
 	double* m_link_genalized_cost_array;
 	int* m_link_outgoing_connector_zone_seq_no_array;
 
+	int l_number_of_links;  // local copy
+	int number_of_origin_grids;
 	// major function 1:  allocate memory and initialize the data
-	void AllocateMemory(int number_of_nodes, int number_of_links)
+	void AllocateMemory(int number_of_nodes, int number_of_links , int nb_of_origin_grids = 1)
 	{
+		l_number_of_links = number_of_links;
+		number_of_origin_grids = nb_of_origin_grids;
+
 		NodeForwardStarArray = new CNodeForwardStar[number_of_nodes];
 		NodeBackwardStarArray = new CNodeForwardStar[number_of_nodes];
 
@@ -185,7 +195,12 @@ public:
 
 		m_link_PCE_volume_array = new double[number_of_links];  //8
 		m_link_person_volume_array = new double[number_of_links];  //8
+
+
+		m_link_person_volume_per_grid_array = Allocate2DDynamicArray <double>(number_of_links, number_of_origin_grids);  //1
+
 		m_link_genalized_cost_array = new double[number_of_links];  //9
+
 		m_link_outgoing_connector_zone_seq_no_array = new int[number_of_links]; //10
 	}
 
@@ -433,6 +448,7 @@ public:
 		// new propability for flow staying at this path
 		// for current shortest path, collect all the switched path from the other shortest paths for this ODK pair.
 		// check demand flow balance constraints
+		int origin_grid_id = assignment.g_zone_seq_no_to_origin_grid_id_mapping[m_origin_zone_seq_no];
 
 		int num = 0;
 		int number_of_nodes = assignment.g_number_of_nodes;
@@ -473,9 +489,16 @@ public:
 				//fprintf(g_pFileDebugLog, "--------iteration number outterloop  %d ;  -------\n", iteration_number_outterloop);
 				destination_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[g_node_vector[i].zone_id];
 
-				pColumnVector = &(assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][m_tau]);
+				int from_zone_sindex = g_zone_vector[m_origin_zone_seq_no].sindex;
+				if (from_zone_sindex == -1)
+					continue;
+
+				pColumnVector = &(assignment.g_column_pool[from_zone_sindex][destination_zone_seq_no][agent_type][m_tau]);
 
 				if (pColumnVector->bfixed_route) // with routing policy, no need to run MSA for adding new columns
+					continue;
+
+				if (pColumnVector->subarea_passing_flag == false) // not passing through subarea 
 					continue;
 
 				ODvolume = pColumnVector->od_volume;
@@ -522,11 +545,15 @@ public:
 								//fprintf(g_pFileDebugLog, "--------origin  %d ; destination node: %d ; (zone: %d) -------\n", origin_node + 1, i+1, g_node_vector[i].zone_id);
 
 								// pure link based computing mode
-								if (assignment.assignment_mode == 0)
+								if (assignment.assignment_mode == lue)
 								{
 									// this is critical for parallel computing as we can write the volume to data
 									m_link_PCE_volume_array[current_link_seq_no] += volume * PCE_ratio;  // for this network object volume from OD demand table
 									m_link_person_volume_array[current_link_seq_no] += volume * OCC_ratio;
+
+
+									// core code added by Xuesong and Cafer, 03/24/2022 for considering person volume per agent type and per origin grid
+									m_link_person_volume_per_grid_array[current_link_seq_no][origin_grid_id] += volume * OCC_ratio;
 									//cout << "node = " << g_node_vector[i].node_id 
 									//    << "zone id= " << g_node_vector[i].zone_id << ","
 									//    << "l_link_size= " << l_link_size << ","
@@ -559,15 +586,17 @@ public:
 						// we cannot find a path with the same node sum, so we need to add this path into the map,
 						if (l_node_size >= 2)
 						{
+							int from_zone_sindex = g_zone_vector[m_origin_zone_seq_no].sindex;
+							if (from_zone_sindex == -1)
+								continue;
 
-							if (pColumnVector->path_node_sequence_map.find(node_sum) == assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][m_tau].path_node_sequence_map.end())
+
+							if (pColumnVector->path_node_sequence_map.find(node_sum) == assignment.g_column_pool[from_zone_sindex][destination_zone_seq_no][agent_type][m_tau].path_node_sequence_map.end())
 							{
 								// add this unique path
 								int path_count = pColumnVector->path_node_sequence_map.size();
 								pColumnVector->path_node_sequence_map[node_sum].path_seq_no = path_count;
 								pColumnVector->path_node_sequence_map[node_sum].path_volume = 0;
-								//assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][tau].time = m_label_time_array[i];
-								//assignment.g_column_pool[m_origin_zone_seq_no][destination_zone_seq_no][agent_type][tau].path_node_sequence_map[node_sum].path_distance = m_label_distance_array[i];
 								pColumnVector->path_node_sequence_map[node_sum].path_toll = m_node_label_cost[i];
 
 								if (local_debugging_flag)
@@ -983,6 +1012,8 @@ public:
 		{
 			return 0;  // no update
 		}
+
+
 
 		int local_debugging_flag = 0;
 

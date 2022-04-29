@@ -290,6 +290,9 @@ void Assignment::Demand_ODME(int OD_updating_iterations, int sensitivity_analysi
 
 				float step_size = 0;
 				float previous_path_volume = 0;
+				int from_zone_sindex = g_zone_vector[orig].sindex;
+				if (from_zone_sindex == -1)
+					continue;
 
 				for (int dest = 0; dest < g_zone_vector.size(); ++dest) //d
 				{
@@ -297,7 +300,7 @@ void Assignment::Demand_ODME(int OD_updating_iterations, int sensitivity_analysi
 					{
 						for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); ++tau)  //tau
 						{
-							p_column_pool = &(assignment.g_column_pool[orig][dest][at][tau]);
+							p_column_pool = &(assignment.g_column_pool[from_zone_sindex][dest][at][tau]);
 							if (p_column_pool->od_volume > 0)
 							{
 								column_pool_counts++;

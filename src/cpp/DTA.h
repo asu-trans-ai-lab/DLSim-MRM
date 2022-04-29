@@ -1,5 +1,6 @@
 #ifndef GUARD_DTA_H
 #define GUARD_DTA_H
+#define BUILD_EXE //self-use
 
 #include <algorithm>
 #include <iomanip>
@@ -12,6 +13,7 @@ constexpr auto _INFO_ZONE_ID = 100000;
 
 constexpr auto MAX_AGNETTYPES = 10; //because of the od demand store format,the MAX_demandtype must >=g_DEMANDTYPES.size()+1;
 constexpr auto MAX_TIMEPERIODS = 20; // time period set to 4: mid night, morning peak, mid-day and afternoon peak;
+constexpr auto MAX_ORIGIN_DISTRICTS = 30; //origin based agreegration grids
 constexpr auto MAX_MEMORY_BLOCKS = 100;
 
 constexpr auto MAX_LINK_SIZE_IN_A_PATH = 10000;		
@@ -27,10 +29,15 @@ constexpr auto simulation_discharge_period_in_min = 60;
 
 /* make sure we change the following two parameters together*/
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
+
 constexpr auto number_of_seconds_per_interval = 0.25;  // consistent with the cell link_distance_VDF of 7 meters
 constexpr auto number_of_simu_interval_reaction_time = 4;  // reaction time as 1 second, 4 simu intervals, CAV: 0.5 seconds
-
 constexpr auto number_of_simu_intervals_in_min = 240; // 60/0.25 number_of_seconds_per_interval
+
+//constexpr auto number_of_seconds_per_interval = 0.05;  // consistent with the cell link_distance_VDF of 7 meters
+//constexpr auto number_of_simu_interval_reaction_time = 20;  // reaction time as 1 second, 4 simu intervals, CAV: 0.5 seconds
+//constexpr auto number_of_simu_intervals_in_min = 1200; // 60/0.25 number_of_seconds_per_interval
+
 
 /* number_of_seconds_per_interval should satisify the ratio of 60/number_of_seconds_per_interval is an integer*/
 
@@ -45,7 +52,7 @@ enum e_assignment_mode { lue = 0, dta=3, cbi=11, cbsa=12};
 
 // FILE* g_pFileOutputLog = nullptr;
 extern void g_OutputModelFiles(int mode);
-
+extern int g_related_zone_vector_size;
 template <typename T>
 T* Allocate1DDynamicArray(int nRows)
 {
@@ -192,6 +199,7 @@ T**** Allocate4DDynamicArray(int nM, int nX, int nY, int nZ)
         if (m % 1000 == 0)
         {
             dtalog.output() << "allocating 4D memory for " << m << " zones,"
+                << "nM=" << nM << ","
                 << "nX=" << nX << ","
                 << "nY=" << nY << ","
                 << "nZ=" << nZ << std::endl;
@@ -603,10 +611,11 @@ class CColumnVector {
 public:
     // this is colletion of unique paths
     CColumnVector() : cost{ 0 }, time{ 0 }, distance{ 0 }, od_volume{ 0 }, prev_od_volume{ 0 }, bfixed_route{ false }, m_passing_sensor_flag{ -1 }, information_type{ 0 }, activity_agent_type_no{ 0 },
-        departure_time_profile_no{ -1 }, OD_network_design_flag{ 0 }
+        departure_time_profile_no{ -1 }, OD_network_design_flag{ 0 }, subarea_passing_flag{ 1 }
     {
     }
 
+    bool subarea_passing_flag;
     float cost;
     float time;
     float distance;
@@ -673,8 +682,8 @@ class CAgent_Simu
 {
 public:
     CAgent_Simu() : agent_vector_seq_no{ -1 }, path_toll{ 0 }, departure_time_in_min{ 0 }, m_bGenereated{ false }, m_bCompleteTrip{ false },
-        path_travel_time_in_min{ 0 }, path_distance{ 0 }, diversion_flag{ 0 }, time_headway{ number_of_simu_interval_reaction_time }, PCE_unit_size{ 1 }, impacted_flag{ -1 }, impacted_link_seq_no{ 99999 },
-        diverted_flag{ 0 }, info_receiving_flag{ 0 }, desired_free_travel_time_ratio{ 1.0 }, waiting_time_in_min{ 0 }, max_link_waiting_time_in_min{ 0 },
+        path_travel_time_in_min{ 0 }, path_distance{ 0 }, diverted_flag{ 0 }, time_headway{ number_of_simu_interval_reaction_time }, PCE_unit_size{ 1 }, impacted_flag{ -1 }, impacted_link_seq_no{ 99999 },
+        info_receiving_flag{ 0 }, desired_free_travel_time_ratio{ 1.0 }, waiting_time_in_min{ 0 }, max_link_waiting_time_in_min{ 0 },
         max_waiting_time_link_no{ -1 }, p_RTNetwork{ NULL }, agent_type_no{ 0 },
         departure_time_in_simu_interval{ 0 }, arrival_time_in_min{ 0 }, m_current_link_seq_no{ 0 }, m_path_link_seq_no_vector_size{ 0 }
     {
@@ -719,7 +728,7 @@ public:
     int max_waiting_time_link_no;
 
     int info_receiving_flag;
-    int diversion_flag;
+//    int diverted_flag;
     int impacted_flag;
     int diverted_flag;
     std::string impacted_str;
@@ -762,12 +771,12 @@ class Assignment {
 public:
     // default is UE
     Assignment() : assignment_mode{ lue }, g_number_of_memory_blocks{ 8 }, g_number_of_threads{ 1 }, g_info_updating_freq_in_min{ 5 }, g_visual_distance_in_cells{ 5 },
-        g_real_time_info_ratio{ 0.25 }, g_link_type_file_loaded{ true }, g_agent_type_file_loaded{ false },
+        g_link_type_file_loaded{ true }, g_agent_type_file_loaded{ false },
         total_demand_volume{ 0.0 }, g_column_pool{ nullptr }, g_number_of_in_memory_simulation_intervals{ 500 },
         g_number_of_column_generation_iterations{ 20 }, g_number_of_column_updating_iterations{ 0 }, g_number_of_ODME_iterations{ 0 }, g_number_of_sensitivity_analysis_iterations{ 0 }, g_number_of_demand_periods{ 24 }, g_number_of_links{ 0 }, g_number_of_timing_arcs{ 0 },
         g_number_of_nodes{ 0 }, g_number_of_zones{ 0 }, g_number_of_agent_types{ 0 }, debug_detail_flag{ 1 }, path_output{ 1 }, trajectory_output_count{ -1 },
         trace_output{ 0 }, major_path_volume_threshold{ 0.000001 }, trajectory_sampling_rate{ 1.0 }, dynamic_link_performance_sampling_interval_in_min{ 60 }, dynamic_link_performance_sampling_interval_hd_in_min{ 15 }, trajectory_diversion_only{ 0 }, m_GridResolution{ 0.01 },
-        shortest_path_log_zone_id{ -1 }
+        shortest_path_log_zone_id{ -1 }, g_number_of_origin_districts{ 1 }
     {
         m_LinkCumulativeArrivalVector  = NULL;
         m_LinkCumulativeDepartureVector = NULL;
@@ -791,7 +800,7 @@ public:
     ~Assignment()
     {
         if (g_column_pool)
-            Deallocate4DDynamicArray(g_column_pool, g_number_of_zones, g_number_of_zones, g_number_of_agent_types);
+            Deallocate4DDynamicArray(g_column_pool, g_related_zone_vector_size, g_number_of_zones, g_number_of_agent_types);
         
         if(g_rt_network_pool)
             Deallocate3DDynamicArray(g_rt_network_pool, g_number_of_zones, g_number_of_agent_types);
@@ -805,13 +814,13 @@ public:
         DeallocateLinkMemory4Simulation();
     }
 
-    void InitializeDemandMatrix(int number_of_zones, int number_of_agent_types, int number_of_time_periods)
+    void InitializeDemandMatrix(int number_of_signficant_zones, int number_of_zones, int number_of_agent_types, int number_of_time_periods)
     {
         total_demand_volume = 0.0;
         g_number_of_zones = number_of_zones;
         g_number_of_agent_types = number_of_agent_types;
 
-        g_column_pool = Allocate4DDynamicArray<CColumnVector>(number_of_zones, number_of_zones, max(1, number_of_agent_types), number_of_time_periods);
+        g_column_pool = Allocate4DDynamicArray<CColumnVector>(number_of_signficant_zones, number_of_zones, max(1, number_of_agent_types), number_of_time_periods);
 
         for (int i = 0; i < number_of_zones; ++i)
         {
@@ -831,6 +840,8 @@ public:
     {
         return t % g_number_of_in_memory_simulation_intervals;
     }
+
+    std::vector<GDPoint> g_subarea_shape_points;
 
     void STTrafficSimulation();
     void STMesoTrafficSimulation();
@@ -854,7 +865,6 @@ public:
     e_assignment_mode assignment_mode;
     int g_number_of_memory_blocks;
     int g_visual_distance_in_cells;
-    float g_real_time_info_ratio;
     float g_info_updating_freq_in_min;
     int g_number_of_threads;
     int path_output;
@@ -900,8 +910,12 @@ public:
     std::map<int, int> g_node_id_to_seq_no_map;
     std::map<int, int> access_node_id_to_zone_id_map;
 
+    std::map<int, int> g_zone_seq_no_to_origin_grid_id_mapping;
+
     // from integer to integer map zone_id to zone_seq_no
     std::map<int, int> g_zoneid_to_zone_seq_no_mapping;
+    std::map<int, int> g_zoneid_to_zone_sindex_no_mapping;  //subarea based index
+
     std::map<std::string, int> g_link_id_map;
 
     std::map<int, double> zone_id_X_mapping;
@@ -914,6 +928,8 @@ public:
     int g_LoadingEndTimeInMin;
 
     std::vector<CAgent_type> g_AgentTypeVector;
+
+    int g_number_of_origin_districts;
     std::map<int, CLinkType> g_LinkTypeMap;
 
     std::map<std::string, int> demand_period_to_seqno_mapping;
@@ -975,8 +991,9 @@ public:
         cell_type{ -1 }, saturation_flow_rate{ 1800 }, dynamic_link_event_start_time_in_min{ 99999 }, b_automated_generated_flag{ false }, time_to_be_released{ -1 },
         RT_waiting_time{ 0 }, FT{ 1 }, AT{ 1 }, s3_m{ 4 }, tmc_road_order{ 0 }, tmc_road_sequence{ -1 }, k_critical{ 45 }, vdf_type{ q_vdf }, 
         tmc_corridor_id{ -1 }, from_node_id{ -1 }, to_node_id{ -1 }, kjam{ 300 }, link_distance_km{ 0 }, link_distance_mile{ 0 }, meso_link_id{ -1 }, total_simulated_delay_in_min{ 0 }, 
-        total_simulated_meso_link_incoming_volume{ 0 }
+        total_simulated_meso_link_incoming_volume{ 0 }, global_minute_capacity_reduction_start{ -1 }, global_minute_capacity_reduction_end{ -1 }
    {
+   
         for (int tau = 0; tau < MAX_TIMEPERIODS; ++tau)
         {
             PCE_volume_per_period[tau] = 0;
@@ -985,7 +1002,18 @@ public:
             travel_time_per_period[tau] = 0;
                        //cost_perhour[tau] = 0;
             for (int at = 0; at < MAX_AGNETTYPES; ++at)
+            {
                 person_volume_per_period_per_at[tau][at] = 0;
+
+            }
+           
+        }
+
+
+        for (int at = 0; at < MAX_AGNETTYPES; ++at)
+            for (int og = 0; og < MAX_ORIGIN_DISTRICTS; ++og)
+        {
+            person_volume_per_district_per_at[og][at] = 0;
         }
 
     }
@@ -1031,7 +1059,7 @@ public:
     double lane_capacity;
     double saturation_flow_rate;
 
-    std::map <int, int> m_link_pedefined_capacity_map;  // per sec
+    std::map <int, int> m_link_pedefined_capacity_map_in_sec;  // per sec
     std::map <int, float> m_link_pedefined_information_response_map;  // per min, absolute time
 
     float model_speed[MAX_TIMEINTERVAL_PerDay];
@@ -1143,7 +1171,11 @@ public:
 
     int link_seq_no;
 
+
     std::map<int, int> capacity_reduction_map;
+    int global_minute_capacity_reduction_start;
+    int global_minute_capacity_reduction_end;
+
     std::map<int, int> vms_map;
 
     std::string link_id;
@@ -1248,11 +1280,15 @@ public:
 
     int subarea_id;
     double PCE_volume_per_period[MAX_TIMEPERIODS];
+    
     double person_volume_per_period[MAX_TIMEPERIODS];
+
     double RT_flow_volume;
     double background_PCE_volume_per_period[MAX_TIMEPERIODS];
 
     double  person_volume_per_period_per_at[MAX_TIMEPERIODS][MAX_AGNETTYPES];
+    double  person_volume_per_district_per_at[MAX_ORIGIN_DISTRICTS][MAX_AGNETTYPES];
+    
 
     double  queue_link_distance_VDF_perslot[MAX_TIMEPERIODS];  // # of vehicles in the vertical point queue
     double travel_time_per_period[MAX_TIMEPERIODS];
@@ -1416,6 +1452,7 @@ public:
     __int64 cell_id;
     std::string cell_str;
 
+    std::vector<CCoordinate> zone_coordinate_vector;
     
     // original zone id for non-centriod nodes
     int zone_org_id;
@@ -1550,10 +1587,17 @@ public:
     COZone() : cell_id{ 0 }, obs_production { 0 }, obs_attraction{ 0 },
         est_production{ 0 }, est_attraction{ 0 },
         est_production_dev{ 0 }, est_attraction_dev{ 0 }, gravity_production{ 100 }, gravity_attraction{ 100 }, cell_x{ 0 }, cell_y{ 0 },
-        gravity_est_production{ 0 }, gravity_est_attraction{ 0 }
+        gravity_est_production{ 0 }, gravity_est_attraction{ 0 }, subarea_significance_flag{ true }, preread_total_O_demand{ 0 }, sindex{ -1 }, origin_zone_impact_volume{ 0 }, subarea_inside_flag {false}
     {
     }
 
+    std::map <int, double> preread_ODdemand;
+    double preread_total_O_demand;
+    int sindex;  //subarea significance index
+    bool subarea_significance_flag;
+    double origin_zone_impact_volume;
+    bool subarea_inside_flag;
+    std::map <int, bool> subarea_impact_flag;
     __int64 cell_id;
     std::string cell_code;
     double cell_x;
@@ -1589,6 +1633,7 @@ public:
     std::vector<int> m_activity_node_vector;
 };
 extern std::vector<COZone> g_zone_vector;
+extern int g_related_zone_vector_size;  // by default, the same size as g_zone_vector, // if there is subarea, will be non-impacted zones., g_zone_vector has org_sindex;
 
 class CAGBMAgent
 {

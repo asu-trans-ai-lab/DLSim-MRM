@@ -110,6 +110,7 @@ std::vector<CLink> g_link_vector;
 std::map<string, CVDF_Type> g_vdf_type_map;
 std::map<string, CCorridorInfo>  g_corridor_info_base0_map, g_corridor_info_SA_map;
 std::vector<COZone> g_zone_vector;
+int g_related_zone_vector_size;
 
 Assignment assignment;
 
@@ -145,9 +146,10 @@ void g_reset_link_volume_in_master_program_without_columns(int number_of_links, 
 		double ratio = 1;
 		for (int i = 0; i < number_of_links; ++i)
 		{
-			for (int tau = 0; tau < number_of_demand_periods; ++tau)
+			if (b_self_reducing_path_volume)
 			{
-				if (b_self_reducing_path_volume)
+
+				for (int tau = 0; tau < number_of_demand_periods; ++tau)
 				{
 					ratio = double(iteration_index) / double(iteration_index + 1);
 					// after link volumn "tally", self-deducting the path volume by 1/(k+1) (i.e. keep k/(k+1) ratio of previous flow)
@@ -158,6 +160,13 @@ void g_reset_link_volume_in_master_program_without_columns(int number_of_links, 
 					for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
 						g_link_vector[i].person_volume_per_period_per_at[tau][at] *= ratio;
 				}
+
+				for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
+				{
+					for(int og = 0; og < assignment.g_number_of_origin_districts; ++og)
+						g_link_vector[i].person_volume_per_district_per_at[og][at] *= ratio;
+				}
+
 			}
 		}
 	}
@@ -221,7 +230,7 @@ void g_assign_computing_tasks_to_memory_blocks(Assignment& assignment)
 
 					computing_zone_count++;
 
-					p_NetworkForSP->AllocateMemory(assignment.g_number_of_nodes, assignment.g_number_of_links);
+					p_NetworkForSP->AllocateMemory(assignment.g_number_of_nodes, assignment.g_number_of_links, assignment.g_number_of_origin_districts);
 
 					PointerMatrx[at][tau][z] = p_NetworkForSP;
 
@@ -229,6 +238,11 @@ void g_assign_computing_tasks_to_memory_blocks(Assignment& assignment)
 				}
 				else  // zone seq no is greater than g_number_of_memory_blocks
 				{
+					if (g_zone_vector[z].subarea_significance_flag == false)  // due to subarea
+					{
+						continue;
+					}
+
 					if (assignment.g_origin_demand_array[z] > 0.001 ||
 						assignment.zone_seq_no_2_info_mapping.find(z) != assignment.zone_seq_no_2_info_mapping.end()
 						)
@@ -289,7 +303,7 @@ void g_assign_RT_computing_tasks_to_memory_blocks(Assignment& assignment)
 				computing_zone_count++;
 
 
-				p_NetworkForSP->AllocateMemory(assignment.g_number_of_nodes, assignment.g_number_of_links);
+				p_NetworkForSP->AllocateMemory(assignment.g_number_of_nodes, assignment.g_number_of_links, assignment.g_number_of_origin_districts);
 
 
 				assignment.g_rt_network_pool[z][at][tau] = p_NetworkForSP;  // assign real time computing network to the online colume;
@@ -322,18 +336,6 @@ void g_deallocate_computing_tasks_from_memory_blocks()
 
 }
 
-//void g_reset_link_volume_for_all_processors()
-//{
-//#pragma omp parallel for
-//    for (int ProcessID = 0; ProcessID < g_NetworkForSP_vector.size(); ++ProcessID)
-//    {
-//        NetworkForSP* pNetwork = g_NetworkForSP_vector[ProcessID];
-//        //Initialization for all non-origin nodes
-//        int number_of_links = assignment.g_number_of_links;
-//        for (int i = 0; i < number_of_links; ++i)
-//            pNetwork->m_link_PCE_volume_array[i] = 0;
-//    }
-//}
 
 
 void g_reset_link_volume_for_all_processors()
@@ -354,6 +356,12 @@ void g_reset_link_volume_for_all_processors()
 				{
 					pNetwork->m_link_PCE_volume_array[i] = 0;
 					pNetwork->m_link_person_volume_array[i] = 0;
+
+
+					for(int og = 0; og < assignment.g_number_of_origin_districts; og++)
+					{
+					pNetwork->m_link_person_volume_per_grid_array[i][og] = 0;
+					}
 
 				}
 
@@ -376,6 +384,11 @@ void g_fetch_link_volume_for_all_processors()
 			g_link_vector[i].person_volume_per_period[pNetwork->m_tau] += pNetwork->m_link_person_volume_array[i];
 
 			g_link_vector[i].person_volume_per_period_per_at[pNetwork->m_tau][pNetwork->m_agent_type_no] += pNetwork->m_link_person_volume_array[i];
+
+			for(int og = 0; og < assignment.g_number_of_origin_districts; og ++)
+			{
+			g_link_vector[i].person_volume_per_district_per_at[og][pNetwork->m_agent_type_no] += pNetwork->m_link_person_volume_per_grid_array[i][og];
+			}
 		}
 	}
 	// step 1: travel time based on VDF
@@ -497,14 +510,14 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 
 	assignment.g_number_of_memory_blocks = min(max(1, number_of_memory_blocks), MAX_MEMORY_BLOCKS);
 
-	g_ReadInformationConfiguration(assignment);
 
-	if (assignment.assignment_mode == 0)
+	if (assignment.assignment_mode == lue)
 		column_updating_iterations = 0;
 
 	// step 1: read input data of network / demand tables / Toll
 	g_read_input_data(assignment);
 
+	g_ReadInformationConfiguration(assignment);
 
 	if (assignment.assignment_mode == cbi)  // cbi mode
 	{
@@ -543,9 +556,9 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 
 
 	//g_reload_timing_arc_data(assignment); // no need to load timing data from timing.csv
-	g_load_scenario_data(assignment);
 	g_ReadOutputFileConfiguration(assignment);
 	g_ReadDemandFileBasedOnDemandFileList(assignment);
+	g_load_scenario_data(assignment);
 
 	//step 2: allocate memory and assign computing tasks
 	g_assign_computing_tasks_to_memory_blocks(assignment); // static cost based label correcting
@@ -578,9 +591,9 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 		// initialization at beginning of shortest path
 		total_system_travel_time = update_link_travel_time_and_cost(iteration_number);
 
-		if (assignment.assignment_mode == 0)
+		if (assignment.assignment_mode == lue)
 		{
-			//fw
+			//fw link based UE
 			g_reset_link_volume_in_master_program_without_columns(g_link_vector.size(), iteration_number, true);
 			g_reset_link_volume_for_all_processors();
 		}
@@ -672,7 +685,7 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 		}
 
 		// link based computing mode, we have to collect link volume from all processors.
-		if (assignment.assignment_mode == 0)
+		if (assignment.assignment_mode == lue)
 			g_fetch_link_volume_for_all_processors();
 
 		// g_fout << "LC with CPU time " << cumulative_lc / 1000.0 << " s; " << endl;
@@ -704,7 +717,7 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 	g_column_pool_optimization(assignment, column_updating_iterations);
 	g_column_pool_route_scheduling(assignment, column_updating_iterations);
 	g_column_pool_activity_scheduling(assignment, column_updating_iterations);  // VMS information update
-//    g_rt_info_column_generation(&assignment, 0);
+    g_rt_info_column_generation(&assignment, 0);
 	assignment.summary_file << "Step 4.2: column pool-based flow updating for traffic assignment " << endl;
 	assignment.summary_file << ",# of flow updating iterations=," << column_updating_iterations << endl;
 
@@ -758,7 +771,13 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 	//step 5: output simulation results of the new demand
 
 
-	g_output_assignment_result(assignment);
+	g_output_assignment_result(assignment,0);
+
+	if (assignment.g_subarea_shape_points.size() >= 3) // if there is a subarea defined.
+	{
+	g_output_assignment_result(assignment, 1);
+	}
+
 	g_output_simulation_result(assignment);
 
 
@@ -786,11 +805,15 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 	dtalog.output() << "CPU Running Time for outputting simulation results: " << total_t / 1000.0 << " s" << endl;
 
 	dtalog.output() << "free memory.." << endl;
-	g_node_vector.clear();
 
-	for (int i = 0; i < g_link_vector.size(); ++i)
-		g_link_vector[i].free_memory();
-	g_link_vector.clear();
+
+	// temp comment out
+	//for (int i = 0; i < g_link_vector.size(); ++i)
+	//	g_link_vector[i].free_memory();
+	//g_link_vector.clear();
+
+	//g_node_vector.clear();
+
 	end_t0 = clock();
 	total_t0 = (end_t0 - start_t0);
 	int second = total_t0 / 1000.0;
@@ -806,7 +829,7 @@ int Assignment::update_real_time_info_path(CAgent_Simu* p_agent, int& impacted_f
 {
 	// updating shorest path for vehicles passing through information node
 
-	if (p_agent->diversion_flag >= 3)   // a vehicle is diverted once
+	if (p_agent->diverted_flag >= 3)   // a vehicle is diverted once
 		return 0;
 
 	int current_link_no = p_agent->path_link_seq_no_vector[p_agent->m_current_link_seq_no];
@@ -954,7 +977,7 @@ int Assignment::update_real_time_info_path(CAgent_Simu* p_agent, int& impacted_f
 		{
 			int link_no = extended_path_link_vector[l];
 
-			if (g_link_vector[link_no].VDF_period[p_agent->tau].RT_allowed_use[p_agent->at] == false)
+			if (g_link_vector[link_no].m_link_pedefined_capacity_map_in_sec.size() > 0 /*passing through incident area */ || g_link_vector[link_no].VDF_period[p_agent->tau].RT_allowed_use[p_agent->at] == false)
 			{
 				p_agent->diverted_flag = -1;
 			}

@@ -78,6 +78,14 @@ void g_reset_and_update_link_volume_based_on_columns(int number_of_links, int it
 			for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
 				g_link_vector[i].person_volume_per_period_per_at[tau][at] = 0;
 		}
+
+
+		for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
+			for (int og = 0; og < assignment.g_number_of_origin_districts; ++og)
+			{
+				g_link_vector[i].person_volume_per_district_per_at[og][at] = 0;
+			}
+
 	}
 
 	if (iteration_index >= 0)
@@ -104,12 +112,18 @@ void g_reset_and_update_link_volume_based_on_columns(int number_of_links, int it
 			CColumnVector* p_column_pool;
 
 			for (int orig = 0; orig < zone_size; ++orig)  // o
-			{
+			{   
+				int from_zone_sindex = g_zone_vector[orig].sindex;
+				if (from_zone_sindex == -1)
+					continue;
+
+				int origin_grid_id = assignment.g_zone_seq_no_to_origin_grid_id_mapping[orig];
+				
 				for (int dest = 0; dest < zone_size; ++dest) //d
 				{
 					for (int tau = 0; tau < tau_size; ++tau)  //tau
 					{
-						p_column_pool = &(assignment.g_column_pool[orig][dest][at][tau]);
+						p_column_pool = &(assignment.g_column_pool[from_zone_sindex][dest][at][tau]);
 						if (p_column_pool->od_volume > 0)
 						{
 
@@ -134,7 +148,11 @@ void g_reset_and_update_link_volume_based_on_columns(int number_of_links, int it
 									{
 										g_link_vector[link_seq_no].PCE_volume_per_period[tau] += link_volume_contributed_by_path_volume * PCE_ratio;
 										g_link_vector[link_seq_no].person_volume_per_period[tau] += link_volume_contributed_by_path_volume * OCC_ratio;
-										g_link_vector[link_seq_no].person_volume_per_period_per_at[tau][at] += link_volume_contributed_by_path_volume;  // pure volume, not consider PCE
+										g_link_vector[link_seq_no].person_volume_per_period_per_at[tau][at] += link_volume_contributed_by_path_volume * OCC_ratio;  // pure volume, not consider PCE
+										g_link_vector[link_seq_no].person_volume_per_district_per_at[origin_grid_id][at] += link_volume_contributed_by_path_volume * OCC_ratio;  // pure volume, not consider PCE
+
+										
+
 									}
 								}
 
@@ -142,7 +160,7 @@ void g_reset_and_update_link_volume_based_on_columns(int number_of_links, int it
 								if (!p_column_pool->bfixed_route && b_self_reducing_path_volume)
 								{
 									//after link volumn "tally", self-deducting the path volume by 1/(k+1) (i.e. keep k/(k+1) ratio of previous flow) so that the following shortes path will be receiving 1/(k+1) flow
-									it->second.path_volume = it->second.path_volume * (float(iteration_index) / float(iteration_index + 1));
+									it->second.path_volume = it->second.path_volume * (double(iteration_index) / double(iteration_index + 1));
 								}
 							}
 						}
@@ -241,6 +259,13 @@ double g_reset_and_update_link_volume_based_on_ODME_columns(int number_of_links,
 			for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
 				g_link_vector[i].person_volume_per_period_per_at[tau][at] = 0;
 		}
+
+		for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
+			for (int og = 0; og < assignment.g_number_of_origin_districts; ++og)
+			{
+				g_link_vector[i].person_volume_per_district_per_at[og][at] = 0;
+			}
+
 	}
 
 	// reset the estimated production and attraction
@@ -262,6 +287,12 @@ double g_reset_and_update_link_volume_based_on_ODME_columns(int number_of_links,
 #pragma omp parallel for
 		for (int orig = 0; orig < zone_size; ++orig)  // o
 		{
+			int from_zone_sindex = g_zone_vector[orig].sindex;
+			if (from_zone_sindex == -1)
+				continue;
+
+
+			int origin_grid_id = assignment.g_zone_seq_no_to_origin_grid_id_mapping[orig];
 			std::map<int, CColumnPath>::iterator it;
 			float link_volume_contributed_by_path_volume;
 			int nl;
@@ -275,7 +306,7 @@ double g_reset_and_update_link_volume_based_on_ODME_columns(int number_of_links,
 			{
 				for (int tau = 0; tau < tau_size; ++tau)  //tau
 				{
-					p_column_pool = &(assignment.g_column_pool[orig][dest][at][tau]);
+					p_column_pool = &(assignment.g_column_pool[from_zone_sindex][dest][at][tau]);
 					if (p_column_pool->od_volume > 0)
 					{
 
@@ -393,6 +424,8 @@ double g_reset_and_update_link_volume_based_on_ODME_columns(int number_of_links,
 									g_link_vector[link_seq_no].PCE_volume_per_period[tau] += link_volume_contributed_by_path_volume * PCE_ratio;
 									g_link_vector[link_seq_no].person_volume_per_period[tau] += link_volume_contributed_by_path_volume * OCC_ratio;
 									g_link_vector[link_seq_no].person_volume_per_period_per_at[tau][at] += link_volume_contributed_by_path_volume;  // pure volume, not consider PCE
+
+									g_link_vector[link_seq_no].person_volume_per_district_per_at[origin_grid_id][at] += link_volume_contributed_by_path_volume;  // pure volume, not consider PCE
 								}
 							}
 						}
@@ -546,13 +579,17 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
 		double step_size = 0;
 		double previous_path_volume = 0;
 
+		int from_zone_sindex = g_zone_vector[orig].sindex;
+		if (from_zone_sindex == -1)
+			continue;
+
 		for (int dest = 0; dest < g_zone_vector.size(); ++dest) //d
 		{
 			for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)  //m
 			{
 				for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); ++tau)  //tau
 				{
-					p_column_pool = &(assignment.g_column_pool[orig][dest][at][tau]);
+					p_column_pool = &(assignment.g_column_pool[from_zone_sindex][dest][at][tau]);
 					if (p_column_pool->od_volume > 0)
 					{
 
@@ -838,6 +875,9 @@ void g_classification_in_column_pool(Assignment& assignment)
 		CColumnVector* p_column_pool;
 		std::map<int, CColumnPath>::iterator it, it_begin, it_end;
 		int column_vector_size;
+		int from_zone_sindex = g_zone_vector[orig].sindex;
+		if (from_zone_sindex == -1)
+			continue;
 
 		int link_seq_no;
 
@@ -848,7 +888,7 @@ void g_classification_in_column_pool(Assignment& assignment)
 				for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); ++tau)  //tau
 				{
 
-					p_column_pool = &(assignment.g_column_pool[orig][dest][at][tau]);
+					p_column_pool = &(assignment.g_column_pool[from_zone_sindex][dest][at][tau]);
 
 					if (p_column_pool->od_volume > 0)
 					{
@@ -980,6 +1020,9 @@ void g_column_pool_route_scheduling(Assignment& assignment, int inner_iteration_
 		double path_travel_time = 0;
 		int link_seq_no;
 
+		int from_zone_sindex = g_zone_vector[orig].sindex;
+		if (from_zone_sindex == -1)
+			continue;
 
 		for (int dest = 0; dest < g_zone_vector.size(); ++dest) //d
 		{
@@ -987,7 +1030,7 @@ void g_column_pool_route_scheduling(Assignment& assignment, int inner_iteration_
 			{
 				for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); ++tau)  //tau
 				{
-					p_column_pool = &(assignment.g_column_pool[orig][dest][at][tau]);
+					p_column_pool = &(assignment.g_column_pool[from_zone_sindex][dest][at][tau]);
 					if (p_column_pool->od_volume > 0)
 					{
 
@@ -1145,8 +1188,7 @@ void g_rt_info_column_generation(Assignment* p_assignment, float current_time_in
 	for (int blk = 0; blk < g_NetworkForRTSP_vector.size(); ++blk)
 	{
 
-
-		NetworkForSP* pNetwork = g_NetworkForRTSP_vector[blk];
+	NetworkForSP* pNetwork = g_NetworkForRTSP_vector[blk];
 
 		if (assignment.g_DemandPeriodVector[pNetwork->m_tau].starting_time_slot_no * MIN_PER_TIMESLOT > current_time_in_min)  // RT network is for a later time interval
 			continue;
@@ -1161,6 +1203,7 @@ void g_rt_info_column_generation(Assignment* p_assignment, float current_time_in
 	int min = second / 60;
 	int sec = second - min * 60;
 	//dtalog.output() << "CPU Running Time for RT shortest path: " << min << " min " << sec << " sec" << endl;
+	assignment.summary_file << ", RT shortest path at time =," << current_time_in_min << "min" << endl;
 
 }
 
@@ -1172,6 +1215,10 @@ void g_column_pool_activity_scheduling(Assignment& assignment, int inner_iterati
 
 	for (int orig = 0; orig < g_zone_vector.size(); ++orig)  // o
 	{
+		int from_zone_sindex = g_zone_vector[orig].sindex;
+		if (from_zone_sindex == -1)
+			continue;
+
 		CColumnVector* p_column_pool;
 		int path_seq_count = 0;
 
@@ -1186,7 +1233,7 @@ void g_column_pool_activity_scheduling(Assignment& assignment, int inner_iterati
 			{
 				for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); ++tau)  //tau
 				{
-					p_column_pool = &(assignment.g_column_pool[orig][dest][at][tau]);
+					p_column_pool = &(assignment.g_column_pool[from_zone_sindex][dest][at][tau]);
 					if (p_column_pool->od_volume > 0)
 					{
 						if (p_column_pool->activity_zone_no_vector.size())   // case of activity zones

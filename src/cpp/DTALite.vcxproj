@@ -179,6 +179,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="flash_dta.cpp" />
+    <ClCompile Include="geometry.cpp" />
     <ClCompile Include="main_api.cpp" />
     <ClCompile Include="simulation.cpp" />
     <ClCompile Include="utils.cpp" />

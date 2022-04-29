@@ -1,11 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerWorkingDirectory>C:\temp\build_micronet_Zhou</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\testbed\MAG</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerWorkingDirectory>C:\temp\build_micronet_Zhou</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>C:\test_MRM\BY_Nobuild_vs_Build</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerAttach>
     </LocalDebuggerAttach>

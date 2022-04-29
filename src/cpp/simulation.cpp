@@ -53,6 +53,7 @@ extern void g_rt_info_column_generation(Assignment* p_assignment, float current_
 extern double g_get_random_ratio();
 extern void g_output_agent_csv(Assignment& assignment);
 
+
 void Assignment::AllocateLinkMemory4Simulation()
 {
 	g_number_of_simulation_intervals = (g_LoadingEndTimeInMin - g_LoadingStartTimeInMin + simulation_discharge_period_in_min) * 60 / number_of_seconds_per_interval + 2;
@@ -101,7 +102,7 @@ void Assignment::AllocateLinkMemory4Simulation()
 	{
 		float cap_count = 0;
 		float discharge_rate_per_sec = g_link_vector[i].lane_capacity * g_link_vector[i].number_of_lanes / 3600.0;
-		float discharge_rate_after_loading = 10 * discharge_rate_per_sec;  ///to collect travel time statistics * 10 times of capacity to discharge all flow */ at the end of simulation time interval
+		float discharge_rate_after_loading = 20 * discharge_rate_per_sec;  ///to collect travel time statistics * 10 times of capacity to discharge all flow */ at the end of simulation time interval
 
 		if (i == 24)
 		{
@@ -235,17 +236,17 @@ void Assignment::AllocateLinkMemory4Simulation()
 					//    m_LinkOutFlowCapacity[l][t] = (int)(m_LinkOutFlowCapacity[l][t]);
 				}
 			}
-		} if (g_link_vector[l].m_link_pedefined_capacity_map.size() > 0)
+		} if (g_link_vector[l].m_link_pedefined_capacity_map_in_sec.size() > 0)
 		{
 
 
 			for (int t = 0; t < g_number_of_loading_intervals_in_sec; ++t)
 			{
-				if (g_link_vector[l].m_link_pedefined_capacity_map.find(t) != g_link_vector[l].m_link_pedefined_capacity_map.end())
+				if (g_link_vector[l].m_link_pedefined_capacity_map_in_sec.find(t) != g_link_vector[l].m_link_pedefined_capacity_map_in_sec.end())
 				{
 					// predefined outlflow capacity 
-					m_LinkOutFlowCapacity[l][t] = g_link_vector[l].m_link_pedefined_capacity_map[t];
-					m_LinkOutFlowState[l][t] = g_link_vector[l].m_link_pedefined_capacity_map[t];
+					m_LinkOutFlowCapacity[l][t] = 0;
+					m_LinkOutFlowState[l][t] = 0;
 				}
 			}
 		}
@@ -330,6 +331,8 @@ void Assignment::STTrafficSimulation()
 
 
 	dtalog.output() << "system-wide information activation time = " << system_information_activation_time_in_min << " in min" << endl;
+	assignment.summary_file << ", system - wide information activation time = " << system_information_activation_time_in_min << " in min" << endl;
+
 	if (system_information_activation_time_in_min < 2000)
 	{
 		system_information_activation_time_in_simu_interval = (system_information_activation_time_in_min - g_LoadingStartTimeInMin) * 60 / number_of_seconds_per_interval;
@@ -351,6 +354,10 @@ void Assignment::STTrafficSimulation()
 	int global_path_no = 0;
 	for (int orig = 0; orig < zone_size; ++orig)
 	{
+		int from_zone_sindex = g_zone_vector[orig].sindex;
+		if (from_zone_sindex == -1)
+			continue;
+
 
 		for (int at = 0; at < agent_type_size; ++at)
 		{
@@ -358,7 +365,7 @@ void Assignment::STTrafficSimulation()
 			{
 				for (int tau = 0; tau < demand_period_size; ++tau)
 				{
-					p_column_pool = &(assignment.g_column_pool[orig][dest][at][tau]);
+					p_column_pool = &(assignment.g_column_pool[from_zone_sindex][dest][at][tau]);
 
 
 
@@ -585,9 +592,9 @@ void Assignment::STTrafficSimulation()
 		}
 
 		int info_updating_freq_in_min_in_in_6sec = assignment.g_info_updating_freq_in_min * 10;
-		int current_time_in_min_in_sec = current_time_in_min * 10;  // *10: 0.1 min, 6 seconds.
+		int current_time_in_6sec = current_time_in_min * 10;  // *10: 0.1 min, 6 seconds.
 
-		if (current_time_in_min >= system_information_activation_time_in_min - 1 && current_time_in_min_in_sec % info_updating_freq_in_min_in_in_6sec == 0) // RT updating every x=5 or even 0.1 min
+		if (t % number_of_simu_intervals_in_min == 0 /*// every min*/ && current_time_in_min >= system_information_activation_time_in_min - 1 && current_time_in_6sec % info_updating_freq_in_min_in_in_6sec == 0) // RT updating every x=5 or even 0.1 min
 		{ // updating real time link travel time for RT destination based shortest path
 #pragma omp parallel for    // parallel computing for each link
 			for (int i = 0; i < g_link_vector.size(); ++i)
@@ -611,7 +618,18 @@ void Assignment::STTrafficSimulation()
 
 					}
 
+					if (p_link->m_link_pedefined_capacity_map_in_sec.size() > 0)
+					{
+						int current_time_in_relative_sec = (current_time_in_min- assignment.g_LoadingStartTimeInMin) * 60;  // *10: 0.1 min, 6 seconds.
+
+						if (p_link->m_link_pedefined_capacity_map_in_sec.find(current_time_in_relative_sec) != p_link->m_link_pedefined_capacity_map_in_sec.end())
+						{
+							p_link->RT_waiting_time = 99;
+						}
+					}else
+					{
 					p_link->RT_waiting_time = total_waiting_time_in_min / max((size_t)1, p_link->ExitQueue.size());  // average travel time
+					}
 
 					//int timestamp_in_min = g_LoadingStartTimeInMin + t / number_of_simu_intervals_in_min;
 				//	p_link->RT_travel_time_map[timestamp_in_min] = p_link->ExitQueue.size() + p_link->RT_waiting_time;
@@ -637,11 +655,6 @@ void Assignment::STTrafficSimulation()
 				",CR=" << TotalCumulative_rerouting_count
 				<< endl;
 
-			cout << std::setprecision(4) << "simu time= " << t / number_of_simu_interval_per_min << " min, CA = " << TotalCumulative_Arrival_Count << " CD=" << TotalCumulative_Departure_Count
-				<< ", speed=" << network_wide_speed << ", travel time = " << network_wide_travel_time <<
-				",CI=" << TotalCumulative_impact_count <<
-				",CR=" << TotalCumulative_rerouting_count
-				<< endl;
 
 			assignment.summary_file << std::setprecision(5) << ",simu time=," << t / number_of_simu_interval_per_min << " min, CA =," << TotalCumulative_Arrival_Count << ",CD=," << TotalCumulative_Departure_Count
 				<< ", speed=," << network_wide_speed << ", travel time =," << network_wide_travel_time <<
@@ -1023,7 +1036,7 @@ void Assignment::STTrafficSimulation()
 						}
 						CLink* pNextLink = &(g_link_vector[next_link_seq_no]);
 
-						if (p_agent->diversion_flag == 2)
+						if (p_agent->diverted_flag == 2)
 						{
 							int debug = 1;
 							int arrival_time_in_t = p_agent->m_veh_link_arrival_time_in_simu_interval[p_agent->m_current_link_seq_no];
@@ -1216,7 +1229,7 @@ void Assignment::STTrafficSimulation()
 							visual_distance_in_number_of_cells = 1;
 
 						// case 1: visual distance based information 
-						if (t >= system_information_activation_time_in_simu_interval && p_agent->impacted_flag == 1 && p_agent->impacted_link_seq_no == p_agent->m_current_link_seq_no + visual_distance_in_number_of_cells)
+						if (t >= system_information_activation_time_in_simu_interval && p_agent->impacted_flag == 1 && (p_agent->info_receiving_flag != 2 && p_agent->info_receiving_flag != 3)&& p_agent->impacted_link_seq_no == p_agent->m_current_link_seq_no + visual_distance_in_number_of_cells)
 						{
 							rerouting_decision_flag = true;
 							p_agent->info_receiving_flag = 1;
@@ -1239,14 +1252,13 @@ void Assignment::STTrafficSimulation()
 						if (t >= system_information_activation_time_in_simu_interval && p_agent->impacted_flag == 1 && p_agent->m_current_link_seq_no >= 1 && p_agent->info_receiving_flag == 0)
 						{  // touch the physical road, and receive no information so far : info_receiving_flag =0;
 
-							if (p_agent->agent_id % 100 <= g_real_time_info_ratio * 100)  // modeling response uniformly
+							int agent_type_no = p_agent->agent_type_no;
+							//requre agent_type_no be sequential
+							if (agent_type_no-1 < g_AgentTypeVector.size() && g_AgentTypeVector[p_agent->agent_type_no - 1].real_time_information)  // modeling response uniformly
 							{
 								rerouting_decision_flag = true;
 								p_agent->info_receiving_flag = 3;
 							}
-
-
-
 						}
 
 

@@ -36,6 +36,7 @@
 #include <vector>
 #include <map>
 #include <omp.h>
+#include "geometry.h"
 
 using std::max;
 using std::min;
@@ -103,7 +104,7 @@ void g_add_new_access_link(int internal_from_node_seq_no, int internal_to_node_s
 	assignment.g_number_of_links++;
 }
 
-double g_random_generate_activity_nodes(Assignment& assignment)
+double get_activity_node_distance(Assignment& assignment)
 {
 
 
@@ -238,7 +239,8 @@ void g_grid_zone_generation(Assignment& assignment)
 	fprintf(g_pFileZone, "\n");
 
 
-	double activity_nearbydistance = g_random_generate_activity_nodes(assignment);
+
+	double activity_nearbydistance = get_activity_node_distance(assignment);
 	// initialization of grid rectangle boundary
 	double left = 100000000;
 	double right = -100000000;
@@ -459,6 +461,39 @@ void g_grid_zone_generation(Assignment& assignment)
 	fclose(g_pFileZone);
 
 }
+
+int InsidePolygon(std::vector<CCoordinate> polygon, CCoordinate p)
+{
+	int N = polygon.size();
+	int counter = 0;
+	int i;
+	double xinters;
+	CCoordinate p1, p2;
+
+	p1 = polygon[0];
+	for (i = 1; i <= N; i++) {
+		p2 = polygon[i % N];
+		if (p.Y > min(p1.Y, p2.Y)) {
+			if (p.Y <= max(p1.Y, p2.Y)) {
+				if (p.X <= max(p1.X, p2.X)) {
+					if (p1.Y != p2.Y) {
+						xinters = (p.Y - p1.Y) * (p2.X - p1.X) / (p2.Y - p1.Y) + p1.X;
+						if (p1.X == p2.X || p.X <= xinters)
+							counter++;
+					}
+				}
+			}
+		}
+		p1 = p2;
+	}
+
+	if (counter % 2 == 0)
+		return 0;
+	else
+		return 1;
+}
+
+
 bool g_TAZ_2_GMNS_zone_generation(Assignment& assignment)
 {
 
@@ -484,6 +519,15 @@ bool g_TAZ_2_GMNS_zone_generation(Assignment& assignment)
 
 			parser.GetValueByFieldName("x_coord", node.x, true, false);
 			parser.GetValueByFieldName("y_coord", node.y, true, false);
+
+			string geo_string;
+			parser.GetValueByFieldName("geometry", geo_string);
+
+			CGeometry geometry(geo_string);
+
+			std::vector<CCoordinate> CoordinateVector = geometry.GetCoordinateList();
+			node.zone_coordinate_vector = CoordinateVector;
+
 			l_TAZ_vector.push_back(node);
 		}
 		parser.CloseCSVFile();
@@ -700,6 +744,9 @@ bool g_TAZ_2_GMNS_zone_generation(Assignment& assignment)
 	
 	return true;
 }
+
+
+
 
 void g_create_zone_vector(Assignment& assignment)
 {

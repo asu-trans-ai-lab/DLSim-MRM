@@ -818,3 +818,109 @@ double g_get_random_ratio()
 
     return WELLRNG512a();
 }
+
+
+//  public domain function by Darel Rex Finley, 2006
+//  Determines the intersection point of the line defined by points A and B with the
+//  line defined by points C and D.
+//
+//  Returns YES if the intersection point was found, and stores that point in X,Y.
+//  Returns NO if there is no determinable intersection point, in which case X,Y will
+//  be unmodified.
+
+bool g_get_line_intersection(
+    double Ax, double Ay,
+    double Bx, double By,
+    double Cx, double Cy,
+    double Dx, double Dy)
+{
+    float X = 0;
+    float Y = 0;
+
+    double  distAB, theCos, theSin, newX, ABpos;
+
+    //  Fail if either line segment is zero-length.
+  //  if (Ax==Bx && Ay==By || Cx==Dx && Cy==Dy) return false;
+    if (Ax == Bx && Ay == By) return false;  // comment: C and D can be the same point from a vehile with the same timestamp
+
+    //  Fail if the segments share an end-point.
+    if (Ax == Cx && Ay == Cy || Bx == Cx && By == Cy
+        || Ax == Dx && Ay == Dy || Bx == Dx && By == Dy) {
+        return false;
+    }
+
+    //  (1) Translate the system so that point A is on the origin.
+    Bx -= Ax; By -= Ay;
+    Cx -= Ax; Cy -= Ay;
+    Dx -= Ax; Dy -= Ay;
+
+    //  Discover the length of segment A-B.
+    distAB = sqrt(Bx * Bx + By * By);
+
+    //  (2) Rotate the system so that point B is on the positive X axis.
+    theCos = Bx / distAB;
+    theSin = By / distAB;
+    newX = Cx * theCos + Cy * theSin;
+    Cy = Cy * theCos - Cx * theSin; Cx = newX;
+    newX = Dx * theCos + Dy * theSin;
+    Dy = Dy * theCos - Dx * theSin; Dx = newX;
+
+    //  Fail if segment C-D doesn't cross line A-B.
+    if (Cy < 0. && Dy < 0. || Cy >= 0. && Dy >= 0.) return false;
+
+    //  (3) Discover the position of the intersection point along line A-B.
+    ABpos = Dx + (Cx - Dx) * Dy / (Dy - Cy);
+
+    //  Fail if segment C-D crosses line A-B outside of segment A-B.
+    if (ABpos<0. || ABpos>distAB) return false;
+
+    //  (4) Apply the discovered position to line A-B in the original coordinate system.
+    X = Ax + ABpos * theCos;
+    Y = Ay + ABpos * theSin;
+
+    //  Success.
+    return true;
+}
+
+bool g_get_line_polygon_intersection(
+    double Ax, double Ay,
+    double Bx, double By,
+    std::vector<GDPoint> subarea_shape_points)
+{
+
+    double Cx, Cy;
+    double Dx, Dy;
+    for (int i = 0; i < subarea_shape_points.size()-1; i++)
+    {
+        Cx = subarea_shape_points[i].x;
+        Cy = subarea_shape_points[i].y;
+
+        Dx = subarea_shape_points[i+1].x;
+        Dy = subarea_shape_points[i+1].y;
+
+        if (g_get_line_intersection(Ax, Ay, Bx, By, Cx, Cy, Dx, Dy) == true)
+            return true;
+    }
+
+    return false;
+}
+
+int g_test_point_in_polygon(GDPoint Pt, std::vector<GDPoint> V)
+{
+    int n = V.size()-1;
+    int    cn = 0;    // the  crossing number counter
+
+    // loop through all edges of the polygon
+    for (int i = 0; i < n; i++) 
+    {    // edge from V[i]  to V[i+1]
+        if (((V[i].y <= Pt.y) && (V[i+1].y > Pt.y))     // an upward crossing
+            || ((V[i].y > Pt.y) && (V[i+1].y <= Pt.y))) 
+        { // a downward crossing
+                // compute  the actual edge-ray intersect x-coordinate
+            float vt = (float)(Pt.y - V[i].y) / (V[i+1].y - V[i].y);
+            if (Pt.x < V[i].x + vt * (V[i+1].x - V[i].x)) // P.x < intersect
+                ++cn;   // a valid crossing of y=P.y right of P.x
+        }
+    }
+    return (cn & 1);    // 0 if even (out), and 1 if  odd (in)
+}
