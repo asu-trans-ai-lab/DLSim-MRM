@@ -93,7 +93,7 @@ int main()
 	dtalog.log_dta() = 0;
 	dtalog.log_ue() = 0;
 
-	int column_generation_iterations = 5;
+	int column_generation_iterations = 0;
 	int column_updating_iterations = 0;
 	int ODME_iterations = 0;
 	int sensitivity_analysis_iterations = 0;
@@ -139,7 +139,7 @@ int main()
 				{ 
 					assignment_mode = 1;
 					simulation_iterations = 1;
-					}
+				}
 				else if (assignment_mode_str == "zone2access")  //access link
 					assignment_mode = 21;
 				else if (assignment_mode_str == "cbi")  //congestion bottleneck identification
@@ -152,13 +152,14 @@ int main()
 					g_program_stop();
 				}
 
+				parser_settings.GetValueByFieldName("sensitivity_analysis_iterations", sensitivity_analysis_iterations, false, false);
+
 				// iteration number of reassignment
 				parser_settings.GetValueByFieldName("column_updating_iterations", column_updating_iterations, true, true);
 
 				if (assignment_mode == 1)
 				{
 					parser_settings.GetValueByFieldName("odme_iterations", ODME_iterations, false, false);
-					parser_settings.GetValueByFieldName("sensitivity_analysis_iterations", sensitivity_analysis_iterations, false, false);
 				}
 				simulation_iterations = 0;
 				parser_settings.GetValueByFieldName("simulation_iterations", simulation_iterations, false, false);

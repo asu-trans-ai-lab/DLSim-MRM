@@ -19,6 +19,7 @@
 #include <cstring>
 #include <vector>
 #include <cmath>
+#include <stack>
 
 using std::endl;
 using std::string;
@@ -924,3 +925,132 @@ int g_test_point_in_polygon(GDPoint Pt, std::vector<GDPoint> V)
     }
     return (cn & 1);    // 0 if even (out), and 1 if  odd (in)
 }
+
+
+// A globle point needed for  sorting points with reference
+// to  the first point Used in compare function of qsort()
+// reference: https://iq.opengenus.org/graham-scan-convex-hull/
+
+GDPoint p0;
+// A utility function to find next to top in a stack
+
+GDPoint nextToTop(std::stack<GDPoint>& S)
+{
+    GDPoint p = S.top();
+    S.pop();
+    GDPoint res = S.top();
+    S.push(p);
+    return res;
+}
+// A utility function to swap two points
+int swap(GDPoint& p1, GDPoint& p2)
+{
+    GDPoint temp = p1;
+    p1 = p2;
+    p2 = temp;
+    return 1;
+}
+// A utility function to return square of distance
+// between p1 and p2
+double distSq(GDPoint p1, GDPoint p2)
+{
+    return (p1.x - p2.x) * (p1.x - p2.x) +
+        (p1.y - p2.y) * (p1.y - p2.y);
+}
+// To find orientation of ordered triplet (p, q, r).
+// The function returns following values
+// 0 --> p, q and r are colinear
+// 1 --> Clockwise
+// 2 --> Counterclockwise
+int orientation(GDPoint p, GDPoint q, GDPoint r)
+{
+    double val = (q.y - p.y) * (r.x - q.x) -
+        (q.x - p.x) * (r.y - q.y);
+    if (fabs(val) <= 0.0001) return 0;  // colinear
+    return (val > 0) ? 1 : 2; // clock or counterclock wise
+}
+// A function used by library function qsort() to sort an array of
+// points with respect to the first GDPoint
+int compare(const void* vp1, const void* vp2)
+{
+    GDPoint* p1 = (GDPoint*)vp1;
+    GDPoint* p2 = (GDPoint*)vp2;
+    // Find orientation
+    int o = orientation(p0, *p1, *p2);
+    if (o == 0)
+        return (distSq(p0, *p2) >= distSq(p0, *p1)) ? -1 : 1;
+    return (o == 2) ? -1 : 1;
+}
+// Prints convex hull of a set of n points.
+void g_find_convex_hull(std::vector<GDPoint> points, std::vector<GDPoint> &points_in_polygon)
+{
+    int n = points.size();
+    // Find the bottommost GDPoint
+    int ymin = points[0].y, min = 0;
+    for (int i = 1; i < n; i++)
+    {
+        int y = points[i].y;
+        // Pick the bottom-most or chose the left
+        // most GDPoint in case of tie
+        if ((y < ymin) || (ymin == y &&
+            points[i].x < points[min].x))
+            ymin = points[i].y, min = i;
+    }
+    // Place the bottom-most GDPoint at first position
+    swap(points[0], points[min]);
+    // Sort n-1 points with respect to the first GDPoint.
+    // A GDPoint p1 comes before p2 in sorted ouput if p2
+    // has larger polar angle (in counterclockwise
+    // direction) than p1
+    p0 = points[0];
+    qsort(&points[1], n - 1, sizeof(GDPoint), compare);
+    // If two or more points make same angle with p0,
+    // Remove all but the one that is farthest from p0
+    // Remember that, in above sorting, our criteria was
+    // to keep the farthest GDPoint at the end when more than
+    // one points have same angle.
+    int m = 1; // Initialize size of modified array
+    for (int i = 1; i < n; i++)
+    {
+        // Keep removing i while angle of i and i+1 is same
+        // with respect to p0
+        while (i < n - 1 && orientation(p0, points[i],
+            points[i + 1]) == 0)
+            i++;
+        points[m] = points[i];
+        m++;  // Update size of modified array
+    }
+    // If modified array of points has less than 3 points,
+    // convex hull is not possible
+    if (m < 3) return;
+    // Create an empty stack and push first three points
+    // to it.
+    std::stack<GDPoint> S;
+    S.push(points[0]);
+    S.push(points[1]);
+    S.push(points[2]);
+    // Process remaining n-3 points
+    for (int i = 3; i < m; i++)
+    {
+        // Keep removing top while the angle formed by
+        // points next-to-top, top, and points[i] makes
+        // a non-left turn
+        while (orientation(nextToTop(S), S.top(), points[i]) != 2)
+            S.pop();
+        S.push(points[i]);
+    }
+    // Now stack has the output points, print contents of stack
+    while (!S.empty())
+    {
+        GDPoint p = S.top();
+//        cout << "(" << p.x << ", " << p.y << ")" << endl;
+        points_in_polygon.push_back(p);
+        S.pop();
+    }
+
+    if(points_in_polygon.size() > 0)
+    { 
+    points_in_polygon.push_back(points_in_polygon[0]);
+    }
+}
+

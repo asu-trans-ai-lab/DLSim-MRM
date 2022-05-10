@@ -64,6 +64,7 @@ public:
         {
             toll[at] = 0;
             pce[at] = 1;
+            occ[at] = 1;
             RT_allowed_use[at] = true;
         }
 

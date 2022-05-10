@@ -404,6 +404,66 @@ public:
     float cumulative_departure_time_ratio[MAX_TIMESLOT_PerPeriod];
 };
 
+class CAgentType_District
+{
+public:
+    CAgentType_District() : count_of_links{ 0 },
+        total_od_volume{ 0 }, total_person_distance_km{ 0 }, total_person_distance_mile{ 0 }, total_person_travel_time{ 0 }, avg_travel_time {0}, avg_travel_distance_km {0}, avg_travel_distance_mile{ 0 }
+    {}
+
+    int count_of_links;
+    double total_od_volume;
+    double total_person_distance_km;
+    double total_person_distance_mile;
+    double total_person_travel_time;
+    double avg_travel_time;
+    double avg_travel_distance_km;
+    double avg_travel_distance_mile;
+};
+
+
+class CAnalysisDistrict
+{
+public:
+    int district_id;
+    int district_name;
+    std::vector<GDPoint> shape_points;
+
+    void record_origin_2_district_volume(int at, double od_volume)
+    {
+        if (at >= MAX_AGNETTYPES)
+            return;
+
+        data_by_agent_type[at].total_od_volume += od_volume;
+
+    }
+
+    void record_link_2_district_data(CAgentType_District element, int at)
+    {
+        if (at >= MAX_AGNETTYPES)
+            return;
+
+        data_by_agent_type[at].count_of_links += 1;
+        data_by_agent_type[at].total_person_travel_time += element.total_person_travel_time;
+        data_by_agent_type[at].total_person_distance_km += element.total_person_distance_km;
+        data_by_agent_type[at].total_person_distance_mile += element.total_person_distance_mile;
+
+    }
+
+    void computer_avg_value(int at)
+    {
+        float count = data_by_agent_type[at].count_of_links;
+        if (count >= 1)
+        {
+            data_by_agent_type[at].avg_travel_distance_km = data_by_agent_type[at].total_person_distance_km/ max(1,data_by_agent_type[at].total_od_volume);
+            data_by_agent_type[at].avg_travel_distance_mile = data_by_agent_type[at].total_person_distance_mile / max(1, data_by_agent_type[at].total_od_volume);
+            data_by_agent_type[at].avg_travel_time = data_by_agent_type[at].total_person_travel_time / max(1, data_by_agent_type[at].total_od_volume);
+        }
+    }
+
+    CAgentType_District data_by_agent_type[MAX_AGNETTYPES];
+};
+
 class CAgent_type {
 public:
     CAgent_type() : agent_type_no{ 1 }, value_of_time{ 100 }, time_headway_in_sec{ 1 }, real_time_information{ 0 }, access_speed{ 2 }, access_distance_lb{ 0.0001 }, access_distance_ub{ 4 }, acecss_link_k{ 4 },
@@ -770,13 +830,13 @@ public:
 class Assignment {
 public:
     // default is UE
-    Assignment() : assignment_mode{ lue }, g_number_of_memory_blocks{ 8 }, g_number_of_threads{ 1 }, g_info_updating_freq_in_min{ 5 }, g_visual_distance_in_cells{ 5 },
+    Assignment() : assignment_mode{ lue }, g_number_of_memory_blocks{ 4 }, g_number_of_threads{ 1 }, g_info_updating_freq_in_min{ 5 }, g_visual_distance_in_cells{ 5 },
         g_link_type_file_loaded{ true }, g_agent_type_file_loaded{ false },
         total_demand_volume{ 0.0 }, g_column_pool{ nullptr }, g_number_of_in_memory_simulation_intervals{ 500 },
         g_number_of_column_generation_iterations{ 20 }, g_number_of_column_updating_iterations{ 0 }, g_number_of_ODME_iterations{ 0 }, g_number_of_sensitivity_analysis_iterations{ 0 }, g_number_of_demand_periods{ 24 }, g_number_of_links{ 0 }, g_number_of_timing_arcs{ 0 },
         g_number_of_nodes{ 0 }, g_number_of_zones{ 0 }, g_number_of_agent_types{ 0 }, debug_detail_flag{ 1 }, path_output{ 1 }, trajectory_output_count{ -1 },
         trace_output{ 0 }, major_path_volume_threshold{ 0.000001 }, trajectory_sampling_rate{ 1.0 }, dynamic_link_performance_sampling_interval_in_min{ 60 }, dynamic_link_performance_sampling_interval_hd_in_min{ 15 }, trajectory_diversion_only{ 0 }, m_GridResolution{ 0.01 },
-        shortest_path_log_zone_id{ -1 }, g_number_of_origin_districts{ 1 }
+        shortest_path_log_zone_id{ -1 }, g_number_of_analysis_districts{ 1 }
     {
         m_LinkCumulativeArrivalVector  = NULL;
         m_LinkCumulativeDepartureVector = NULL;
@@ -789,8 +849,19 @@ public:
         sp_log_file.open("model_label_correcting_log.txt");
         assign_log_file.open("model_assignment.txt");
         summary_file.open("final_summary.csv", std::fstream::out);
-        summary_file2.open("final_summary2.csv", std::fstream::out);
+        if (!summary_file.is_open())
+        {
+            dtalog.output() << "File final_summary.csv cannot be open.";
+            g_program_stop();
+        }
         summary_corridor_file.open("corridor_performance.csv", std::fstream::out);
+        summary_district_file.open("analysis_district_performance.csv", std::fstream::out);
+
+        if (!summary_district_file.is_open())
+        {
+            dtalog.output() << "File analysis_district_performance.csv cannot be open." ;
+            g_program_stop();
+        }
         simu_log_file.open("model_simu_log.txt");
         simu_log_file << "start" << std::endl;
         g_rt_network_pool = NULL;
@@ -800,7 +871,7 @@ public:
     ~Assignment()
     {
         if (g_column_pool)
-            Deallocate4DDynamicArray(g_column_pool, g_related_zone_vector_size, g_number_of_zones, g_number_of_agent_types);
+            Deallocate4DDynamicArray(g_column_pool, g_related_zone_vector_size, g_related_zone_vector_size, g_number_of_agent_types);
         
         if(g_rt_network_pool)
             Deallocate3DDynamicArray(g_rt_network_pool, g_number_of_zones, g_number_of_agent_types);
@@ -810,6 +881,7 @@ public:
         summary_file.close();
         summary_file2.close();
         summary_corridor_file.close();
+        summary_district_file.close();
         simu_log_file.close();
         DeallocateLinkMemory4Simulation();
     }
@@ -820,7 +892,7 @@ public:
         g_number_of_zones = number_of_zones;
         g_number_of_agent_types = number_of_agent_types;
 
-        g_column_pool = Allocate4DDynamicArray<CColumnVector>(number_of_signficant_zones, number_of_zones, max(1, number_of_agent_types), number_of_time_periods);
+        g_column_pool = Allocate4DDynamicArray<CColumnVector>(number_of_signficant_zones, g_related_zone_vector_size, max(1, number_of_agent_types), number_of_time_periods);
 
         for (int i = 0; i < number_of_zones; ++i)
         {
@@ -889,9 +961,9 @@ public:
     // the data horizon in the memory
     int g_number_of_in_memory_simulation_intervals;
     int g_number_of_column_generation_iterations;
+    int g_number_of_sensitivity_analysis_iterations;
     int g_number_of_column_updating_iterations;
     int g_number_of_ODME_iterations;
-    int g_number_of_sensitivity_analysis_iterations;
     int g_number_of_demand_periods;
 
     int g_number_of_links;
@@ -904,13 +976,17 @@ public:
     std::map<int, int> zone_seq_no_2_info_mapping;  // this is used to mark if this zone_id has been identified or not
     std::map<int, int> zone_seq_no_2_activity_mapping;  // this is used to mark if this zone_id has been identified or not
 
+    std::map<int, int> zone_id_to_centriod_node_id_mapping;  // this is an one-to-one mapping
+    std::map<int, int> zone_id_to_seed_zone_id_mapping;  // this is an one-to-one mapping
+    
+
     int debug_detail_flag;
 
     // hash table, map external node number to internal node sequence no.
     std::map<int, int> g_node_id_to_seq_no_map;
     std::map<int, int> access_node_id_to_zone_id_map;
 
-    std::map<int, int> g_zone_seq_no_to_origin_grid_id_mapping;
+    std::map<int, int> g_zone_seq_no_to_analysis_distrct_id_mapping;
 
     // from integer to integer map zone_id to zone_seq_no
     std::map<int, int> g_zoneid_to_zone_seq_no_mapping;
@@ -929,7 +1005,7 @@ public:
 
     std::vector<CAgent_type> g_AgentTypeVector;
 
-    int g_number_of_origin_districts;
+    int g_number_of_analysis_districts;
     std::map<int, CLinkType> g_LinkTypeMap;
 
     std::map<std::string, int> demand_period_to_seqno_mapping;
@@ -973,6 +1049,7 @@ public:
     std::ofstream summary_file;
     std::ofstream summary_file2;
     std::ofstream summary_corridor_file;
+    std::ofstream summary_district_file;
 };
 
 extern Assignment assignment;
@@ -1439,6 +1516,7 @@ public:
 };
 
 
+
 class CNode
 {
 public:
@@ -1587,13 +1665,23 @@ public:
     COZone() : cell_id{ 0 }, obs_production { 0 }, obs_attraction{ 0 },
         est_production{ 0 }, est_attraction{ 0 },
         est_production_dev{ 0 }, est_attraction_dev{ 0 }, gravity_production{ 100 }, gravity_attraction{ 100 }, cell_x{ 0 }, cell_y{ 0 },
-        gravity_est_production{ 0 }, gravity_est_attraction{ 0 }, subarea_significance_flag{ true }, preread_total_O_demand{ 0 }, sindex{ -1 }, origin_zone_impact_volume{ 0 }, subarea_inside_flag {false}
+        gravity_est_production{ 0 }, gravity_est_attraction{ 0 }, subarea_significance_flag{ true }, preread_total_O_demand{ 0 }, sindex{ -1 }, origin_zone_impact_volume{ 0 }, subarea_inside_flag {false},
+        superzone_index{ -100 }, bcluster_seed{ false }, b_shortest_path_computing_flag{ true }, super_seed_zone_id{ -1 }, b_distrct_cluster_seed{ false }, distrct_cluster_index{ -100 }
     {
     }
 
     std::map <int, double> preread_ODdemand;
     double preread_total_O_demand;
     int sindex;  //subarea significance index
+    int superzone_index;
+
+    bool bcluster_seed;
+
+    bool b_shortest_path_computing_flag;  // for super zones
+
+    int  distrct_cluster_index;
+    bool b_distrct_cluster_seed;
+
     bool subarea_significance_flag;
     double origin_zone_impact_volume;
     bool subarea_inside_flag;
@@ -1622,6 +1710,8 @@ public:
     int zone_seq_no;
     // external zone id // this is origin zone
     int zone_id;
+    int super_seed_zone_id;
+
     int node_seq_no;
 
     float obs_production_upper_bound_flag;
@@ -1632,6 +1722,8 @@ public:
 
     std::vector<int> m_activity_node_vector;
 };
+
+
 extern std::vector<COZone> g_zone_vector;
 extern int g_related_zone_vector_size;  // by default, the same size as g_zone_vector, // if there is subarea, will be non-impacted zones., g_zone_vector has org_sindex;
 

@@ -50,13 +50,14 @@ using std::istringstream;
 
 #include "DTA.h"
 
-void g_load_scenario_data(Assignment& assignment)
+void g_load_scenario_file(Assignment& assignment)
 {
 	dtalog.output() << "Step 2.0: Reading scenario data..." << endl;
 
 	CCSVParser parser;
 
 	int incident_count = 0;
+	int workzone_count = 0;
 	int dms_count = 0;
 
 	FILE* g_pFileModel_LC = fopen("model_scenario.csv", "w");
@@ -65,13 +66,10 @@ void g_load_scenario_data(Assignment& assignment)
 
 	fprintf(g_pFileModel_LC, "scenario_type,demand_period,from_node,to_node,geometry,values\n");
 
-	if (parser.OpenCSVFile("settings.csv", false))
+	if (parser.OpenCSVFile("scenario.csv", false))
 	{
-		while (parser.ReadRecord_Section())
+		while (parser.ReadRecord())
 		{
-
-			if (parser.SectionName == "[scenario]")
-			{
 
 				int from_node_id = 0;
 				if (!parser.GetValueByFieldName("from_node_id", from_node_id))
@@ -121,41 +119,7 @@ void g_load_scenario_data(Assignment& assignment)
 					continue;
 				}
 
-				string time_period;
-				if (!parser.GetValueByFieldName("time_period", time_period))
-				{
-					dtalog.output() << "Error: Field time_window in file scenario.csv cannot be read." << endl;
-					g_program_stop();
-					break;
-				}
-
 				vector<float> global_minute_vector;
-
-				//input_string includes the start and end time of a time period with 
-
-
-				global_minute_vector = g_time_parser(time_period); //global_minute_vector incldue the starting and ending time
-				if (global_minute_vector.size() == 2)
-				{
-					if (global_minute_vector[0] < assignment.g_LoadingStartTimeInMin)
-						global_minute_vector[0] = assignment.g_LoadingStartTimeInMin;
-
-					if (global_minute_vector[0] > assignment.g_LoadingEndTimeInMin)
-						global_minute_vector[0] = assignment.g_LoadingEndTimeInMin;
-
-					if (global_minute_vector[1] < assignment.g_LoadingStartTimeInMin)
-						global_minute_vector[1] = assignment.g_LoadingStartTimeInMin;
-
-					if (global_minute_vector[1] > assignment.g_LoadingEndTimeInMin)
-						global_minute_vector[1] = assignment.g_LoadingEndTimeInMin;
-
-					if (global_minute_vector[1] < global_minute_vector[0])
-						global_minute_vector[1] = global_minute_vector[0];
-
-					g_link_vector[link_seq_no].dynamic_link_event_start_time_in_min = min((float)g_link_vector[link_seq_no].dynamic_link_event_start_time_in_min, global_minute_vector[0]);
-				}
-				else
-					continue;
 
 				string demand_period;
 
@@ -176,86 +140,149 @@ void g_load_scenario_data(Assignment& assignment)
 				string scenario_type;
 				parser.GetValueByFieldName("scenario_type", scenario_type);
 
-				if (scenario_type == "incident")
+				if (scenario_type == "capacity")
 				{
 					// capacity in the space time arcs
-					float capacity = 1;
-					parser.GetValueByFieldName("capacity", capacity);
+					float lanes_changed = 0;
+					parser.GetValueByFieldName("lanes", lanes_changed);
 
-					unsigned int RandomSeed = 101;
-					float residual;
-					float random_ratio = 0;
+					float old_lanes = g_link_vector[link_seq_no].VDF_period[tau].nlanes;
 
-					double per_sec_capacity = capacity / 3600;
-					for (int s = global_minute_vector[0] * 60; s <= global_minute_vector[1] * 60; s++)
-					{
-						int t_simu_second = (s - assignment.g_LoadingStartTimeInMin * 60);
+					g_link_vector[link_seq_no].VDF_period[tau].BPR_period_capacity *= lanes_changed / max(1, old_lanes);
 
-						if (t_simu_second < 0)
-							t_simu_second = 0;
-
-
-						if (capacity < 1)
-						{
-							g_link_vector[link_seq_no].m_link_pedefined_capacity_map_in_sec[t_simu_second] = 0;
-						}
-						else
-						{
-							residual = per_sec_capacity - (int)(per_sec_capacity);
-							RandomSeed = (LCG_a * RandomSeed + LCG_c) % LCG_M;
-							random_ratio = float(RandomSeed) / LCG_M;
-
-							if (random_ratio < residual)
-								g_link_vector[link_seq_no].m_link_pedefined_capacity_map_in_sec[t_simu_second] = 1;
-							else
-								g_link_vector[link_seq_no].m_link_pedefined_capacity_map_in_sec[t_simu_second] = 0;
-						}
-
-
-					}
-
-
+					g_link_vector[link_seq_no].VDF_period[tau].nlanes = lanes_changed;  // apply the change
+					g_link_vector[link_seq_no].VDF_period[tau].network_design_flag = 1;
 					//
-					if (capacity < g_link_vector[link_seq_no].lane_capacity * g_link_vector[link_seq_no].number_of_lanes * 0.8)
-					{
-						g_link_vector[link_seq_no].capacity_reduction_map[tau] = 1;
-						g_link_vector[link_seq_no].global_minute_capacity_reduction_start = global_minute_vector[0];
-						g_link_vector[link_seq_no].global_minute_capacity_reduction_end = global_minute_vector[1];
-					}
-					fprintf(g_pFileModel_LC, "incident,cap=%f,", capacity);
-					incident_count++;
-				}
-				else if (scenario_type == "dms")
+					fprintf(g_pFileModel_LC, "capacity,number_of_lanes=%f,", lanes_changed);
+				} else if (scenario_type == "sa")
 				{
 					// capacity in the space time arcs
-					float response_rate = 1;
-					parser.GetValueByFieldName("response_rate", response_rate);
+					float lanes_changed = 0;
+					parser.GetValueByFieldName("lanes", lanes_changed);
 
-					for (int t = global_minute_vector[0]; t <= global_minute_vector[1]; t++)
-					{
-						g_link_vector[link_seq_no].m_link_pedefined_information_response_map[t] = response_rate;
-					}
-
-					g_link_vector[link_seq_no].vms_map[tau] = 1;
-					fprintf(g_pFileModel_LC, "dms,response_rate=%f,", response_rate);
-
-					dms_count++;
-
-
+					g_link_vector[link_seq_no].VDF_period[tau].sa_lanes_change = lanes_changed;  // apply the change
+					g_link_vector[link_seq_no].VDF_period[tau].network_design_flag = 1;
+					//
+					fprintf(g_pFileModel_LC, "sa,number_of_lanes_changed=%f,", lanes_changed);
 				}
 				else
 				{
-					if (scenario_type.size() >= 1)
-					{
-						dtalog.output() << "Error: scenario_type = " << scenario_type << " is not supported. Currently DTALite supports scenario_type such as incident, dms" << endl;
-						g_program_stop();
-					}
-				}
-				fprintf(g_pFileModel_LC, "\n");
-				dtalog.output() << "reading " << incident_count << " incident scenario.. " << endl;
-				dtalog.output() << "reading " << dms_count << " dms scenario.. " << endl;
-			}
 
+					string time_period;
+					if (!parser.GetValueByFieldName("time_period", time_period))
+					{
+						dtalog.output() << "Error: Field time_window in file scenario.csv cannot be read." << endl;
+						g_program_stop();
+						break;
+					}
+
+
+
+					//input_string includes the start and end time of a time period with 
+
+					global_minute_vector = g_time_parser(time_period); //global_minute_vector incldue the starting and ending time
+					if (global_minute_vector.size() == 2)
+					{
+						if (global_minute_vector[0] < assignment.g_LoadingStartTimeInMin)
+							global_minute_vector[0] = assignment.g_LoadingStartTimeInMin;
+
+						if (global_minute_vector[0] > assignment.g_LoadingEndTimeInMin)
+							global_minute_vector[0] = assignment.g_LoadingEndTimeInMin;
+
+						if (global_minute_vector[1] < assignment.g_LoadingStartTimeInMin)
+							global_minute_vector[1] = assignment.g_LoadingStartTimeInMin;
+
+						if (global_minute_vector[1] > assignment.g_LoadingEndTimeInMin)
+							global_minute_vector[1] = assignment.g_LoadingEndTimeInMin;
+
+						if (global_minute_vector[1] < global_minute_vector[0])
+							global_minute_vector[1] = global_minute_vector[0];
+
+						g_link_vector[link_seq_no].dynamic_link_event_start_time_in_min = min((float)g_link_vector[link_seq_no].dynamic_link_event_start_time_in_min, global_minute_vector[0]);
+					}
+					else
+						continue;
+
+					if (scenario_type == "incident")
+					{
+						// capacity in the space time arcs
+						float capacity = 1;
+						parser.GetValueByFieldName("capacity", capacity);
+
+						unsigned int RandomSeed = 101;
+						float residual;
+						float random_ratio = 0;
+
+						double per_sec_capacity = capacity / 3600;
+						for (int s = global_minute_vector[0] * 60; s <= global_minute_vector[1] * 60; s++)
+						{
+							int t_simu_second = (s - assignment.g_LoadingStartTimeInMin * 60);
+
+							if (t_simu_second < 0)
+								t_simu_second = 0;
+
+
+							if (capacity < 1)
+							{
+								g_link_vector[link_seq_no].m_link_pedefined_capacity_map_in_sec[t_simu_second] = 0;
+							}
+							else
+							{
+								residual = per_sec_capacity - (int)(per_sec_capacity);
+								RandomSeed = (LCG_a * RandomSeed + LCG_c) % LCG_M;
+								random_ratio = float(RandomSeed) / LCG_M;
+
+								if (random_ratio < residual)
+									g_link_vector[link_seq_no].m_link_pedefined_capacity_map_in_sec[t_simu_second] = 1;
+								else
+									g_link_vector[link_seq_no].m_link_pedefined_capacity_map_in_sec[t_simu_second] = 0;
+							}
+
+
+						}
+
+
+						//
+						if (capacity < g_link_vector[link_seq_no].lane_capacity * g_link_vector[link_seq_no].number_of_lanes * 0.8)
+						{
+							g_link_vector[link_seq_no].capacity_reduction_map[tau] = 1;
+							g_link_vector[link_seq_no].global_minute_capacity_reduction_start = global_minute_vector[0];
+							g_link_vector[link_seq_no].global_minute_capacity_reduction_end = global_minute_vector[1];
+						}
+						fprintf(g_pFileModel_LC, "incident,cap=%f,", capacity);
+						incident_count++;
+					}
+					else if (scenario_type == "dms")
+					{
+						// capacity in the space time arcs
+						float response_rate = 1;
+						parser.GetValueByFieldName("response_rate", response_rate);
+
+						for (int t = global_minute_vector[0]; t <= global_minute_vector[1]; t++)
+						{
+							g_link_vector[link_seq_no].m_link_pedefined_information_response_map[t] = response_rate;
+						}
+
+						g_link_vector[link_seq_no].vms_map[tau] = 1;
+						fprintf(g_pFileModel_LC, "dms,response_rate=%f,", response_rate);
+
+						dms_count++;
+
+
+					}
+					else
+					{
+						if (scenario_type.size() >= 1)
+						{
+							dtalog.output() << "Error: scenario_type = " << scenario_type << " is not supported. Currently DTALite supports scenario_type such as sa, incident, dms" << endl;
+							g_program_stop();
+						}
+					}
+					fprintf(g_pFileModel_LC, "\n");
+					dtalog.output() << "reading " << incident_count << " incident scenario.. " << endl;
+					dtalog.output() << "reading " << dms_count << " dms scenario.. " << endl;
+
+				}
 			// allocate 
 		}
 
@@ -270,7 +297,6 @@ void g_load_scenario_data(Assignment& assignment)
 	assignment.summary_file << ", # of incident records in scenario.csv=," << incident_count << "," << endl;
 	assignment.summary_file << ", # of dms records in scenario.csv=," << dms_count << "," << endl;
 }
-
 
 //char lr_price_field_name[50];
 

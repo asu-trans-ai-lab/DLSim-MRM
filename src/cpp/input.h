@@ -92,6 +92,7 @@ bool g_read_subarea_CSV_file(Assignment& assignment)
 	return true;
 }
 
+
 void g_read_departure_time_profile(Assignment& assignment)
 {
 	CCSVParser parser;
@@ -265,7 +266,6 @@ double g_pre_read_demand_file(Assignment& assignment)
 							from_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[o_zone_id];
 							to_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[d_zone_id];
 
-
 							g_zone_vector[from_zone_seq_no].preread_total_O_demand += demand_value;
 							g_zone_vector[from_zone_seq_no].preread_ODdemand[to_zone_seq_no] += demand_value;
 
@@ -392,6 +392,8 @@ double g_pre_read_demand_file(Assignment& assignment)
 void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 {
 
+//	g_read_district_CSV_file(assignment);
+
 	g_related_zone_vector_size = g_zone_vector.size();
 	for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
 	{
@@ -512,7 +514,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 		}
 
 		// use the following rule to determine how many zones to keep as origin zones, we still keep all destination zones
-		int cutoff_zone_size = max(inside_zone_count*1.5, max(300, g_zone_vector.size()/20));
+		int cutoff_zone_size = max(inside_zone_count*1.5, max(150, g_zone_vector.size()/20));
 		int related_zone_size = g_zone_vector.size() - non_impact_zone_count;
 		if (related_zone_size > cutoff_zone_size && cutoff_zone_size > inside_zone_count)  // additional handling  remaining zones are still greater than 1000
 		{
@@ -575,6 +577,218 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 		}
 		}
 
+		// 		number of super zones
+		int sindex = 0;
+		for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
+		{
+			if (g_zone_vector[orig].subarea_significance_flag == false)  // no significant: skip
+			{
+				g_zone_vector[orig].sindex = -1;
+
+			}
+			else
+			{
+				g_zone_vector[orig].sindex = sindex++;  // resort the index
+			}
+
+		}
+		g_related_zone_vector_size = sindex;
+
+		////
+		if (assignment.g_subarea_shape_points.size() >= 3) // if there is a subarea defined.
+		{
+
+			if (assignment.g_number_of_analysis_districts <= 1)  // no external distriction is given
+			{// generate analaysis district
+				// output: 
+				//assignment.g_zone_seq_no_to_analysis_distrct_id_mapping
+				//assignment.g_number_of_analysis_districts = zone_id_to_analysis_district_id_mapping[ozone.zone_id] + 1;
+
+				double distrct_ratio = 20.0 / g_related_zone_vector_size;
+
+				int distrct_index = 1;
+
+				for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
+				{
+					if (g_zone_vector[orig].sindex >= 0)  // no significant: skip
+					{
+						if (g_get_random_ratio() < distrct_ratio)
+						{
+							assignment.g_zone_seq_no_to_analysis_distrct_id_mapping[orig] = distrct_index;
+							g_zone_vector[orig].b_distrct_cluster_seed = true;
+							g_zone_vector[orig].distrct_cluster_index = distrct_index;
+
+							distrct_index++;
+						}
+						else
+						{
+							g_zone_vector[orig].distrct_cluster_index = -1;
+						}
+
+					}
+
+				}
+				assignment.g_number_of_analysis_districts = distrct_index;
+
+				//clustering 
+				for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
+				{
+					if (g_zone_vector[orig].distrct_cluster_index == -1)
+					{
+						double min_distance = 99999;
+
+						for (int d = 0; d < g_zone_vector.size(); d++)  // o
+						{
+							if (g_zone_vector[d].b_distrct_cluster_seed == true)
+							{
+								double delta_x = g_zone_vector[orig].cell_x - g_zone_vector[d].cell_x;
+								double delta_y = g_zone_vector[orig].cell_y - g_zone_vector[d].cell_y;
+
+								double local_distance = pow(delta_x * delta_x + delta_y * delta_y, 0.5);
+
+								if (local_distance < min_distance)
+								{
+									min_distance = local_distance;
+									g_zone_vector[orig].distrct_cluster_index = g_zone_vector[d].distrct_cluster_index;
+									assignment.g_zone_seq_no_to_analysis_distrct_id_mapping[orig] = g_zone_vector[d].distrct_cluster_index;
+
+								}
+
+							}
+						}
+
+					}
+
+				}
+
+
+
+				for (int district = 0; district < assignment.g_number_of_analysis_districts; district++)
+				{
+					std::vector<GDPoint> points, points_in_polygon;
+
+					//GDPoint pt;
+					//pt.x = 0; pt.y = 4; points.push_back(pt);
+					//pt.x = 1; pt.y = 1; points.push_back(pt);
+					//pt.x = 2; pt.y = 2; points.push_back(pt);
+					//pt.x = 4; pt.y = 4; points.push_back(pt);
+					//pt.x = 3; pt.y = 1; points.push_back(pt);
+					//pt.x = 3; pt.y = 3; points.push_back(pt);
+					//g_find_convex_hull(points, points_in_polygon);
+
+					//test
+
+					//clustering 
+					for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
+					{
+						if (g_zone_vector[orig].distrct_cluster_index == district)
+						{
+							GDPoint pt;
+							pt.x = g_zone_vector[orig].cell_x;
+							pt.y = g_zone_vector[orig].cell_y;
+
+							points.push_back(pt);
+						}
+					}
+
+
+					if(points.size()>=2)
+					{
+					g_find_convex_hull(points, points_in_polygon);
+					}
+
+					for (int i = 0; i < points_in_polygon.size(); i++)
+					{
+						g_district_info_base0_map[district].shape_points.push_back(points_in_polygon[i]);
+
+					}
+
+
+				}
+
+			}
+
+			// end of generating analaysis district
+
+
+			if (g_related_zone_vector_size >= 30000)  // do not use this function for now.
+			{
+				// k mean method
+				//random select 300 zones then find the closest zone to aggregate
+
+				double super_zone_ratio = 300.0/g_related_zone_vector_size;
+
+				int super_zone_index = 0;
+
+				for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
+				{
+					if (g_zone_vector[orig].sindex>=0)  // no significant: skip
+					{
+						if (g_get_random_ratio() < super_zone_ratio)
+						{
+							g_zone_vector[orig].superzone_index = super_zone_index;
+							g_zone_vector[orig].bcluster_seed = true;
+							super_zone_index++;
+						}
+						else
+						{
+							g_zone_vector[orig].superzone_index = -1;
+							g_zone_vector[orig].b_shortest_path_computing_flag = false;
+						}
+
+					}
+					else
+					{
+						g_zone_vector[orig].b_shortest_path_computing_flag = false;
+					}
+
+				}
+				g_related_zone_vector_size = super_zone_index;
+				//clustering 
+				for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
+				{
+					if (g_zone_vector[orig].superzone_index == -1) 
+					{
+						double min_distance = 99999;
+
+						for (int d = 0; d < g_zone_vector.size(); d++)  // o
+						{
+							if (g_zone_vector[d].bcluster_seed == true)
+							{
+								double delta_x = g_zone_vector[orig].cell_x - g_zone_vector[d].cell_x;
+								double delta_y = g_zone_vector[orig].cell_y - g_zone_vector[d].cell_y;
+
+								double local_distance = pow(delta_x * delta_x + delta_y * delta_y, 0.5);
+
+								if (local_distance < min_distance)
+								{
+									min_distance = local_distance;
+									g_zone_vector[orig].superzone_index = g_zone_vector[d].superzone_index;
+									assignment.zone_id_to_seed_zone_id_mapping[g_zone_vector[orig].zone_id] = g_zone_vector[d].zone_id;
+
+								}
+
+							}
+						}
+
+					}
+
+				}
+				
+				// assign the value back
+				for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
+				{
+						if(g_zone_vector[orig].sindex >=0) // related zones
+						{
+							g_zone_vector[orig].sindex = g_zone_vector[orig].superzone_index;  //rewrite using super zones
+						}
+
+				}
+
+
+			}
+		}
+
 
 
 		FILE* g_pFileZone = nullptr;
@@ -582,16 +796,19 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 
 		if (g_pFileZone == NULL)
 		{
-			cout << "File zone.csv cannot be opened." << endl;
+			cout << "File subarea_related_zone.csv cannot be opened." << endl;
 			g_program_stop();
 		}
 
-		fprintf(g_pFileZone, "first_column,zone_id,x_coord,y_coord,subarea_index,demand,inside_flag\n");
+		fprintf(g_pFileZone, "first_column,zone_id,x_coord,y_coord,internal_zone_id,analysis_district_id,demand,inside_flag\n");
 		for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
 		{
 			if (g_zone_vector[orig].subarea_significance_flag == true)  // no significant: skip
 			{
-				fprintf(g_pFileZone, ",%d,%f,%f,%d,%f,%d\n", g_zone_vector[orig].zone_id, g_zone_vector[orig].cell_x, g_zone_vector[orig].cell_y, g_zone_vector[orig].sindex,
+				fprintf(g_pFileZone, ",%d,%f,%f,%d,%d,%f,%d\n", 
+					g_zone_vector[orig].zone_id, g_zone_vector[orig].cell_x, g_zone_vector[orig].cell_y, 
+					g_zone_vector[orig].sindex,
+					g_zone_vector[orig].distrct_cluster_index,
 					g_zone_vector[orig].origin_zone_impact_volume, g_zone_vector[orig].subarea_inside_flag);
 			}
 		}
@@ -603,30 +820,13 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 		dtalog.output() << non_impact_zone_count << " zones are not signifantly related by the subarea. = (" << non_related_zone_ratio << ")" <<endl;
 		dtalog.output() << inside_zone_count << " zones are inside the subarea. " << endl;
 
-		
-
-		int sindex = 0;
-		for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
-		{
-			if (g_zone_vector[orig].subarea_significance_flag == false)  // no significant: skip
-			{
-				g_zone_vector[orig].sindex = -1;
-			
-			}
-			else
-			{
-				g_zone_vector[orig].sindex = sindex++;  // resort the index
-			}
-
-		}
-		g_related_zone_vector_size = sindex;
 
 
 		double related_ratio = total_related_demand / max(1, total_demand);
 		dtalog.output() << "total demand = " << total_demand << " total subarea-related demand = " << total_related_demand << " ("
 			<< related_ratio << " )" << endl;
 		
-		assignment.summary_file << ",# of significant zones =," << g_related_zone_vector_size << endl;
+		assignment.summary_file << ",# of subarea related zones =," << g_related_zone_vector_size << endl;
 	}
 
 	//	fprintf(g_pFileOutputLog, "number of zones =,%lu\n", g_zone_vector.size());
@@ -792,6 +992,9 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 								continue;
 
 							to_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[d_zone_id];
+							int to_zone_sindex = g_zone_vector[to_zone_seq_no].sindex;
+							if (to_zone_sindex == -1)
+								continue;
 
 							if (assignment.shortest_path_log_zone_id == -1)  // set this to the first zone
 								assignment.shortest_path_log_zone_id = o_zone_id;
@@ -811,9 +1014,12 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 
 							}
 
+							int analysis_district_id = assignment.g_zone_seq_no_to_analysis_distrct_id_mapping[from_zone_seq_no];
+							g_district_info_base0_map[analysis_district_id].record_origin_2_district_volume(agent_type_no, demand_value);
+
 							assignment.total_demand[agent_type_no][demand_period_no] += demand_value;
-							assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].od_volume += demand_value;
-							assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
+							assignment.g_column_pool[from_zone_sindex][to_zone_sindex][agent_type_no][demand_period_no].od_volume += demand_value;
+							assignment.g_column_pool[from_zone_sindex][to_zone_sindex][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
 							assignment.total_demand_volume += demand_value;
 							assignment.g_origin_demand_array[from_zone_seq_no] += demand_value;
 
@@ -880,7 +1086,10 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 							if (from_zone_sindex == -1)
 								continue;
 
-							
+							int to_zone_sindex = g_zone_vector[to_zone_seq_no].sindex;
+							if (to_zone_sindex == -1)
+								continue;
+
 								double volume = 0;
 								parser.GetValueByFieldName("volume", volume);
 								volume *= loading_scale_factor;
@@ -889,10 +1098,13 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 								sum_of_path_volume += agent_path_element.volume;
 
 								assignment.total_demand[agent_type_no][demand_period_no] += agent_path_element.volume;
-								assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].od_volume += agent_path_element.volume;
-								assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
+								assignment.g_column_pool[from_zone_sindex][to_zone_sindex][agent_type_no][demand_period_no].od_volume += agent_path_element.volume;
+								assignment.g_column_pool[from_zone_sindex][to_zone_sindex][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
 								assignment.total_demand_volume += agent_path_element.volume;
 								assignment.g_origin_demand_array[from_zone_seq_no] += agent_path_element.volume;
+
+								int analysis_district_id = assignment.g_zone_seq_no_to_analysis_distrct_id_mapping[from_zone_seq_no];
+								g_district_info_base0_map[analysis_district_id].record_origin_2_district_volume(agent_type_no, agent_path_element.volume);
 
 							//apply for both agent csv and routing policy
 							assignment.g_column_pool[from_zone_seq_no][to_zone_seq_no][agent_type_no][demand_period_no].bfixed_route = true;
@@ -950,7 +1162,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 								agent_path_element.node_sum = node_sum; // pointer to the node sum based path node sequence;
 								agent_path_element.path_link_sequence = link_no_sequence;
 
-								CColumnVector* pColumnVector = &(assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no]);
+								CColumnVector* pColumnVector = &(assignment.g_column_pool[from_zone_sindex][to_zone_sindex][agent_type_no][demand_period_no]);
 								pColumnVector->departure_time_profile_no = this_departure_time_profile_no;
 								// we cannot find a path with the same node sum, so we need to add this path into the map,
 								if (pColumnVector->path_node_sequence_map.find(node_sum) == pColumnVector->path_node_sequence_map.end())
@@ -1017,6 +1229,10 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 							if (from_zone_sindex == -1)
 								continue;
 
+							int to_zone_sindex = g_zone_vector[to_zone_seq_no].sindex;
+							if (to_zone_sindex == -1)
+								continue;
+
 							double volume = 0;
 							parser.GetValueByFieldName("volume", volume);
 							volume *= loading_scale_factor;
@@ -1025,11 +1241,13 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 							sum_of_path_volume += agent_path_element.volume;
 
 							assignment.total_demand[agent_type_no][demand_period_no] += agent_path_element.volume;
-							assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].od_volume += agent_path_element.volume;
-							assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
+							assignment.g_column_pool[from_zone_sindex][to_zone_sindex][agent_type_no][demand_period_no].od_volume += agent_path_element.volume;
+							assignment.g_column_pool[from_zone_sindex][to_zone_sindex][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
 							assignment.total_demand_volume += agent_path_element.volume;
 							assignment.g_origin_demand_array[from_zone_seq_no] += agent_path_element.volume;
 
+							int analysis_district_id = assignment.g_zone_seq_no_to_analysis_distrct_id_mapping[from_zone_seq_no];
+							g_district_info_base0_map[analysis_district_id].record_origin_2_district_volume(agent_type_no, agent_path_element.volume);
 							//apply for both agent csv and routing policy
 
 							bool bValid = true;
@@ -1236,6 +1454,10 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 								if (from_zone_sindex == -1)
 									continue;
 
+								int to_zone_sindex = g_zone_vector[to_zone_seq_no].sindex;
+								if (to_zone_sindex == -1)
+									continue;
+
 								// encounter return
 								if (demand_value < -99)
 									break;
@@ -1256,10 +1478,13 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 								}
 
 								assignment.total_demand[agent_type_no][demand_period_no] += demand_value;
-								assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].od_volume += demand_value;
-								assignment.g_column_pool[from_zone_sindex][to_zone_seq_no][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
+								assignment.g_column_pool[from_zone_sindex][to_zone_sindex][agent_type_no][demand_period_no].od_volume += demand_value;
+								assignment.g_column_pool[from_zone_sindex][to_zone_sindex][agent_type_no][demand_period_no].departure_time_profile_no = this_departure_time_profile_no;
 								assignment.total_demand_volume += demand_value;
 								assignment.g_origin_demand_array[from_zone_seq_no] += demand_value;
+
+								int analysis_district_id = assignment.g_zone_seq_no_to_analysis_distrct_id_mapping[from_zone_seq_no];
+								g_district_info_base0_map[analysis_district_id].record_origin_2_district_volume(agent_type_no, demand_value);
 
 								// we generate vehicles here for each OD data line
 								if (line_no <= 5)  // read only one line, but has not reached the end of the line
@@ -1337,11 +1562,15 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 
 		for (int dest = 0; dest < g_zone_vector.size(); dest++) //d
 		{
+			int to_zone_sindex = g_zone_vector[dest].sindex;
+			if (to_zone_sindex == -1)
+				continue;
+
 			for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)  //m
 			{
 				for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); tau++)  //tau
 				{
-					p_column_pool = &(assignment.g_column_pool[from_zone_sindex][dest][at][tau]);
+					p_column_pool = &(assignment.g_column_pool[from_zone_sindex][to_zone_sindex][at][tau]);
 					if (p_column_pool->od_volume > 0)
 					{
 						CODState ods;
@@ -2325,7 +2554,7 @@ void g_read_input_data(Assignment& assignment)
 	int internal_node_seq_no = 0;
 	// step 3: read node file
 
-	std::map<int, int> zone_id_to_centriod_node_id_mapping;  // this is an one-to-one mapping
+
 	std::map<int, int> zone_id_mapping;  // this is used to mark if this zone_id has been identified or not
 	std::map<int, double> zone_id_x;
 	std::map<int, double> zone_id_y;
@@ -2385,7 +2614,7 @@ void g_read_input_data(Assignment& assignment)
 
 
 	dtalog.output() << "Step 1.4: Reading node data in node.csv..." << endl;
-	std::map<int, int> zone_id_to_origin_district_id_mapping;
+	std::map<int, int> zone_id_to_analysis_district_id_mapping;
 
 	if (parser.OpenCSVFile("node.csv", true))
 	{
@@ -2413,10 +2642,11 @@ void g_read_input_data(Assignment& assignment)
 			parser.GetValueByFieldName("node_type", node.node_type, false);// step 1 for adding access links: read node type
 			parser.GetValueByFieldName("zone_id", zone_id);
 
-			int origin_grid_id = 0;
-			parser.GetValueByFieldName("district_id", origin_grid_id, false);
+			int analysis_district_id = 0;  // default 
+
+			parser.GetValueByFieldName("district_id", analysis_district_id, false);
 			
-			if (origin_grid_id >= MAX_ORIGIN_DISTRICTS)
+			if (analysis_district_id >= MAX_ORIGIN_DISTRICTS)
 			{
 				dtalog.output() << "Error: grid_id in node.csv is larger than predefined value of 20." << endl;
 				g_program_stop();
@@ -2434,7 +2664,7 @@ void g_read_input_data(Assignment& assignment)
 
 			if (zone_id >= 1)
 			{
-				zone_id_to_origin_district_id_mapping[zone_id] = origin_grid_id;
+				zone_id_to_analysis_district_id_mapping[zone_id] = analysis_district_id;
 
 				node.zone_org_id = zone_id;  // this note here, we use zone_org_id to ensure we will only have super centriods with zone id positive. 
 				if (zone_id >= 1)
@@ -2714,10 +2944,10 @@ void g_read_input_data(Assignment& assignment)
 		assignment.g_zoneid_to_zone_seq_no_mapping[ozone.zone_id] = ozone.zone_seq_no;  // create the zone id to zone se&zq no mapping
 		assignment.g_zoneid_to_zone_sindex_no_mapping[ozone.zone_id] = ozone.zone_seq_no;  // create the zone id to zone se&zq no mapping
 
-		if (zone_id_to_origin_district_id_mapping[ozone.zone_id]+1 > assignment.g_number_of_origin_districts )
-			assignment.g_number_of_origin_districts = zone_id_to_origin_district_id_mapping[ozone.zone_id]+1;
+		if (zone_id_to_analysis_district_id_mapping[ozone.zone_id]+1 > assignment.g_number_of_analysis_districts )
+			assignment.g_number_of_analysis_districts = zone_id_to_analysis_district_id_mapping[ozone.zone_id]+1;
 
-		assignment.g_zone_seq_no_to_origin_grid_id_mapping[ozone.zone_seq_no] = zone_id_to_origin_district_id_mapping[ozone.zone_id];
+		assignment.g_zone_seq_no_to_analysis_distrct_id_mapping[ozone.zone_seq_no] = zone_id_to_analysis_district_id_mapping[ozone.zone_id];
 
 		 // create a centriod
 		CNode node;
@@ -2734,7 +2964,7 @@ void g_read_input_data(Assignment& assignment)
 
 		ozone.node_seq_no = node.node_seq_no;
 		// this should be the only one place that defines this mapping
-		zone_id_to_centriod_node_id_mapping[ozone.zone_id] = node.node_id;
+		assignment.zone_id_to_centriod_node_id_mapping[ozone.zone_id] = node.node_id;
 		// add element into vector
 		g_zone_vector.push_back(ozone);
 	}
@@ -3063,32 +3293,8 @@ void g_read_input_data(Assignment& assignment)
 				sprintf(VDF_field_name, "VDF_preload%d", demand_period_id);
 				parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].preload, false, false);
 
-				if (link.link_id == "201065BA")
-				{
-					int idebug = 1;
-				}
-
-				sprintf(VDF_field_name, "SA_lanes_change%d", demand_period_id);
-				parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].sa_lanes_change, false, false);
-
-				if (fabs(link.VDF_period[tau].sa_lanes_change) > 0.01)
-				{
-					dtalog.output() << "highlight: link SA lane changes =" << link.VDF_period[tau].sa_lanes_change << " in link.csv for link " << from_node_id << "->" << to_node_id << ". Please ensure the unit of the link link_distance_VDF is meter." << endl;
-
-					if (link.VDF_period[tau].sa_lanes_change > 0.001)
-						link.VDF_period[tau].network_design_flag = 1;
-					else
-						link.VDF_period[tau].network_design_flag = -1;
-
-				}
-
-				sprintf(VDF_field_name, "SA_vol%d", demand_period_id);
-				parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].sa_volume, false, false);
-
 				for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)
 				{
-
-
 
 					sprintf(VDF_field_name, "VDF_toll%s%d", assignment.g_AgentTypeVector[at].agent_type.c_str(), demand_period_id);
 					parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].toll[at], false, false);
@@ -3191,33 +3397,7 @@ void g_read_input_data(Assignment& assignment)
 	// we now know the number of links
 	dtalog.output() << "number of links = " << assignment.g_number_of_links << endl;
 
-	// after we read the physical links
-	// we create virtual connectors
-	for (int i = 0; i < g_node_vector.size(); ++i)
-	{
 
-		if (g_node_vector[i].zone_org_id >= 0) // for each physical node
-		{ // we need to make sure we only create two way connectors between nodes and zones
-
-				// for each node-zone pair: create a pair of connectors with the agent-type related acess_map
-			int zone_org_id = g_node_vector[i].zone_org_id;
-			int internal_from_node_seq_no, internal_to_node_seq_no, zone_seq_no;
-
-			internal_from_node_seq_no = g_node_vector[i].node_seq_no;
-			int node_id = zone_id_to_centriod_node_id_mapping[zone_org_id];
-			internal_to_node_seq_no = assignment.g_node_id_to_seq_no_map[node_id];
-			zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[zone_org_id];
-
-			// we need to mark all accessble model on this access links, so we can handle that in the future for each agent type's memory block in shortest path
-			// incomming virtual connector
-			g_add_new_virtual_connector_link(internal_from_node_seq_no, internal_to_node_seq_no, g_node_vector[i].agent_type_str, -1);
-			// outgoing virtual connector
-			g_add_new_virtual_connector_link(internal_to_node_seq_no, internal_from_node_seq_no, g_node_vector[i].agent_type_str, zone_seq_no);
-			// result is that: we have a unique pair of node-zone access link in the overall network, but still carry agent_type_acess_map for agent types with access on this node-zone connector
-
-		}
-
-	}
 	dtalog.output() << "number of links =" << assignment.g_number_of_links << endl;
 	
 	assignment.summary_file << "Step 1: read network node.csv, link.csv, zone.csv "<< endl;

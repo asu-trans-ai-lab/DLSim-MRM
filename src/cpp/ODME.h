@@ -296,11 +296,16 @@ void Assignment::Demand_ODME(int OD_updating_iterations, int sensitivity_analysi
 
 				for (int dest = 0; dest < g_zone_vector.size(); ++dest) //d
 				{
+
+					int to_zone_sindex = g_zone_vector[dest].sindex;
+					if (to_zone_sindex == -1)
+						continue;
+
 					for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)  //at
 					{
 						for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); ++tau)  //tau
 						{
-							p_column_pool = &(assignment.g_column_pool[from_zone_sindex][dest][at][tau]);
+							p_column_pool = &(assignment.g_column_pool[from_zone_sindex][to_zone_sindex][at][tau]);
 							if (p_column_pool->od_volume > 0)
 							{
 								column_pool_counts++;
@@ -508,7 +513,10 @@ void Assignment::Demand_ODME(int OD_updating_iterations, int sensitivity_analysi
 			// used in travel time calculation
 			if (g_link_vector[i].VDF_period[tau].network_design_flag != 0)  // we 
 			{
-				g_link_vector[i].VDF_period[tau].nlanes += g_link_vector[i].VDF_period[tau].sa_lanes_change; // apply the lane changes 
+				float old_lanes = g_link_vector[i].VDF_period[tau].nlanes;
+				g_link_vector[i].VDF_period[tau].nlanes = g_link_vector[i].VDF_period[tau].sa_lanes_change; // apply the lane changes 
+				g_link_vector[i].VDF_period[tau].BPR_period_capacity *= g_link_vector[i].VDF_period[tau].nlanes / max(1, old_lanes);
+
 			}
 
 		}

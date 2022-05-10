@@ -363,9 +363,12 @@ void Assignment::STTrafficSimulation()
 		{
 			for (int dest = 0; dest < zone_size; ++dest)
 			{
+				int to_zone_sindex = g_zone_vector[dest].sindex;
+				if (to_zone_sindex == -1)
+					continue;
 				for (int tau = 0; tau < demand_period_size; ++tau)
 				{
-					p_column_pool = &(assignment.g_column_pool[from_zone_sindex][dest][at][tau]);
+					p_column_pool = &(assignment.g_column_pool[from_zone_sindex][to_zone_sindex][at][tau]);
 
 
 

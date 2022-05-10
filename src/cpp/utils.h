@@ -40,7 +40,7 @@ bool g_get_line_polygon_intersection(
     double Ax, double Ay,
     double Bx, double By,
     std::vector<GDPoint> subarea_shape_points);
-
+void g_find_convex_hull(std::vector<GDPoint> points, std::vector<GDPoint> &points_in_polygon);
 int g_test_point_in_polygon(GDPoint Pt, std::vector<GDPoint> V);
 
 double g_calculate_p2p_distance_in_meter_from_latitude_longitude(double p1_x, double p1_y, double p2_x, double p2_y);

@@ -109,6 +109,7 @@ std::vector<CNode> g_node_vector;
 std::vector<CLink> g_link_vector;
 std::map<string, CVDF_Type> g_vdf_type_map;
 std::map<string, CCorridorInfo>  g_corridor_info_base0_map, g_corridor_info_SA_map;
+std::map<int, CAnalysisDistrict>  g_district_info_base0_map, g_district_info_SA_map;
 std::vector<COZone> g_zone_vector;
 int g_related_zone_vector_size;
 
@@ -163,7 +164,7 @@ void g_reset_link_volume_in_master_program_without_columns(int number_of_links, 
 
 				for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
 				{
-					for(int og = 0; og < assignment.g_number_of_origin_districts; ++og)
+					for(int og = 0; og < assignment.g_number_of_analysis_districts; ++og)
 						g_link_vector[i].person_volume_per_district_per_at[og][at] *= ratio;
 				}
 
@@ -230,7 +231,7 @@ void g_assign_computing_tasks_to_memory_blocks(Assignment& assignment)
 
 					computing_zone_count++;
 
-					p_NetworkForSP->AllocateMemory(assignment.g_number_of_nodes, assignment.g_number_of_links, assignment.g_number_of_origin_districts);
+					p_NetworkForSP->AllocateMemory(assignment.g_number_of_nodes, assignment.g_number_of_links, assignment.g_number_of_analysis_districts);
 
 					PointerMatrx[at][tau][z] = p_NetworkForSP;
 
@@ -242,6 +243,12 @@ void g_assign_computing_tasks_to_memory_blocks(Assignment& assignment)
 					{
 						continue;
 					}
+
+					if (g_zone_vector[z].b_shortest_path_computing_flag == false)  // due to super zone aggregation
+					{
+						continue;
+					}
+					
 
 					if (assignment.g_origin_demand_array[z] > 0.001 ||
 						assignment.zone_seq_no_2_info_mapping.find(z) != assignment.zone_seq_no_2_info_mapping.end()
@@ -303,7 +310,7 @@ void g_assign_RT_computing_tasks_to_memory_blocks(Assignment& assignment)
 				computing_zone_count++;
 
 
-				p_NetworkForSP->AllocateMemory(assignment.g_number_of_nodes, assignment.g_number_of_links, assignment.g_number_of_origin_districts);
+				p_NetworkForSP->AllocateMemory(assignment.g_number_of_nodes, assignment.g_number_of_links, assignment.g_number_of_analysis_districts);
 
 
 				assignment.g_rt_network_pool[z][at][tau] = p_NetworkForSP;  // assign real time computing network to the online colume;
@@ -358,7 +365,7 @@ void g_reset_link_volume_for_all_processors()
 					pNetwork->m_link_person_volume_array[i] = 0;
 
 
-					for(int og = 0; og < assignment.g_number_of_origin_districts; og++)
+					for(int og = 0; og < assignment.g_number_of_analysis_districts; og++)
 					{
 					pNetwork->m_link_person_volume_per_grid_array[i][og] = 0;
 					}
@@ -385,7 +392,7 @@ void g_fetch_link_volume_for_all_processors()
 
 			g_link_vector[i].person_volume_per_period_per_at[pNetwork->m_tau][pNetwork->m_agent_type_no] += pNetwork->m_link_person_volume_array[i];
 
-			for(int og = 0; og < assignment.g_number_of_origin_districts; og ++)
+			for(int og = 0; og < assignment.g_number_of_analysis_districts; og ++)
 			{
 			g_link_vector[i].person_volume_per_district_per_at[og][pNetwork->m_agent_type_no] += pNetwork->m_link_person_volume_per_grid_array[i][og];
 			}
@@ -558,7 +565,47 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 	//g_reload_timing_arc_data(assignment); // no need to load timing data from timing.csv
 	g_ReadOutputFileConfiguration(assignment);
 	g_ReadDemandFileBasedOnDemandFileList(assignment);
-	g_load_scenario_data(assignment);
+
+	// after we read the physical links and demand files
+// we create virtual connectors
+	for (int i = 0; i < g_node_vector.size(); ++i)
+	{
+
+		if (g_node_vector[i].zone_org_id >= 0) // for each physical node
+		{ // we need to make sure we only create two way connectors between nodes and zones
+
+				// for each node-zone pair: create a pair of connectors with the agent-type related acess_map
+			int zone_org_id = g_node_vector[i].zone_org_id;
+			int internal_from_node_seq_no, internal_to_node_seq_no, zone_seq_no;
+
+			internal_from_node_seq_no = g_node_vector[i].node_seq_no;
+
+
+			if (assignment.zone_id_to_seed_zone_id_mapping.find(zone_org_id) != assignment.zone_id_to_seed_zone_id_mapping.end())
+			{
+				// seed zone id has been identified. 
+				zone_org_id = assignment.zone_id_to_seed_zone_id_mapping[zone_org_id];  // update zone id
+			}
+
+			int node_id = assignment.zone_id_to_centriod_node_id_mapping[zone_org_id];
+			
+			
+			internal_to_node_seq_no = assignment.g_node_id_to_seq_no_map[node_id];
+
+
+			zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[zone_org_id];
+
+			// we need to mark all accessble model on this access links, so we can handle that in the future for each agent type's memory block in shortest path
+			// incomming virtual connector
+			g_add_new_virtual_connector_link(internal_from_node_seq_no, internal_to_node_seq_no, g_node_vector[i].agent_type_str, -1);
+			// outgoing virtual connector
+			g_add_new_virtual_connector_link(internal_to_node_seq_no, internal_from_node_seq_no, g_node_vector[i].agent_type_str, zone_seq_no);
+			// result is that: we have a unique pair of node-zone access link in the overall network, but still carry agent_type_acess_map for agent types with access on this node-zone connector
+
+		}
+
+	}
+	g_load_scenario_file(assignment);
 
 	//step 2: allocate memory and assign computing tasks
 	g_assign_computing_tasks_to_memory_blocks(assignment); // static cost based label correcting
@@ -770,6 +817,7 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 
 	//step 5: output simulation results of the new demand
 
+	g_record_corridor_performance_summary(assignment, 1);
 
 	g_output_assignment_result(assignment,0);
 

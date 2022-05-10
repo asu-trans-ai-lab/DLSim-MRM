@@ -448,7 +448,7 @@ public:
 		// new propability for flow staying at this path
 		// for current shortest path, collect all the switched path from the other shortest paths for this ODK pair.
 		// check demand flow balance constraints
-		int origin_grid_id = assignment.g_zone_seq_no_to_origin_grid_id_mapping[m_origin_zone_seq_no];
+		int analysis_district_id = assignment.g_zone_seq_no_to_analysis_distrct_id_mapping[m_origin_zone_seq_no];
 
 		int num = 0;
 		int number_of_nodes = assignment.g_number_of_nodes;
@@ -493,7 +493,11 @@ public:
 				if (from_zone_sindex == -1)
 					continue;
 
-				pColumnVector = &(assignment.g_column_pool[from_zone_sindex][destination_zone_seq_no][agent_type][m_tau]);
+				int to_zone_sindex = g_zone_vector[destination_zone_seq_no].sindex;
+				if (to_zone_sindex == -1)
+					continue;
+
+				pColumnVector = &(assignment.g_column_pool[from_zone_sindex][to_zone_sindex][agent_type][m_tau]);
 
 				if (pColumnVector->bfixed_route) // with routing policy, no need to run MSA for adding new columns
 					continue;
@@ -553,7 +557,7 @@ public:
 
 
 									// core code added by Xuesong and Cafer, 03/24/2022 for considering person volume per agent type and per origin grid
-									m_link_person_volume_per_grid_array[current_link_seq_no][origin_grid_id] += volume * OCC_ratio;
+									m_link_person_volume_per_grid_array[current_link_seq_no][analysis_district_id] += volume * OCC_ratio;
 									//cout << "node = " << g_node_vector[i].node_id 
 									//    << "zone id= " << g_node_vector[i].zone_id << ","
 									//    << "l_link_size= " << l_link_size << ","
@@ -590,8 +594,12 @@ public:
 							if (from_zone_sindex == -1)
 								continue;
 
+							int to_zone_sindex = g_zone_vector[destination_zone_seq_no].sindex;
+							if (to_zone_sindex == -1)
+								continue;
 
-							if (pColumnVector->path_node_sequence_map.find(node_sum) == assignment.g_column_pool[from_zone_sindex][destination_zone_seq_no][agent_type][m_tau].path_node_sequence_map.end())
+
+							if (pColumnVector->path_node_sequence_map.find(node_sum) == assignment.g_column_pool[from_zone_sindex][to_zone_sindex][agent_type][m_tau].path_node_sequence_map.end())
 							{
 								// add this unique path
 								int path_count = pColumnVector->path_node_sequence_map.size();
