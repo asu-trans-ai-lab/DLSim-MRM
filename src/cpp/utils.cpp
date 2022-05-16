@@ -1054,3 +1054,71 @@ void g_find_convex_hull(std::vector<GDPoint> points, std::vector<GDPoint> &point
     }
 }
 
+double g_Find_P2P_Angle(const GDPoint* p1, const GDPoint* p2)
+{
+    double PI = 3.14159265358979323846;
+    double delta_x = p2->x - p1->x;
+    double delta_y = p2->y - p1->y;
+
+    if (fabs(delta_x) < 0.00001)
+        delta_x = 0;
+
+    if (fabs(delta_y) < 0.00001)
+        delta_y = 0;
+
+    int angle = atan2(delta_y, delta_x) * 180 / PI + 0.5;
+    // angle = 90 - angle;
+
+    while (angle < 0)
+        angle += 360;
+
+    while (angle > 360)
+        angle -= 360;
+
+    return angle;
+}
+
+double g_Find_PPP_RelativeAngle(const GDPoint* p1, const GDPoint* p2, const GDPoint* p3, const GDPoint* p4)
+{
+    int relative_angle;
+
+    int angle1 = g_Find_P2P_Angle(p1, p2);
+    int angle2 = g_Find_P2P_Angle(p3, p4);
+    relative_angle = angle2 - angle1;
+
+    while (relative_angle > 180)
+        relative_angle -= 360;
+
+    while (relative_angle < -180)
+        relative_angle += 360;
+
+    return relative_angle;
+}
+
+double g_GetPoint2Point_Distance(const GDPoint* p1, const GDPoint* p2)
+{
+    return pow(((p1->x - p2->x) * (p1->x - p2->x) + (p1->y - p2->y) * (p1->y - p2->y)), 0.5);
+}
+double g_GetPoint2LineDistance(const GDPoint* pt, const GDPoint* FromPt, const GDPoint* ToPt)
+{
+    double U;
+    GDPoint Intersection;
+
+    double LineLength = g_GetPoint2Point_Distance(FromPt, ToPt);
+
+    U = ((pt->x - ToPt->x) * (FromPt->x - ToPt->x) + (pt->y - ToPt->y) * (FromPt->y - ToPt->y)) / (LineLength * LineLength);
+
+
+    Intersection.x = ToPt->x + U * (FromPt->x - ToPt->x);
+    Intersection.y = ToPt->y + U * (FromPt->y - ToPt->y);
+
+    double distance_1 = g_GetPoint2Point_Distance(pt, &Intersection);
+    double distance_0 = g_GetPoint2Point_Distance(pt, FromPt);
+    double distance_2 = g_GetPoint2Point_Distance(pt, ToPt);
+
+    if (U < 0.0 || U > 1.0)
+        return min(distance_0, distance_2); // intersection does not fall within the segment
+    else  // intersect 
+        return distance_1;
+}
+

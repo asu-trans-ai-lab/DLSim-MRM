@@ -35,8 +35,8 @@ void write_default_setting_file_if_not_exist()
 
 	ofstream myfile;
 	myfile.open("settings.csv");
-	myfile << "[assignment] ,,assignment_mode,column_generation_iterations,column_updating_iterations,odme_iterations,sensitivity_analysis_iterations,simulation_iterations,remarks" << endl;
-	myfile << ",,dta,5,0,0,0,1," << endl;
+	myfile << "[assignment] ,,assignment_mode,column_generation_iterations,column_updating_iterations,odme_iterations,sensitivity_analysis_iterations,simulation_iterations,number_of_memory_blocks,remarks" << endl;
+	myfile << ",,dta,5,0,0,0,1,1," << endl;
 	myfile << "[agent_type],agent_type_no,agent_type,name,display_code,vot,flow_type,pce,person_occupancy,desired_speed_ratio,headway,real_time_info," << endl;
 	myfile << ",1,auto,auto,auto,10,0,1,1,1,1,0," << endl;
 	myfile << ",2,walk,walk,walk,10,0,1,1,0.1,1,0," << endl;
@@ -97,7 +97,7 @@ int main()
 	int column_updating_iterations = 0;
 	int ODME_iterations = 0;
 	int sensitivity_analysis_iterations = 0;
-	int number_of_memory_blocks = 8;
+	int number_of_memory_blocks = 4;
 	float info_updating_freq_in_min = 5;
 	int simulation_iterations = 0;
 

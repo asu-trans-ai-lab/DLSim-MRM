@@ -12,7 +12,7 @@ constexpr auto MAX_LABEL_COST = 1.0e+15;
 constexpr auto _INFO_ZONE_ID = 100000;
 
 constexpr auto MAX_AGNETTYPES = 10; //because of the od demand store format,the MAX_demandtype must >=g_DEMANDTYPES.size()+1;
-constexpr auto MAX_TIMEPERIODS = 20; // time period set to 4: mid night, morning peak, mid-day and afternoon peak;
+constexpr auto MAX_TIMEPERIODS = 6; // time period set to 4: mid night, morning peak, mid-day and afternoon peak;
 constexpr auto MAX_ORIGIN_DISTRICTS = 30; //origin based agreegration grids
 constexpr auto MAX_MEMORY_BLOCKS = 100;
 
@@ -25,7 +25,7 @@ constexpr auto _default_saturation_flow_rate = 1800;
 
 constexpr auto MIN_PER_TIMESLOT = 5;
 constexpr auto simulation_discharge_period_in_min = 60;
-
+constexpr auto MICRONET_NODE_ID_BIG_M = 10000000;
 
 /* make sure we change the following two parameters together*/
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
@@ -847,6 +847,7 @@ public:
         m_LinkOutFlowState =  NULL;
 
         sp_log_file.open("model_label_correcting_log.txt");
+        MRM_log_file.open("MRM_log.txt");
         assign_log_file.open("model_assignment.txt");
         summary_file.open("final_summary.csv", std::fstream::out);
         if (!summary_file.is_open())
@@ -877,6 +878,7 @@ public:
             Deallocate3DDynamicArray(g_rt_network_pool, g_number_of_zones, g_number_of_agent_types);
 
         sp_log_file.close();
+        MRM_log_file.close();
         assign_log_file.close();
         summary_file.close();
         summary_file2.close();
@@ -914,6 +916,19 @@ public:
     }
 
     std::vector<GDPoint> g_subarea_shape_points;
+    std::vector<GDPoint> g_MRM_subarea_shape_points;
+    
+
+    std::map<int, int> g_node_id_to_MRM_subarea_mapping;  // this is an one-to-one mapping: 1: outside 1: inside 
+
+    std::map<int, int> g_micro_node_id_to_MRM_bridge_mapping;  // this is an one-to-one mapping: for MRM bridge
+
+    std::map<int, int> g_macro_node_id_to_MRM_incoming_bridge_mapping;  // this is an one-to-one mapping: for MRM bridge
+    std::map<int, int> g_macro_node_id_to_MRM_outgoing_bridge_mapping;  // this is an one-to-one mapping: for MRM bridge
+
+
+
+
 
     void STTrafficSimulation();
     void STMesoTrafficSimulation();
@@ -1011,6 +1026,17 @@ public:
     std::map<std::string, int> demand_period_to_seqno_mapping;
     std::map<std::string, int> agent_type_2_seqno_mapping;
 
+
+    std::map<int, double> o_district_id_factor_map;
+    std::map<int, double> d_district_id_factor_map;
+    std::map<int, double> od_district_id_factor_map;
+
+    std::map<int, double> SA_o_district_id_factor_map;
+    std::map<int, double> SA_d_district_id_factor_map;
+    std::map<int, double> SA_od_district_id_factor_map;
+
+
+
     float total_demand[MAX_AGNETTYPES][MAX_TIMEPERIODS];
     float g_DemandGlobalMultiplier;
 
@@ -1050,6 +1076,7 @@ public:
     std::ofstream summary_file2;
     std::ofstream summary_corridor_file;
     std::ofstream summary_district_file;
+    std::ofstream MRM_log_file;
 };
 
 extern Assignment assignment;
@@ -1068,7 +1095,8 @@ public:
         cell_type{ -1 }, saturation_flow_rate{ 1800 }, dynamic_link_event_start_time_in_min{ 99999 }, b_automated_generated_flag{ false }, time_to_be_released{ -1 },
         RT_waiting_time{ 0 }, FT{ 1 }, AT{ 1 }, s3_m{ 4 }, tmc_road_order{ 0 }, tmc_road_sequence{ -1 }, k_critical{ 45 }, vdf_type{ q_vdf }, 
         tmc_corridor_id{ -1 }, from_node_id{ -1 }, to_node_id{ -1 }, kjam{ 300 }, link_distance_km{ 0 }, link_distance_mile{ 0 }, meso_link_id{ -1 }, total_simulated_delay_in_min{ 0 }, 
-        total_simulated_meso_link_incoming_volume{ 0 }, global_minute_capacity_reduction_start{ -1 }, global_minute_capacity_reduction_end{ -1 }
+        total_simulated_meso_link_incoming_volume{ 0 }, global_minute_capacity_reduction_start{ -1 }, global_minute_capacity_reduction_end{ -1 },
+        layer_no { 0 }
    {
    
         for (int tau = 0; tau < MAX_TIMEPERIODS; ++tau)
@@ -1331,13 +1359,14 @@ public:
 
     int from_node_seq_no;
     int to_node_seq_no;
+    int layer_no;
     int from_node_id;
     int to_node_id;
 
     int link_type;
     bool b_automated_generated_flag;
 
-    int cell_type;
+    int cell_type;  // 2 lane changing
     std::string mvmt_txt_id;
     std::string link_code_str;
     std::string tmc_corridor_name;
@@ -1520,7 +1549,7 @@ public:
 class CNode
 {
 public:
-    CNode() : zone_id{ -1 }, zone_org_id{ -1 }, prohibited_movement_size{ 0 }, node_seq_no{ -1 }, subarea_id{ -1 }, is_activity_node{ 0 }, agent_type_no{ -1 }, is_boundary{ 0 }, access_distance{ 0.04 }
+    CNode() : zone_id{ -1 }, zone_org_id{ -1 }, layer_no{ 0 }, MRM_gate_flag{ -1 }, prohibited_movement_size{ 0 }, node_seq_no{ -1 }, subarea_id{ -1 }, is_activity_node{ 0 }, agent_type_no{ -1 }, is_boundary{ 0 }, access_distance{ 0.04 }
     {
     }
 
@@ -1541,6 +1570,8 @@ public:
     int prohibited_movement_size;
     // sequence number
     int node_seq_no;
+    int layer_no;
+    int MRM_gate_flag;
 
     //external node number
     int node_id;
@@ -1794,5 +1825,9 @@ extern std::map<std::string, CTMC_Corridor_Info> g_tmc_corridor_vector;
 extern std::map<std::string, CInfoCell> g_info_cell_map;
 
 void g_assign_RT_computing_tasks_to_memory_blocks(Assignment& assignment);
-
+void g_load_demand_side_scenario_file(Assignment& assignment);
+extern void g_add_new_virtual_connector_link(int internal_from_node_seq_no, int internal_to_node_seq_no, string agent_type_str, int zone_seq_no);
+extern double g_Find_PPP_RelativeAngle(const GDPoint* p1, const GDPoint* p2, const GDPoint* p3, const GDPoint* p4);
+extern double g_GetPoint2LineDistance(const GDPoint* pt, const GDPoint* FromPt, const GDPoint* ToPt);
+extern double g_GetPoint2Point_Distance(const GDPoint* p1, const GDPoint* p2);
 #endif

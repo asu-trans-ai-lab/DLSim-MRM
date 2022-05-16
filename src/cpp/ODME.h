@@ -500,36 +500,9 @@ void Assignment::Demand_ODME(int OD_updating_iterations, int sensitivity_analysi
 		// we now have a consistent link-to-path volumne in g_link_vector[link_seq_no].PCE_volume_per_period[tau] 
 	}
 
-	int base_case_flag = 0; //base_case
-	g_record_corridor_performance_summary(assignment, 0);
 	// stage II;
 
 	g_classification_in_column_pool(assignment);
 
-	for (int i = 0; i < g_link_vector.size(); ++i)
-	{
-		for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
-		{
-			// used in travel time calculation
-			if (g_link_vector[i].VDF_period[tau].network_design_flag != 0)  // we 
-			{
-				float old_lanes = g_link_vector[i].VDF_period[tau].nlanes;
-				g_link_vector[i].VDF_period[tau].nlanes = g_link_vector[i].VDF_period[tau].sa_lanes_change; // apply the lane changes 
-				g_link_vector[i].VDF_period[tau].BPR_period_capacity *= g_link_vector[i].VDF_period[tau].nlanes / max(1, old_lanes);
-
-			}
-
-		}
-	}
-
-
-
-	//    stage III 
-	if (assignment.g_number_of_sensitivity_analysis_iterations > 0)
-	{
-		g_column_pool_optimization(assignment, assignment.g_number_of_sensitivity_analysis_iterations, true);
-	}
-	//if (assignment.g_pFileDebugLog != NULL)
-	//	fprintf(assignment.g_pFileDebugLog, "CU: iteration %d: total_gap=, %f,total_relative_gap=, %f,\n", s, total_gap, total_gap / max(0.0001, total_system_travel_cost));
 }
 

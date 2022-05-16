@@ -55,14 +55,14 @@ void g_reset_and_update_link_volume_based_on_columns(int number_of_links, int it
 	// record numbers
 	if (b_sensitivity_analysis_flag)
 	{
-		for (int i = 0; i < number_of_links; ++i)
-		{
-			for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
-			{
-				g_link_vector[i].VDF_period[tau].link_volume_per_iteration_map[iteration_index] = g_link_vector[i].PCE_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload;
-				// used in travel time calculation
-			}
-		}
+//		for (int i = 0; i < number_of_links; ++i)
+//		{
+//			for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
+//			{
+////				g_link_vector[i].VDF_period[tau].link_volume_per_iteration_map[iteration_index] = g_link_vector[i].PCE_volume_per_period[tau] + g_link_vector[i].VDF_period[tau].preload;
+//				// used in travel time calculation
+//			}
+//		}
 	}
 
 	// reset the link volume
@@ -789,9 +789,15 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
 
 									double flow_shift = step_size * max(0.0000, it->second.path_gradient_cost_relative_difference);  //c, must be positive
 
-									if (flow_shift > it->second.path_volume * 0.5)
+
+									if (it->second.path_gradient_cost_relative_difference > 3 * 60)  // difference more than 3 hours
 									{
-										flow_shift = it->second.path_volume * 0.5;
+										flow_shift = it->second.path_volume;  //switch out
+									}
+
+									if (flow_shift > it->second.path_volume)
+									{
+										flow_shift = it->second.path_volume;
 									}
 
 									if (flow_shift >= 0.000001)

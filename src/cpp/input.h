@@ -92,6 +92,687 @@ bool g_read_subarea_CSV_file(Assignment& assignment)
 	return true;
 }
 
+bool g_read_micronet_subarea_CSV_file(Assignment& assignment)
+{
+	CCSVParser parser;
+	if (parser.OpenCSVFile("micronet\\subarea_MRM.csv", false))
+	{
+		while (parser.ReadRecord())
+		{
+			string geo_string;
+			if (parser.GetValueByFieldName("geometry", geo_string))
+			{
+				// overwrite when the field "geometry" exists
+				CGeometry geometry(geo_string);
+
+				std::vector<CCoordinate> CoordinateVector = geometry.GetCoordinateList();
+
+				if (CoordinateVector.size() > 0)
+				{
+					for (int p = 0; p < CoordinateVector.size(); p++)
+					{
+						GDPoint pt;
+						pt.x = CoordinateVector[p].X;
+						pt.y = CoordinateVector[p].Y;
+
+						assignment.g_MRM_subarea_shape_points.push_back(pt);
+					}
+				}
+
+				break;
+			}
+
+		}
+		parser.CloseCSVFile();
+		
+		assignment.summary_file << ", # of shape point records in micronet\\subarea_MRM.csv=," << assignment.g_subarea_shape_points.size() << "," << endl;
+
+	}
+
+
+	return true;
+}
+
+
+int g_MRM_subarea_filtering(Assignment& assignment)
+{
+	int gate_micro_node_count = 0;
+	int gate_macro_node_count = 0;
+
+	g_read_micronet_subarea_CSV_file(assignment); // MRM step 1:
+
+	// micro file: reading nodes
+	CCSVParser parser;
+	if (assignment.g_MRM_subarea_shape_points.size() >= 3)  // with subarea MRM file
+	{
+		if (parser.OpenCSVFile("micronet\\node.csv", true))
+		{
+			while (parser.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
+			{
+				int node_id;
+				if (!parser.GetValueByFieldName("node_id", node_id))
+					continue;
+
+				// essential MRM step 1: add BIG M to the node id
+				node_id = node_id + MICRONET_NODE_ID_BIG_M;
+
+				double x_coord;
+				double y_coord;
+
+				parser.GetValueByFieldName("x_coord", x_coord, true, false);
+				parser.GetValueByFieldName("y_coord", y_coord, true, false);
+
+
+				// micro network filter:
+				GDPoint pt;
+				pt.x = x_coord;
+				pt.y = y_coord;
+				// essential MRM step 2: test if inside the micro subarea
+				int micro_subarea_inside_flag = g_test_point_in_polygon(pt, assignment.g_MRM_subarea_shape_points);
+				assignment.g_node_id_to_MRM_subarea_mapping[node_id] = micro_subarea_inside_flag;
+
+			}
+
+		}
+		parser.CloseCSVFile();
+
+	}
+
+	CCSVParser parser_link;
+
+	if (parser_link.OpenCSVFile("micronet\\link.csv", true))
+	{
+
+		CLink link;
+
+		while (parser_link.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
+		{
+
+			long from_node_id = -1;
+			if (!parser_link.GetValueByFieldName("from_node_id", from_node_id))
+				continue;
+
+			from_node_id = from_node_id + MICRONET_NODE_ID_BIG_M;
+
+			long to_node_id = -1;
+			if (!parser_link.GetValueByFieldName("to_node_id", to_node_id))
+				continue;
+
+			to_node_id = to_node_id + MICRONET_NODE_ID_BIG_M;
+
+			if (assignment.g_node_id_to_MRM_subarea_mapping.find(from_node_id) == assignment.g_node_id_to_MRM_subarea_mapping.end())
+			{
+				dtalog.output() << "Error: from_node_id " << from_node_id << " in file micronet\\link.csv is not defined in micronet\\node.csv." << endl;
+				continue; //has not been defined
+			}
+
+			if (assignment.g_node_id_to_MRM_subarea_mapping.find(to_node_id) == assignment.g_node_id_to_MRM_subarea_mapping.end())
+			{
+				dtalog.output() << "Error: to_node_id " << to_node_id << " in file micronet\\link.csv is not defined in micronet\\node.csv." << endl;
+				continue; //has not been defined
+			}
+// micro flagging
+			// micro apply two flags
+			if (assignment.g_node_id_to_MRM_subarea_mapping[from_node_id] == 1 && assignment.g_node_id_to_MRM_subarea_mapping[to_node_id] == 0)  // bridge link
+			{
+				assignment.g_micro_node_id_to_MRM_bridge_mapping[from_node_id] = 3;
+				assignment.g_micro_node_id_to_MRM_bridge_mapping[to_node_id] = 2;
+
+				gate_micro_node_count++;
+			}
+
+			if (assignment.g_node_id_to_MRM_subarea_mapping[from_node_id] == 0 && assignment.g_node_id_to_MRM_subarea_mapping[to_node_id] == 1)  // bridge link
+			{
+				assignment.g_micro_node_id_to_MRM_bridge_mapping[from_node_id] = 2;
+				assignment.g_micro_node_id_to_MRM_bridge_mapping[to_node_id] = 3;
+				gate_micro_node_count++;
+			}
+
+		}
+		parser_link.CloseCSVFile();
+	}
+	/////////////master/macro network;
+	if (assignment.g_MRM_subarea_shape_points.size() >= 3)  // with subarea MRM file
+	{
+		if (parser.OpenCSVFile("node.csv", true))
+		{
+			while (parser.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
+			{
+				int node_id;
+				if (!parser.GetValueByFieldName("node_id", node_id))
+					continue;
+
+				double x_coord;
+				double y_coord;
+
+				parser.GetValueByFieldName("x_coord", x_coord, true, false);
+				parser.GetValueByFieldName("y_coord", y_coord, true, false);
+
+
+				// micro network filter:
+				GDPoint pt;
+				pt.x = x_coord;
+				pt.y = y_coord;
+				// essential MRM step 2: test if inside the micro subarea
+				int micro_subarea_inside_flag = g_test_point_in_polygon(pt, assignment.g_MRM_subarea_shape_points);
+				assignment.g_node_id_to_MRM_subarea_mapping[node_id] = micro_subarea_inside_flag;
+
+			}
+
+		}
+		parser.CloseCSVFile();
+
+	}
+
+	if (parser_link.OpenCSVFile("link.csv", true))
+	{
+
+		CLink link;
+
+		while (parser_link.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
+		{
+
+			long from_node_id = -1;
+			if (!parser_link.GetValueByFieldName("from_node_id", from_node_id))
+				continue;
+
+			long to_node_id = -1;
+			if (!parser_link.GetValueByFieldName("to_node_id", to_node_id))
+				continue;
+
+
+			if (assignment.g_node_id_to_MRM_subarea_mapping.find(from_node_id) == assignment.g_node_id_to_MRM_subarea_mapping.end())
+			{
+				dtalog.output() << "Error: from_node_id " << from_node_id << " in file link.csv is not defined in node.csv." << endl;
+				continue; //has not been defined
+			}
+
+			if (assignment.g_node_id_to_MRM_subarea_mapping.find(to_node_id) == assignment.g_node_id_to_MRM_subarea_mapping.end())
+			{
+				dtalog.output() << "Error: to_node_id " << to_node_id << " in file link.csv is not defined in node.csv." << endl;
+				continue; //has not been defined
+			}
+
+			if (from_node_id == 9718 && to_node_id == 9441)
+			{
+
+				int mapping_from = assignment.g_node_id_to_MRM_subarea_mapping[from_node_id];
+				int mapping_to = assignment.g_node_id_to_MRM_subarea_mapping[to_node_id];
+				int debug_flag = 1;
+
+			}
+
+			//
+			if (assignment.g_node_id_to_MRM_subarea_mapping[from_node_id] == 1 && assignment.g_node_id_to_MRM_subarea_mapping[to_node_id] == 0)  // bridge link
+			{
+//macro flagging
+				assignment.g_macro_node_id_to_MRM_outgoing_bridge_mapping[from_node_id] = 3;
+				gate_macro_node_count++;
+			}
+
+			if (assignment.g_node_id_to_MRM_subarea_mapping[from_node_id] == 0 && assignment.g_node_id_to_MRM_subarea_mapping[to_node_id] == 1)
+			{
+				assignment.g_macro_node_id_to_MRM_incoming_bridge_mapping[to_node_id] = 3;
+
+				gate_macro_node_count++;
+			}
+
+		}
+		parser_link.CloseCSVFile();
+	}
+
+	assignment.summary_file << ", # of micro gate nodes," << gate_micro_node_count << "," << endl;
+	assignment.summary_file << ", # of macro gate nodes," << gate_macro_node_count << "," << endl;
+	assignment.summary_file << ", # of macro outgoing gate nodes," << assignment.g_macro_node_id_to_MRM_outgoing_bridge_mapping.size() << "," << endl;
+	assignment.summary_file << ", # of macro incoming gate nodes," << assignment.g_macro_node_id_to_MRM_incoming_bridge_mapping.size() << "," << endl;
+
+	return gate_micro_node_count;
+}
+
+void g_add_new_bridge_link(int internal_from_node_seq_no, int internal_to_node_seq_no, string agent_type_str, int link_type)
+{
+	// create a link object
+	CLink link;
+	link.link_id = "bridge link ";
+	link.layer_no = 2; // bridge 
+	link.from_node_seq_no = internal_from_node_seq_no;
+	link.to_node_seq_no = internal_to_node_seq_no;
+	link.link_seq_no = assignment.g_number_of_links;
+	link.to_node_seq_no = internal_to_node_seq_no;
+	link.link_type = link_type;
+	//only for outgoing connectors
+
+	//BPR
+	link.traffic_flow_code = 0;
+	link.spatial_capacity_in_vehicles = 99999;
+	link.lane_capacity = 999999;
+	link.link_spatial_capacity = 99999;
+	link.link_distance_VDF = 0.00001;
+	link.free_flow_travel_time_in_min = 0.1;
+
+	for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
+	{
+		//setup default values
+		link.VDF_period[tau].lane_based_ultimate_hourly_capacity = 999999;
+		// 60.0 for 60 min per hour
+		link.VDF_period[tau].FFTT = 0.0001;
+		link.VDF_period[tau].alpha = 0;
+		link.VDF_period[tau].beta = 0;
+		link.VDF_period[tau].allowed_uses = agent_type_str;
+
+		link.travel_time_per_period[tau] = 0;
+
+	}
+
+	// add this link to the corresponding node as part of outgoing node/link
+	g_node_vector[internal_from_node_seq_no].m_outgoing_link_seq_no_vector.push_back(link.link_seq_no);
+	// add this link to the corresponding node as part of outgoing node/link
+	g_node_vector[internal_to_node_seq_no].m_incoming_link_seq_no_vector.push_back(link.link_seq_no);
+	// add this link to the corresponding node as part of outgoing node/link
+	g_node_vector[internal_from_node_seq_no].m_to_node_seq_no_vector.push_back(link.to_node_seq_no);
+	// add this link to the corresponding node as part of outgoing node/link
+	g_node_vector[internal_from_node_seq_no].m_to_node_2_link_seq_no_map[link.to_node_seq_no] = link.link_seq_no;
+
+	g_link_vector.push_back(link);
+
+	assignment.g_number_of_links++;
+}
+
+int g_MRM_subarea_adding_bridge(Assignment& assignment)
+{
+	assignment.MRM_log_file << "start adding bridges between micro and macro gate nodes." << endl;
+
+	int bridge_link_count = 0;
+
+	std::vector<int> incoming_bridge_macro_link_no_vector;
+
+	std::vector<int> incoming_bridge_micro_link_no_vector;
+
+	std::vector<int> outgoing_bridge_macro_link_no_vector;
+
+	std::vector<int> outgoing_bridge_micro_link_no_vector;
+
+
+	for (int i = 0; i < g_link_vector.size(); ++i)
+	{
+
+		int from_node_id = g_node_vector[g_link_vector[i].from_node_seq_no].node_id;
+		int to_node_id = g_node_vector[g_link_vector[i].to_node_seq_no].node_id;
+
+		if (g_link_vector[i].layer_no == 0)  //macro node
+		{
+		
+
+			if (from_node_id == 9481)
+			{
+				int debug_code = 1;
+			}
+
+			if (
+				assignment.g_node_id_to_MRM_subarea_mapping[from_node_id] == 0 && 
+				assignment.g_macro_node_id_to_MRM_incoming_bridge_mapping.find(to_node_id) != assignment.g_macro_node_id_to_MRM_incoming_bridge_mapping.end() &&
+				assignment.g_macro_node_id_to_MRM_incoming_bridge_mapping[to_node_id] == 3)
+			{
+				incoming_bridge_macro_link_no_vector.push_back(i);
+				g_link_vector[i].link_type = -200; // invisible
+			}
+
+			if (assignment.g_node_id_to_MRM_subarea_mapping[to_node_id] == 0 && 
+				assignment.g_macro_node_id_to_MRM_outgoing_bridge_mapping.find(from_node_id) != assignment.g_macro_node_id_to_MRM_outgoing_bridge_mapping.end() &&
+				assignment.g_macro_node_id_to_MRM_outgoing_bridge_mapping[from_node_id] ==3 )
+			{
+				outgoing_bridge_macro_link_no_vector.push_back(i);
+				g_link_vector[i].link_type = -200; // invisible
+			}
+		}
+
+		if (g_link_vector[i].layer_no == 1)  //micro node
+		{
+
+			if (assignment.g_micro_node_id_to_MRM_bridge_mapping.find(from_node_id) != assignment.g_micro_node_id_to_MRM_bridge_mapping.end()
+				&& 
+				assignment.g_micro_node_id_to_MRM_bridge_mapping[from_node_id] == 2)
+			{
+				incoming_bridge_micro_link_no_vector.push_back(i);
+
+			}
+			if (assignment.g_micro_node_id_to_MRM_bridge_mapping.find(to_node_id) != assignment.g_micro_node_id_to_MRM_bridge_mapping.end()
+				&&
+				assignment.g_micro_node_id_to_MRM_bridge_mapping[to_node_id] == 2)
+			{
+				outgoing_bridge_micro_link_no_vector.push_back(i);
+
+			}
+
+		}
+	}
+
+
+	FILE* g_pFileModelNode = fopen("MRM_node.csv", "w");
+
+	if (g_pFileModelNode != NULL)
+	{
+		fprintf(g_pFileModelNode, "node_id,node_no,layer_no,MRM_gate_flag,node_type,is_boundary,#_of_outgoing_nodes,activity_node_flag,agent_type,zone_id,cell_code,info_zone_flag,x_coord,y_coord\n");
+	}
+	else
+	{
+		dtalog.output() << "Error: file MRM_node.csv cannot be openned." << endl;
+		g_program_stop();
+
+	}
+
+	FILE* g_pFileModelLink = fopen("MRM_link.csv", "w");
+
+	if (g_pFileModelLink != NULL)
+	{
+		fprintf(g_pFileModelLink, "from_node_id,to_node_id,geometry\n");
+
+	}
+	else
+	{
+		dtalog.output() << "Error: file MRM_link.csv cannot be openned." << endl;
+		g_program_stop();
+	}
+
+
+
+
+
+	int micro_link_index = 0;
+	for (int microj = 0; microj < incoming_bridge_micro_link_no_vector.size(); ++microj)
+	{
+		int j = incoming_bridge_micro_link_no_vector[microj];
+		if (g_link_vector[j].cell_type == 2)  // lane changing arc
+		{
+			continue;  //skip
+		}
+		int from_node_id = g_node_vector[g_link_vector[j].from_node_seq_no].node_id;
+		int to_node_id = g_node_vector[g_link_vector[j].to_node_seq_no].node_id;
+		assignment.MRM_log_file << "no." << micro_link_index << " micro link across the boundary " << from_node_id << "->" << to_node_id << "" << endl;
+
+		int k = g_link_vector[j].from_node_seq_no;
+		fprintf(g_pFileModelNode, "%d,%d,%d,%d,%s,%d,%d,%d,%s, %ld,%s,%d,%f,%f\n",
+			g_node_vector[k].node_id,
+			g_node_vector[k].node_seq_no,
+			g_node_vector[k].layer_no,
+			g_node_vector[k].MRM_gate_flag,
+			g_node_vector[k].node_type.c_str(),
+			g_node_vector[k].is_boundary,
+			g_node_vector[k].m_outgoing_link_seq_no_vector.size(),
+			g_node_vector[k].is_activity_node,
+			g_node_vector[k].agent_type_str.c_str(),
+
+			g_node_vector[k].zone_org_id,
+			g_node_vector[k].cell_str.c_str(),
+			0,
+			g_node_vector[k].x,
+			g_node_vector[k].y);
+
+		micro_link_index++;
+	}
+	for (int microj = 0; microj < outgoing_bridge_micro_link_no_vector.size(); ++microj)
+	{
+		int j = outgoing_bridge_micro_link_no_vector[microj];
+		if (g_link_vector[j].cell_type == 2)  // lane changing arc
+		{
+			continue;  //skip
+		}
+		int from_node_id = g_node_vector[g_link_vector[j].from_node_seq_no].node_id;
+		int to_node_id = g_node_vector[g_link_vector[j].to_node_seq_no].node_id;
+		assignment.MRM_log_file << "no." << micro_link_index << " micro link across the boundary " << from_node_id << "->" << to_node_id << "" << endl;
+
+		int k = g_link_vector[j].to_node_seq_no;
+		fprintf(g_pFileModelNode, "%d,%d,%d,%d,%s,%d,%d,%d,%s, %ld,%s,%d,%f,%f\n",
+			g_node_vector[k].node_id,
+			g_node_vector[k].node_seq_no,
+			g_node_vector[k].layer_no,
+			g_node_vector[k].MRM_gate_flag,
+			g_node_vector[k].node_type.c_str(),
+			g_node_vector[k].is_boundary,
+			g_node_vector[k].m_outgoing_link_seq_no_vector.size(),
+			g_node_vector[k].is_activity_node,
+			g_node_vector[k].agent_type_str.c_str(),
+
+			g_node_vector[k].zone_org_id,
+			g_node_vector[k].cell_str.c_str(),
+			0,
+			g_node_vector[k].x,
+			g_node_vector[k].y);
+
+		micro_link_index++;
+	}
+
+	int macro_link_index = 0;
+	for (int macroi = 0; macroi < incoming_bridge_macro_link_no_vector.size(); ++macroi)
+	{
+
+		int i = incoming_bridge_macro_link_no_vector[macroi];
+		int from_node_id = g_node_vector[g_link_vector[i].from_node_seq_no].node_id;
+		int to_node_id = g_node_vector[g_link_vector[i].to_node_seq_no].node_id;
+		assignment.MRM_log_file << "no." << macro_link_index << " macro link across the boundary " << from_node_id << "->" << to_node_id << "" << endl;
+
+		int k = g_link_vector[i].from_node_seq_no;
+		fprintf(g_pFileModelNode, "%d,%d,%d,%d,%s,%d,%d,%d,%s, %ld,%s,%d,%f,%f\n",
+			g_node_vector[k].node_id,
+			g_node_vector[k].node_seq_no,
+			g_node_vector[k].layer_no,
+			g_node_vector[k].MRM_gate_flag,
+			g_node_vector[k].node_type.c_str(),
+			g_node_vector[k].is_boundary,
+			g_node_vector[k].m_outgoing_link_seq_no_vector.size(),
+			g_node_vector[k].is_activity_node,
+			g_node_vector[k].agent_type_str.c_str(),
+
+			g_node_vector[k].zone_org_id,
+			g_node_vector[k].cell_str.c_str(),
+			0,
+			g_node_vector[k].x,
+			g_node_vector[k].y);
+		macro_link_index++;
+	}
+
+	for (int macroi = 0; macroi < outgoing_bridge_macro_link_no_vector.size(); ++macroi)
+	{
+
+		int i = outgoing_bridge_macro_link_no_vector[macroi];
+		int from_node_id = g_node_vector[g_link_vector[i].from_node_seq_no].node_id;
+		int to_node_id = g_node_vector[g_link_vector[i].to_node_seq_no].node_id;
+		assignment.MRM_log_file << "no." << macro_link_index << " macro link across the boundary " << from_node_id << "->" << to_node_id << "" << endl;
+
+		int k = g_link_vector[i].to_node_seq_no;
+		fprintf(g_pFileModelNode, "%d,%d,%d,%d,%s,%d,%d,%d,%s, %ld,%s,%d,%f,%f\n",
+			g_node_vector[k].node_id,
+			g_node_vector[k].node_seq_no,
+			g_node_vector[k].layer_no,
+			g_node_vector[k].MRM_gate_flag,
+			g_node_vector[k].node_type.c_str(),
+			g_node_vector[k].is_boundary,
+			g_node_vector[k].m_outgoing_link_seq_no_vector.size(),
+			g_node_vector[k].is_activity_node,
+			g_node_vector[k].agent_type_str.c_str(),
+
+			g_node_vector[k].zone_org_id,
+			g_node_vector[k].cell_str.c_str(),
+			0,
+			g_node_vector[k].x,
+			g_node_vector[k].y);
+		macro_link_index++;
+	}
+	fclose(g_pFileModelNode);
+
+	// one micro to one macro matching 
+	// from each micro incoming link, find the nearest macro incoming link  and add the connectors from the macro from node id to the micro to node id 
+
+	for (int microj = 0; microj < incoming_bridge_micro_link_no_vector.size(); ++microj)
+	{
+		int j = incoming_bridge_micro_link_no_vector[microj];
+		int matching_macro_node_i = -1;
+		double min_distance = 99999;
+
+		int from_node_id_micro = g_node_vector[g_link_vector[j].from_node_seq_no].node_id;
+
+		if (g_link_vector[j].cell_type == 2)  // lane changing arc
+		{
+			continue;  //skip
+		}
+
+		// try 3 times
+	for(int try_loop = 0; try_loop<3; try_loop++)
+	{
+		for (int macroi = 0; macroi < incoming_bridge_macro_link_no_vector.size(); ++macroi)
+		{
+			int i = incoming_bridge_macro_link_no_vector[macroi];
+
+			int from_node_id = g_node_vector[g_link_vector[i].from_node_seq_no].node_id;
+			int to_node_id = g_node_vector[g_link_vector[i].to_node_seq_no].node_id;
+
+			
+			GDPoint p1, p2, p3, p4;
+				p1.x = g_node_vector[g_link_vector[i].from_node_seq_no].x;
+				p1.y = g_node_vector[g_link_vector[i].from_node_seq_no].y;
+
+				p2.x = g_node_vector[g_link_vector[i].to_node_seq_no].x;
+				p2.y = g_node_vector[g_link_vector[i].to_node_seq_no].y;
+
+				p3.x = g_node_vector[g_link_vector[j].from_node_seq_no].x; //micro 
+				p3.y = g_node_vector[g_link_vector[j].from_node_seq_no].y;
+
+				p4.x = g_node_vector[g_link_vector[j].to_node_seq_no].x;
+				p4.y = g_node_vector[g_link_vector[j].to_node_seq_no].y;
+
+				// matching distance from micro cell to the macro link
+				double local_distance2 = (g_GetPoint2Point_Distance(&p3, &p1) + g_GetPoint2Point_Distance(&p4, &p2)) / 2;
+				double local_distance = (g_GetPoint2LineDistance(&p3, &p1, &p2) + g_GetPoint2LineDistance(&p4, &p1, &p2)) / 2 + local_distance2;
+
+				double relative_angle= g_Find_PPP_RelativeAngle(&p1, &p2, &p3, &p4);
+
+				if (try_loop == 0 && fabs(relative_angle) >= 45)  // first try to use restrictive condition
+				{
+					continue; 
+				}
+
+				if (try_loop == 1 && fabs(relative_angle) >= 90)  // second try to use restrictive condition
+				{
+					continue;
+				}
+
+				if (local_distance < min_distance)
+				{
+					min_distance = local_distance;
+					matching_macro_node_i = g_link_vector[i].from_node_seq_no;
+				}
+
+		}
+	
+
+		if (matching_macro_node_i >= 0)
+		{  // create a bridge connector with macro from node and micro to node
+			int internal_from_node_seq_no = matching_macro_node_i;
+			int internal_to_node_seq_no = g_link_vector[j].from_node_seq_no;
+			string agent_type_str;
+			g_add_new_bridge_link(internal_from_node_seq_no, internal_to_node_seq_no, agent_type_str, 0);
+
+
+			fprintf(g_pFileModelLink, "%d,%d,", g_node_vector[internal_from_node_seq_no].node_id, g_node_vector[internal_to_node_seq_no].node_id);
+			fprintf(g_pFileModelLink, "\"LINESTRING (");
+			fprintf(g_pFileModelLink, "%f %f,", g_node_vector[internal_from_node_seq_no].x, g_node_vector[internal_from_node_seq_no].y);
+			fprintf(g_pFileModelLink, "%f %f", g_node_vector[internal_to_node_seq_no].x, g_node_vector[internal_to_node_seq_no].y);
+			fprintf(g_pFileModelLink, ")\"");
+			fprintf(g_pFileModelLink, "\n");
+
+			bridge_link_count++;
+			try_loop = 100; //exit
+		}
+
+		}
+
+	}
+
+	// one micro to one macro matching 
+	// from each micro incoming link, find the nearest macro incoming link  and add the connectors from the macro from node id to the micro to node id 
+
+	for (int microi = 0; microi < outgoing_bridge_micro_link_no_vector.size(); ++microi)
+	{
+		int i = outgoing_bridge_micro_link_no_vector[microi];
+		int matching_macro_node_j = -1;
+		double min_distance = 99999;
+
+		if (g_link_vector[i].cell_type == 2)  // lane chaning arc
+		{
+			continue;  //skip
+		}
+
+		for (int try_loop = 0; try_loop < 3; try_loop++)
+		{
+			for (int macroj = 0; macroj < outgoing_bridge_macro_link_no_vector.size(); ++macroj)
+			{
+				int j = outgoing_bridge_macro_link_no_vector[macroj];
+
+				GDPoint p1, p2, p3, p4;
+				p1.x = g_node_vector[g_link_vector[j].from_node_seq_no].x;  // macro
+				p1.y = g_node_vector[g_link_vector[j].from_node_seq_no].y;
+
+				p2.x = g_node_vector[g_link_vector[j].to_node_seq_no].x;
+				p2.y = g_node_vector[g_link_vector[j].to_node_seq_no].y;
+
+				p3.x = g_node_vector[g_link_vector[i].from_node_seq_no].x;  // micro
+				p3.y = g_node_vector[g_link_vector[i].from_node_seq_no].y;
+
+				p4.x = g_node_vector[g_link_vector[i].to_node_seq_no].x;
+				p4.y = g_node_vector[g_link_vector[i].to_node_seq_no].y;
+
+				// matching distance from micro cell to the macro link
+				double local_distance2 = (g_GetPoint2Point_Distance(&p3, &p1) + g_GetPoint2Point_Distance(&p4, &p2)) / 2;
+				double local_distance = (g_GetPoint2LineDistance(&p3, &p1, &p2) + g_GetPoint2LineDistance(&p4, &p1, &p2)) / 2 + local_distance2;
+
+				double relative_angle = g_Find_PPP_RelativeAngle(&p1, &p2, &p3, &p4);
+
+				if (try_loop == 0 && fabs(relative_angle) >= 45)  // first try to use restrictive condition
+				{
+					continue;
+				}
+
+				if (try_loop == 1 && fabs(relative_angle) >= 90)  // second try to use restrictive condition
+				{
+					continue;
+				}
+
+				if (local_distance < min_distance)
+				{
+					min_distance = local_distance;
+					matching_macro_node_j = g_link_vector[j].to_node_seq_no;
+				}
+
+			}
+
+
+			if (matching_macro_node_j >= 0)
+			{  // create a bridge connector with macro from node and micro to node
+				int internal_from_node_seq_no = g_link_vector[i].to_node_seq_no;
+				int internal_to_node_seq_no = matching_macro_node_j;
+				string agent_type_str;
+				g_add_new_bridge_link(internal_from_node_seq_no, internal_to_node_seq_no, agent_type_str, 0);
+
+				fprintf(g_pFileModelLink, "%d,%d,", g_node_vector[internal_from_node_seq_no].node_id, g_node_vector[internal_to_node_seq_no].node_id);
+				fprintf(g_pFileModelLink, "\"LINESTRING (");
+				fprintf(g_pFileModelLink, "%f %f,", g_node_vector[internal_from_node_seq_no].x, g_node_vector[internal_from_node_seq_no].y);
+				fprintf(g_pFileModelLink, "%f %f", g_node_vector[internal_to_node_seq_no].x, g_node_vector[internal_to_node_seq_no].y);
+				fprintf(g_pFileModelLink, ")\"");
+				fprintf(g_pFileModelLink, "\n");
+
+				bridge_link_count++;
+				try_loop = 100; //exit
+			}
+
+		}
+
+	}
+
+
+	fclose(g_pFileModelLink);
+
+	return bridge_link_count;
+}
 
 void g_read_departure_time_profile(Assignment& assignment)
 {
@@ -391,8 +1072,7 @@ double g_pre_read_demand_file(Assignment& assignment)
 
 void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 {
-
-//	g_read_district_CSV_file(assignment);
+	g_load_demand_side_scenario_file(assignment);
 
 	g_related_zone_vector_size = g_zone_vector.size();
 	for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
@@ -718,7 +1398,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 
 				double super_zone_ratio = 300.0/g_related_zone_vector_size;
 
-				int super_zone_index = 0;
+				int super_zone_index = assignment.g_number_of_analysis_districts+1;  // automated district  id start from the externally given district id 
 
 				for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
 				{
@@ -996,6 +1676,32 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 							if (to_zone_sindex == -1)
 								continue;
 
+							double local_scale_factor = 1.0;
+
+							//redundancy analysis
+							//o based factor
+
+							int o_district = assignment.g_zone_seq_no_to_analysis_distrct_id_mapping[from_zone_seq_no];
+							int d_district = assignment.g_zone_seq_no_to_analysis_distrct_id_mapping[to_zone_seq_no];
+
+
+							if (assignment.o_district_id_factor_map.find(o_district) != assignment.o_district_id_factor_map.end())
+							{
+								local_scale_factor = assignment.o_district_id_factor_map[o_district];
+							}
+
+							//d based factor
+							if (assignment.d_district_id_factor_map.find(d_district) != assignment.d_district_id_factor_map.end())
+							{
+								local_scale_factor = assignment.d_district_id_factor_map[d_district];
+							}
+
+							int od_district_key = o_district * 1000 + d_district;
+							if (assignment.od_district_id_factor_map.find(od_district_key) != assignment.od_district_id_factor_map.end())
+							{
+								local_scale_factor = assignment.od_district_id_factor_map[od_district_key];
+							}
+
 							if (assignment.shortest_path_log_zone_id == -1)  // set this to the first zone
 								assignment.shortest_path_log_zone_id = o_zone_id;
 
@@ -1003,7 +1709,8 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 							if (demand_value < -99)
 								break;
 
-							demand_value *= loading_scale_factor;
+							demand_value *= (loading_scale_factor* local_scale_factor);
+
 							if (demand_value >= 5)
 							{
 								critical_OD_volume += demand_value;
@@ -2220,6 +2927,8 @@ void g_read_input_data(Assignment& assignment)
 {
 	g_detector_file_open_status();
 
+
+
 	unsigned int state[16];
 
 	for (int k = 0; k < 16; ++k)
@@ -2616,118 +3325,231 @@ void g_read_input_data(Assignment& assignment)
 	dtalog.output() << "Step 1.4: Reading node data in node.csv..." << endl;
 	std::map<int, int> zone_id_to_analysis_district_id_mapping;
 
-	if (parser.OpenCSVFile("node.csv", true))
-	{
-		while (parser.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
+	// MRM: stage 1: filtering, output: gate nodes, bridge nodes for micro and macro networks
+	int number_of_micro_gate_nodes = g_MRM_subarea_filtering(assignment);
+
+	// MRM: stage 2: read node layer
+	int max_layer_flag = 0;
+
+	// a MRM subarea file is defined. # of micro gate nodes is positve, apply MRM mode with 2 layers
+	if (assignment.g_MRM_subarea_shape_points.size() >= 3 && number_of_micro_gate_nodes > 0)
 		{
-			int node_id;
-			if (!parser.GetValueByFieldName("node_id", node_id))
-				continue;
+			max_layer_flag = 1;
+		}
+		
 
-			if (assignment.g_node_id_to_seq_no_map.find(node_id) != assignment.g_node_id_to_seq_no_map.end())
-			{
-				//has been defined
-				continue;
-			}
-			assignment.g_node_id_to_seq_no_map[node_id] = internal_node_seq_no;
+	assignment.summary_file << ", # of node layers to be read," << max_layer_flag+1 << "," << endl;
 
-			// create a node object
-			CNode node;
-			node.node_id = node_id;
-			node.node_seq_no = internal_node_seq_no;
+	for(int layer_no = 0; layer_no <= max_layer_flag; layer_no ++)
+	{
+		dtalog.output() << "Reading node data at layer" << layer_no << endl;
 
-			int zone_id = -1;
+		// master file: reading nodes
 
-			parser.GetValueByFieldName("is_boundary", node.is_boundary, false, false);
-			parser.GetValueByFieldName("node_type", node.node_type, false);// step 1 for adding access links: read node type
-			parser.GetValueByFieldName("zone_id", zone_id);
+		string file_name = "node.csv";
 
-			int analysis_district_id = 0;  // default 
-
-			parser.GetValueByFieldName("district_id", analysis_district_id, false);
-			
-			if (analysis_district_id >= MAX_ORIGIN_DISTRICTS)
-			{
-				dtalog.output() << "Error: grid_id in node.csv is larger than predefined value of 20." << endl;
-				g_program_stop();
-			}
-
-			if (node_id == 2235)
-			{
-				int idebug = 1;
-			}
-			//read from mapping created in zone file
-			if (zone_id == -1 && assignment.access_node_id_to_zone_id_map.find(node_id) != assignment.access_node_id_to_zone_id_map.end())
-			{
-				zone_id = assignment.access_node_id_to_zone_id_map[node_id];
-			}
-
-			if (zone_id >= 1)
-			{
-				zone_id_to_analysis_district_id_mapping[zone_id] = analysis_district_id;
-
-				node.zone_org_id = zone_id;  // this note here, we use zone_org_id to ensure we will only have super centriods with zone id positive. 
-				if (zone_id >= 1)
-					node.is_activity_node = 1;  // from zone
-
-				string str_agent_type;
-				parser.GetValueByFieldName("agent_type", str_agent_type, false); //step 2 for adding access links: read agent_type for adding access links
-
-				if (str_agent_type.size() > 0 && assignment.agent_type_2_seqno_mapping.find(str_agent_type) != assignment.agent_type_2_seqno_mapping.end())
-				{
-					node.agent_type_str = str_agent_type;
-					node.agent_type_no = assignment.agent_type_2_seqno_mapping[str_agent_type];
-					multmodal_activity_node_count++;
-				}
-			}
-
-			parser.GetValueByFieldName("x_coord", node.x, true, false);
-			parser.GetValueByFieldName("y_coord", node.y, true, false);
-
-			int subarea_id = -1;
-			parser.GetValueByFieldName("subarea_id", subarea_id, false);
-			node.subarea_id = subarea_id;
-			// this is an activity node // we do not allow zone id of zero
-			if (zone_id >= 1)
-			{
-				// for physcial nodes because only centriod can have valid zone_id.
-				node.zone_org_id = zone_id;
-				if (zone_id_mapping.find(zone_id) == zone_id_mapping.end())
-				{
-					//create zone
-					zone_id_mapping[zone_id] = node_id;
-
-					assignment.zone_id_X_mapping[zone_id] = node.x;
-					assignment.zone_id_Y_mapping[zone_id] = node.y;
-				}
-
-
-			}
-			if (zone_id >= 1)
-			{
-
-				assignment.node_seq_no_2_info_zone_id_mapping[internal_node_seq_no] = zone_id;
-			}
-
-			/*node.x = x;
-			node.y = y;*/
-			internal_node_seq_no++;
-
-			// push it to the global node vector
-			g_node_vector.push_back(node);
-			assignment.g_number_of_nodes++;
-
-			if (assignment.g_number_of_nodes % 5000 == 0)
-				dtalog.output() << "reading " << assignment.g_number_of_nodes << " nodes.. " << endl;
+		if (layer_no == 1)
+		{
+			file_name = "micronet\\node.csv";
 		}
 
-		dtalog.output() << "number of nodes = " << assignment.g_number_of_nodes << endl;
-		dtalog.output() << "number of multimodal activity nodes = " << multmodal_activity_node_count << endl;
-		dtalog.output() << "number of zones = " << zone_id_mapping.size() << endl;
+		if (parser.OpenCSVFile(file_name.c_str(), true))
+		{
+			// create a node object
+			CNode node;
 
-		// fprintf(g_pFileOutputLog, "number of nodes =,%d\n", assignment.g_number_of_nodes);
-		parser.CloseCSVFile();
+			while (parser.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
+			{
+				int node_id;
+				if (!parser.GetValueByFieldName("node_id", node_id))
+					continue;
+
+
+				if (node_id == 9439)
+				{
+					int trace_flag = 1;
+				}
+
+
+				if(max_layer_flag == 1) // MRM mode
+				{
+					if (layer_no == 0)  // macro node layer
+					{  // skip all inside non-gate node
+
+							if (assignment.g_node_id_to_MRM_subarea_mapping.find(node_id) != assignment.g_node_id_to_MRM_subarea_mapping.end())
+							{
+								if (assignment.g_node_id_to_MRM_subarea_mapping[node_id] == 1  
+									 // inside and not defined as gate node
+									&&
+										assignment.g_macro_node_id_to_MRM_incoming_bridge_mapping.find(node_id) == assignment.g_macro_node_id_to_MRM_incoming_bridge_mapping.end()
+									&&
+									assignment.g_macro_node_id_to_MRM_outgoing_bridge_mapping.find(node_id) == assignment.g_macro_node_id_to_MRM_outgoing_bridge_mapping.end()
+
+										
+										)
+								{
+									continue;
+
+								}
+
+							}
+
+
+
+					}
+
+					if (layer_no == 1)  // micro node layer
+					{
+						node_id += MICRONET_NODE_ID_BIG_M;
+
+						if (assignment.g_node_id_to_MRM_subarea_mapping.find(node_id) != assignment.g_node_id_to_MRM_subarea_mapping.end())
+						{
+							// skip all outside non-gate node
+							if (assignment.g_node_id_to_MRM_subarea_mapping[node_id] == 0 &&
+								assignment.g_micro_node_id_to_MRM_bridge_mapping.find(node_id) == assignment.g_micro_node_id_to_MRM_bridge_mapping.end()
+								)  // outside
+							{
+								continue;
+
+							}
+
+						}
+					}
+
+				}
+
+				if (assignment.g_node_id_to_seq_no_map.find(node_id) != assignment.g_node_id_to_seq_no_map.end())
+				{
+					//has been defined
+					continue;
+				}
+
+				
+
+
+				double x_coord;
+				double y_coord;
+
+				parser.GetValueByFieldName("x_coord", x_coord, true, false);
+				parser.GetValueByFieldName("y_coord", y_coord, true, false);
+
+
+				// micro network filter:
+				GDPoint pt;
+				pt.x = x_coord;
+				pt.y = y_coord;
+
+				assignment.g_node_id_to_seq_no_map[node_id] = internal_node_seq_no;
+
+				node.node_id = node_id;
+				node.node_seq_no = internal_node_seq_no;
+				node.layer_no = layer_no;
+				node.x = x_coord;
+				node.y = y_coord;
+
+				if (assignment.g_micro_node_id_to_MRM_bridge_mapping.find(node_id) != assignment.g_micro_node_id_to_MRM_bridge_mapping.end())
+					node.MRM_gate_flag = assignment.g_micro_node_id_to_MRM_bridge_mapping[node_id];
+
+				if (assignment.g_macro_node_id_to_MRM_incoming_bridge_mapping.find(node_id) != assignment.g_macro_node_id_to_MRM_incoming_bridge_mapping.end())
+					node.MRM_gate_flag = assignment.g_macro_node_id_to_MRM_incoming_bridge_mapping[node_id];
+
+				if (assignment.g_macro_node_id_to_MRM_outgoing_bridge_mapping.find(node_id) != assignment.g_macro_node_id_to_MRM_outgoing_bridge_mapping.end())
+					node.MRM_gate_flag = assignment.g_macro_node_id_to_MRM_outgoing_bridge_mapping[node_id];
+
+
+				int zone_id = -1;
+
+				parser.GetValueByFieldName("is_boundary", node.is_boundary, false, false);
+				parser.GetValueByFieldName("node_type", node.node_type, false);// step 1 for adding access links: read node type
+				parser.GetValueByFieldName("zone_id", zone_id);
+
+				int analysis_district_id = 0;  // default 
+
+				parser.GetValueByFieldName("district_id", analysis_district_id, false);
+			
+				if (analysis_district_id >= MAX_ORIGIN_DISTRICTS)
+				{
+					dtalog.output() << "Error: grid_id in node.csv is larger than predefined value of 20." << endl;
+					g_program_stop();
+				}
+
+				if (node_id == 2235)
+				{
+					int idebug = 1;
+				}
+				//read from mapping created in zone file
+				if (zone_id == -1 && assignment.access_node_id_to_zone_id_map.find(node_id) != assignment.access_node_id_to_zone_id_map.end())
+				{
+					zone_id = assignment.access_node_id_to_zone_id_map[node_id];
+				}
+
+				if (zone_id >= 1)
+				{
+					zone_id_to_analysis_district_id_mapping[zone_id] = analysis_district_id;
+
+					node.zone_org_id = zone_id;  // this note here, we use zone_org_id to ensure we will only have super centriods with zone id positive. 
+					if (zone_id >= 1)
+						node.is_activity_node = 1;  // from zone
+
+					string str_agent_type;
+					parser.GetValueByFieldName("agent_type", str_agent_type, false); //step 2 for adding access links: read agent_type for adding access links
+
+					if (str_agent_type.size() > 0 && assignment.agent_type_2_seqno_mapping.find(str_agent_type) != assignment.agent_type_2_seqno_mapping.end())
+					{
+						node.agent_type_str = str_agent_type;
+						node.agent_type_no = assignment.agent_type_2_seqno_mapping[str_agent_type];
+						multmodal_activity_node_count++;
+					}
+				}
+
+
+				int subarea_id = -1;
+				parser.GetValueByFieldName("subarea_id", subarea_id, false);
+				node.subarea_id = subarea_id;
+				// this is an activity node // we do not allow zone id of zero
+				if (zone_id >= 1)
+				{
+					// for physcial nodes because only centriod can have valid zone_id.
+					node.zone_org_id = zone_id;
+					if (zone_id_mapping.find(zone_id) == zone_id_mapping.end())
+					{
+						//create zone
+						zone_id_mapping[zone_id] = node_id;
+
+						assignment.zone_id_X_mapping[zone_id] = node.x;
+						assignment.zone_id_Y_mapping[zone_id] = node.y;
+					}
+
+
+				}
+				if (zone_id >= 1)
+				{
+
+					assignment.node_seq_no_2_info_zone_id_mapping[internal_node_seq_no] = zone_id;
+				}
+
+				/*node.x = x;
+				node.y = y;*/
+				internal_node_seq_no++;
+
+				// push it to the global node vector
+				g_node_vector.push_back(node);
+				assignment.g_number_of_nodes++;
+
+				if (assignment.g_number_of_nodes % 5000 == 0)
+					dtalog.output() << "reading " << assignment.g_number_of_nodes << " nodes.. " << endl;
+			}
+
+			dtalog.output() << "number of nodes = " << assignment.g_number_of_nodes << endl;
+			dtalog.output() << "number of multimodal activity nodes = " << multmodal_activity_node_count << endl;
+			dtalog.output() << "number of zones = " << zone_id_mapping.size() << endl;
+
+			// fprintf(g_pFileOutputLog, "number of nodes =,%d\n", assignment.g_number_of_nodes);
+			parser.CloseCSVFile();
+		}
 	}
+
+
 
 	int debug_line_count = 0;
 	/// <summary>
@@ -2983,6 +3805,7 @@ void g_read_input_data(Assignment& assignment)
 	}
 
 
+	// MRM: stage 3: read link layers
 	// step 4: read link file
 
 	CCSVParser parser_link;
@@ -2990,412 +3813,490 @@ void g_read_input_data(Assignment& assignment)
 	int link_type_warning_count = 0;
 	bool length_in_km_waring = false;
 	dtalog.output() << "Step 1.6: Reading link data in link.csv... " << endl;
-	if (parser_link.OpenCSVFile("link.csv", true))
+
+	for (int layer_no = 0; layer_no <= max_layer_flag; layer_no++)
 	{
-		while (parser_link.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
+		dtalog.output() << "link layer= " << layer_no << endl;
+
+
+		string file_name = "link.csv";
+
+		if (layer_no == 1)
 		{
-			string link_type_name_str;
-			parser_link.GetValueByFieldName("link_type_name", link_type_name_str, false);
+			file_name = "micronet\\link.csv";
+		}
 
-			long from_node_id= -1;
-			if (!parser_link.GetValueByFieldName("from_node_id", from_node_id))
-				continue;
-
-			long to_node_id =-1;
-			if (!parser_link.GetValueByFieldName("to_node_id", to_node_id))
-				continue;
-
-			string linkID;
-			parser_link.GetValueByFieldName("link_id", linkID);
-			// add the to node id into the outbound (adjacent) node list
-
-			if (assignment.g_node_id_to_seq_no_map.find(from_node_id) == assignment.g_node_id_to_seq_no_map.end())
-			{
-				dtalog.output() << "Error: from_node_id " << from_node_id << " in file link.csv is not defined in node.csv." << endl;
-				continue; //has not been defined
-			}
-
-			if (assignment.g_node_id_to_seq_no_map.find(to_node_id) == assignment.g_node_id_to_seq_no_map.end())
-			{
-				dtalog.output() << "Error: to_node_id " << to_node_id << " in file link.csv is not defined in node.csv." << endl;
-				continue; //has not been defined
-			}
-
-			//if (assignment.g_link_id_map.find(linkID) != assignment.g_link_id_map.end())
-			//    dtalog.output() << "Error: link_id " << linkID.c_str() << " has been defined more than once. Please check link.csv." << endl;
-
-			int internal_from_node_seq_no = assignment.g_node_id_to_seq_no_map[from_node_id];  // map external node number to internal node seq no.
-			int internal_to_node_seq_no = assignment.g_node_id_to_seq_no_map[to_node_id];
-
-
+		if (parser_link.OpenCSVFile(file_name.c_str(), true))
+		{
 			// create a link object
 			CLink link;
 
-			link.from_node_seq_no = internal_from_node_seq_no;
-			link.to_node_seq_no = internal_to_node_seq_no;
-			link.link_seq_no = assignment.g_number_of_links;
-			link.to_node_seq_no = internal_to_node_seq_no;
-			link.link_id = linkID;
-			link.subarea_id = -1;
-
-			if (g_node_vector[link.from_node_seq_no].subarea_id >= 1 || g_node_vector[link.to_node_seq_no].subarea_id >= 1)
+			while (parser_link.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
 			{
-				link.subarea_id = g_node_vector[link.from_node_seq_no].subarea_id;
-			}
+				string link_type_name_str;
+				parser_link.GetValueByFieldName("link_type_name", link_type_name_str, false);
 
-			assignment.g_link_id_map[link.link_id] = 1;
+				long from_node_id= -1;
+				if (!parser_link.GetValueByFieldName("from_node_id", from_node_id))
+					continue;
 
-			string movement_str;
-			parser_link.GetValueByFieldName("mvmt_txt_id", movement_str, false);
-			int cell_type = -1;
-			if (parser_link.GetValueByFieldName("cell_type", cell_type, false) == true)
-				link.cell_type = cell_type;
+				long to_node_id =-1;
+				if (!parser_link.GetValueByFieldName("to_node_id", to_node_id))
+					continue;
 
-			int meso_link_id=-1;
-			parser_link.GetValueByFieldName("meso_link_id", meso_link_id, false);
+				string linkID;
+				parser_link.GetValueByFieldName("link_id", linkID);
+				// add the to node id into the outbound (adjacent) node list
 
-			if(meso_link_id>=0)
-				link.meso_link_id = meso_link_id;
-
-			parser_link.GetValueByFieldName("geometry", link.geometry, false);
-			parser_link.GetValueByFieldName("link_code", link.link_code_str, false);
-			parser_link.GetValueByFieldName("tmc_corridor_name", link.tmc_corridor_name, false);
-			parser_link.GetValueByFieldName("link_type_name", link.link_type_name, false);
-
-			parser_link.GetValueByFieldName("link_type_code", link.link_type_code, false);
-
-			// and valid
-			if (movement_str.size() > 0)
-			{
-				int main_node_id = -1;
-
-
-				link.mvmt_txt_id = movement_str;
-				link.main_node_id = main_node_id;
-			}
-
-			// Peiheng, 05/13/21, if setting.csv does not have corresponding link type or the whole section is missing, set it as 2 (i.e., Major arterial)
-			int link_type = 2;
-			parser_link.GetValueByFieldName("link_type", link_type, false);
-
-			if (assignment.g_LinkTypeMap.find(link_type) == assignment.g_LinkTypeMap.end())
-			{
-				if (link_type_warning_count < 10)
+				if (from_node_id == 9439)
 				{
-					dtalog.output() << "link type " << link_type << " in link.csv is not defined for link " << from_node_id << "->" << to_node_id << " in link_type section in setting.csv" << endl;
-					link_type_warning_count++;
+					int trace_id = 1;
+				}
 
-					CLinkType element_vc;
-					// -1 is for virutal connector
-					element_vc.link_type = link_type;
-					element_vc.link_type_name = link.link_type_name;
-					assignment.g_LinkTypeMap[element_vc.link_type] = element_vc;
+
+				if (max_layer_flag == 1) // MRM mode
+				{
+					if (layer_no == 0)  // macro link layer
+					{  // skip all links inside non-gate node
+
+						if (assignment.g_node_id_to_MRM_subarea_mapping.find(from_node_id) != assignment.g_node_id_to_MRM_subarea_mapping.end()
+							|| assignment.g_node_id_to_MRM_subarea_mapping.find(to_node_id) != assignment.g_node_id_to_MRM_subarea_mapping.end())
+						{
+							if (assignment.g_node_id_to_MRM_subarea_mapping[from_node_id] == 1
+						&&		assignment.g_node_id_to_MRM_subarea_mapping[to_node_id] == 1)  // both upstream and downstream inside
+							{
+								continue;
+
+							}
+							// keep all outside link or bridge link with a gate node inside the suabrea MRM
+
+						}
+
+					}
+
+					if (layer_no == 1)  // micro link layer
+					{
+						from_node_id += MICRONET_NODE_ID_BIG_M;
+						to_node_id += MICRONET_NODE_ID_BIG_M;
+
+						if (assignment.g_node_id_to_MRM_subarea_mapping.find(from_node_id) != assignment.g_node_id_to_MRM_subarea_mapping.end()
+							&& assignment.g_node_id_to_MRM_subarea_mapping.find(to_node_id) != assignment.g_node_id_to_MRM_subarea_mapping.end())
+						{
+							if (assignment.g_node_id_to_MRM_subarea_mapping[from_node_id] == 0 && assignment.g_node_id_to_MRM_subarea_mapping[to_node_id] == 0)  // both upstream and downstream outside
+							{
+								continue;
+
+							}
+							// keep all inside link or bridge link with a gate node inside the suabrea MRM
+
+						}
+					}
 
 				}
-				// link.link_type has been taken care by its default constructor
-				//g_program_stop();
-			}
-			else
-			{
-				// link type should be defined in settings.csv
-				link.link_type = link_type;
-			}
 
-			if (assignment.g_LinkTypeMap[link.link_type].type_code == "c")  // suggestion: we can move "c" as "connector" in allowed_uses
-			{
-				if (g_node_vector[internal_from_node_seq_no].zone_org_id >= 0)
+				if (assignment.g_node_id_to_seq_no_map.find(from_node_id) == assignment.g_node_id_to_seq_no_map.end())
 				{
-					int zone_org_id = g_node_vector[internal_from_node_seq_no].zone_org_id;
-					if (assignment.g_zoneid_to_zone_seq_no_mapping.find(zone_org_id) != assignment.g_zoneid_to_zone_seq_no_mapping.end())
-						link.zone_seq_no_for_outgoing_connector = assignment.g_zoneid_to_zone_seq_no_mapping[zone_org_id];
+
+					int MRM_subarea_mapping_flag = assignment.g_node_id_to_MRM_subarea_mapping[from_node_id];
+					int MRM_subarea_mapping_flag_to = assignment.g_node_id_to_MRM_subarea_mapping[to_node_id];
+
+					dtalog.output() << "Error: from_node_id " << from_node_id << " in file link.csv is not defined in node.csv." << endl;
+					dtalog.output() << " from_node_id mapping =" << MRM_subarea_mapping_flag << endl;
+					continue; //has not been defined
 				}
-			}
 
-			double length_in_meter = 1.0; // km or mile
-			double free_speed = 60.0;
-			double cutoff_speed = 1.0;
-			double k_jam = assignment.g_LinkTypeMap[link.link_type].k_jam;
-			double bwtt_speed = 12;  //miles per hour
+				if (assignment.g_node_id_to_seq_no_map.find(to_node_id) == assignment.g_node_id_to_seq_no_map.end())
+				{
 
-			double lane_capacity = 1800;
-			parser_link.GetValueByFieldName("length", length_in_meter);  // in meter
-			parser_link.GetValueByFieldName("FT", link.FT, false, true);
-			parser_link.GetValueByFieldName("AT", link.AT, false, true);
-			parser_link.GetValueByFieldName("vdf_code", link.vdf_code, false);
+					int MRM_subarea_mapping_flag = assignment.g_node_id_to_MRM_subarea_mapping[from_node_id];
+					int MRM_subarea_mapping_flag_to = assignment.g_node_id_to_MRM_subarea_mapping[to_node_id];
 
-			if (length_in_km_waring == false && length_in_meter < 0.1)
-			{
-				dtalog.output() << "warning: link link_distance_VDF =" << length_in_meter << " in link.csv for link " << from_node_id << "->" << to_node_id << ". Please ensure the unit of the link link_distance_VDF is meter." << endl;
-				// link.link_type has been taken care by its default constructor
-				length_in_km_waring = true;
-			}
+					dtalog.output() << "Error: to_node_id " << to_node_id << " in file link.csv is not defined in node.csv." << endl;
+					continue; //has not been defined
+				}
 
-			if (length_in_meter < 1)
-			{
-				length_in_meter = 1;  // minimum link_distance_VDF
-			}
-			parser_link.GetValueByFieldName("free_speed", free_speed);
+				//if (assignment.g_link_id_map.find(linkID) != assignment.g_link_id_map.end())
+				//    dtalog.output() << "Error: link_id " << linkID.c_str() << " has been defined more than once. Please check link.csv." << endl;
 
-			if (link.link_id == "201065AB")
-			{
-				int idebug = 1;
-			}
-
-			cutoff_speed = free_speed * 0.85; //default; 
-			parser_link.GetValueByFieldName("cutoff_speed", cutoff_speed, false);
-
-
-			if (free_speed <= 0.1)
-				free_speed = 60;
-
-			free_speed = max(0.1, free_speed);
-
-			link.free_speed = free_speed;
-			link.v_congestion_cutoff = cutoff_speed;
+				int internal_from_node_seq_no = assignment.g_node_id_to_seq_no_map[from_node_id];  // map external node number to internal node seq no.
+				int internal_to_node_seq_no = assignment.g_node_id_to_seq_no_map[to_node_id];
 
 
 
-			double number_of_lanes = 1;
-			parser_link.GetValueByFieldName("lanes", number_of_lanes);
-			parser_link.GetValueByFieldName("capacity", lane_capacity);
-			parser_link.GetValueByFieldName("saturation_flow_rate", link.saturation_flow_rate,false);
+				link.from_node_seq_no = internal_from_node_seq_no;
+				link.to_node_seq_no = internal_to_node_seq_no;
+				link.link_seq_no = assignment.g_number_of_links;
+				link.to_node_seq_no = internal_to_node_seq_no;
+				link.layer_no = layer_no;
+				link.link_id = linkID;
+				link.subarea_id = -1;
+
+				if (g_node_vector[link.from_node_seq_no].subarea_id >= 1 || g_node_vector[link.to_node_seq_no].subarea_id >= 1)
+				{
+					link.subarea_id = g_node_vector[link.from_node_seq_no].subarea_id;
+				}
+
+				assignment.g_link_id_map[link.link_id] = 1;
+
+				string movement_str;
+				parser_link.GetValueByFieldName("mvmt_txt_id", movement_str, false);
+				int cell_type = -1;
+				if (parser_link.GetValueByFieldName("cell_type", cell_type, false) == true)
+					link.cell_type = cell_type;
+
+				int meso_link_id=-1;
+				parser_link.GetValueByFieldName("meso_link_id", meso_link_id, false);
+
+				if(meso_link_id>=0)
+					link.meso_link_id = meso_link_id;
+
+				parser_link.GetValueByFieldName("geometry", link.geometry, false);
+				parser_link.GetValueByFieldName("link_code", link.link_code_str, false);
+				parser_link.GetValueByFieldName("tmc_corridor_name", link.tmc_corridor_name, false);
+				parser_link.GetValueByFieldName("link_type_name", link.link_type_name, false);
+
+				parser_link.GetValueByFieldName("link_type_code", link.link_type_code, false);
+
+				// and valid
+				if (movement_str.size() > 0)
+				{
+					int main_node_id = -1;
+
+
+					link.mvmt_txt_id = movement_str;
+					link.main_node_id = main_node_id;
+				}
+
+				// Peiheng, 05/13/21, if setting.csv does not have corresponding link type or the whole section is missing, set it as 2 (i.e., Major arterial)
+				int link_type = 2;
+				parser_link.GetValueByFieldName("link_type", link_type, false);
+
+				if (assignment.g_LinkTypeMap.find(link_type) == assignment.g_LinkTypeMap.end())
+				{
+					if (link_type_warning_count < 10)
+					{
+						dtalog.output() << "link type " << link_type << " in link.csv is not defined for link " << from_node_id << "->" << to_node_id << " in link_type section in setting.csv" << endl;
+						link_type_warning_count++;
+
+						CLinkType element_vc;
+						// -1 is for virutal connector
+						element_vc.link_type = link_type;
+						element_vc.link_type_name = link.link_type_name;
+						assignment.g_LinkTypeMap[element_vc.link_type] = element_vc;
+
+					}
+					// link.link_type has been taken care by its default constructor
+					//g_program_stop();
+				}
+				else
+				{
+					// link type should be defined in settings.csv
+					link.link_type = link_type;
+				}
+
+				if (assignment.g_LinkTypeMap[link.link_type].type_code == "c")  // suggestion: we can move "c" as "connector" in allowed_uses
+				{
+					if (g_node_vector[internal_from_node_seq_no].zone_org_id >= 0)
+					{
+						int zone_org_id = g_node_vector[internal_from_node_seq_no].zone_org_id;
+						if (assignment.g_zoneid_to_zone_seq_no_mapping.find(zone_org_id) != assignment.g_zoneid_to_zone_seq_no_mapping.end())
+							link.zone_seq_no_for_outgoing_connector = assignment.g_zoneid_to_zone_seq_no_mapping[zone_org_id];
+					}
+				}
+
+				double length_in_meter = 1.0; // km or mile
+				double free_speed = 60.0;
+				double cutoff_speed = 1.0;
+				double k_jam = assignment.g_LinkTypeMap[link.link_type].k_jam;
+				double bwtt_speed = 12;  //miles per hour
+
+				double lane_capacity = 1800;
+				parser_link.GetValueByFieldName("length", length_in_meter);  // in meter
+				parser_link.GetValueByFieldName("FT", link.FT, false, true);
+				parser_link.GetValueByFieldName("AT", link.AT, false, true);
+				parser_link.GetValueByFieldName("vdf_code", link.vdf_code, false);
+
+				if (length_in_km_waring == false && length_in_meter < 0.1)
+				{
+					dtalog.output() << "warning: link link_distance_VDF =" << length_in_meter << " in link.csv for link " << from_node_id << "->" << to_node_id << ". Please ensure the unit of the link link_distance_VDF is meter." << endl;
+					// link.link_type has been taken care by its default constructor
+					length_in_km_waring = true;
+				}
+
+				if (length_in_meter < 1)
+				{
+					length_in_meter = 1;  // minimum link_distance_VDF
+				}
+				parser_link.GetValueByFieldName("free_speed", free_speed);
+
+				if (link.link_id == "201065AB")
+				{
+					int idebug = 1;
+				}
+
+				cutoff_speed = free_speed * 0.85; //default; 
+				parser_link.GetValueByFieldName("cutoff_speed", cutoff_speed, false);
+
+
+				if (free_speed <= 0.1)
+					free_speed = 60;
+
+				free_speed = max(0.1, free_speed);
+
+				link.free_speed = free_speed;
+				link.v_congestion_cutoff = cutoff_speed;
+
+
+
+				double number_of_lanes = 1;
+				parser_link.GetValueByFieldName("lanes", number_of_lanes);
+				parser_link.GetValueByFieldName("capacity", lane_capacity);
+				parser_link.GetValueByFieldName("saturation_flow_rate", link.saturation_flow_rate,false);
 
 			
-			link.free_flow_travel_time_in_min = length_in_meter / 1609.0 / free_speed * 60;  // link_distance_VDF in meter 
-			float fftt_in_sec = link.free_flow_travel_time_in_min * 60;  // link_distance_VDF in meter 
+				link.free_flow_travel_time_in_min = length_in_meter / 1609.0 / free_speed * 60;  // link_distance_VDF in meter 
+				float fftt_in_sec = link.free_flow_travel_time_in_min * 60;  // link_distance_VDF in meter 
 
-			link.length_in_meter = length_in_meter;
-			link.link_distance_VDF = length_in_meter / 1609.0;
-			link.link_distance_km = length_in_meter / 1000.0;
-			link.link_distance_mile = length_in_meter / 1609.0;
+				link.length_in_meter = length_in_meter;
+				link.link_distance_VDF = length_in_meter / 1609.0;
+				link.link_distance_km = length_in_meter / 1000.0;
+				link.link_distance_mile = length_in_meter / 1609.0;
 
-			link.traffic_flow_code = assignment.g_LinkTypeMap[link.link_type].traffic_flow_code;
-			link.number_of_lanes = number_of_lanes;
-			link.lane_capacity = lane_capacity;
+				link.traffic_flow_code = assignment.g_LinkTypeMap[link.link_type].traffic_flow_code;
+				link.number_of_lanes = number_of_lanes;
+				link.lane_capacity = lane_capacity;
 
-			//spatial queue and kinematic wave
-			link.spatial_capacity_in_vehicles = max(1.0, link.link_distance_VDF * number_of_lanes * k_jam);
+				//spatial queue and kinematic wave
+				link.spatial_capacity_in_vehicles = max(1.0, link.link_distance_VDF * number_of_lanes * k_jam);
 
-			// kinematic wave
-			if (link.traffic_flow_code == 3)
-				link.BWTT_in_simulation_interval = link.link_distance_VDF / bwtt_speed * 3600 / number_of_seconds_per_interval;
+				// kinematic wave
+				if (link.traffic_flow_code == 3)
+					link.BWTT_in_simulation_interval = link.link_distance_VDF / bwtt_speed * 3600 / number_of_seconds_per_interval;
 
-			link.vdf_type = assignment.g_LinkTypeMap[link.link_type].vdf_type;
-			link.kjam = assignment.g_LinkTypeMap[link.link_type].k_jam;
-			char VDF_field_name[50];
+				link.vdf_type = assignment.g_LinkTypeMap[link.link_type].vdf_type;
+				link.kjam = assignment.g_LinkTypeMap[link.link_type].k_jam;
+				char VDF_field_name[50];
 
-			for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)
-			{
-				double pce_at = -1; // default
-				sprintf(VDF_field_name, "VDF_pce%s", assignment.g_AgentTypeVector[at].agent_type.c_str());
-
-				parser_link.GetValueByFieldName(VDF_field_name, pce_at, false, true);
-
-				if (pce_at > 1.001)  // log
+				for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)
 				{
-					//dtalog.output() << "link " << from_node_id << "->" << to_node_id << " has a pce of " << pce_at << " for agent type "
-					//    << assignment.g_AgentTypeVector[at].agent_type.c_str() << endl;
+					double pce_at = -1; // default
+					sprintf(VDF_field_name, "VDF_pce%s", assignment.g_AgentTypeVector[at].agent_type.c_str());
+
+					parser_link.GetValueByFieldName(VDF_field_name, pce_at, false, true);
+
+					if (pce_at > 1.001)  // log
+					{
+						//dtalog.output() << "link " << from_node_id << "->" << to_node_id << " has a pce of " << pce_at << " for agent type "
+						//    << assignment.g_AgentTypeVector[at].agent_type.c_str() << endl;
+					}
+
+
+					for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
+					{
+						if (pce_at > 0)
+						{   // if there are link based PCE values
+							link.VDF_period[tau].pce[at] = pce_at;
+						}
+						else
+						{
+							link.VDF_period[tau].pce[at] = assignment.g_AgentTypeVector[at].PCE;
+
+						}
+						link.VDF_period[tau].occ[at] = assignment.g_AgentTypeVector[at].OCC;  //occ;
+					}
+
+				}
+
+				// reading for VDF related functions 
+				// step 1 read type
+
+
+					//data initialization 
+
+				for (int time_index = 0; time_index < MAX_TIMEINTERVAL_PerDay; time_index++)
+				{
+					link.model_speed[time_index] = free_speed;
+					link.est_volume_per_hour_per_lane[time_index] = 0;
+					link.est_avg_waiting_time_in_min[time_index] = 0;
+					link.est_queue_length_per_lane[time_index] = 0;
 				}
 
 
 				for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
 				{
-					if (pce_at > 0)
-					{   // if there are link based PCE values
-						link.VDF_period[tau].pce[at] = pce_at;
-					}
-					else
+					//setup default values
+					link.VDF_period[tau].vdf_type = assignment.g_LinkTypeMap[link.link_type].vdf_type;
+					link.VDF_period[tau].lane_based_ultimate_hourly_capacity = lane_capacity;
+					link.VDF_period[tau].nlanes = number_of_lanes;
+
+					link.VDF_period[tau].FFTT = link.link_distance_VDF / max(0.0001, link.free_speed) * 60.0;  // 60.0 for 60 min per hour
+					link.VDF_period[tau].BPR_period_capacity = link.lane_capacity * link.number_of_lanes * assignment.g_DemandPeriodVector[tau].time_period_in_hour;
+					link.VDF_period[tau].vf = link.free_speed;
+					link.VDF_period[tau].v_congestion_cutoff = link.v_congestion_cutoff;
+					link.VDF_period[tau].alpha = 0.15;
+					link.VDF_period[tau].beta = 4;
+					link.VDF_period[tau].preload = 0;
+
+					for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)
 					{
-						link.VDF_period[tau].pce[at] = assignment.g_AgentTypeVector[at].PCE;
-
+						link.VDF_period[tau].toll[at] = 0;
+						link.VDF_period[tau].LR_price[at] = 0;
+						link.VDF_period[tau].LR_RT_price[at] = 0;
 					}
-					link.VDF_period[tau].occ[at] = assignment.g_AgentTypeVector[at].OCC;  //occ;
-				}
 
-			}
+					link.VDF_period[tau].starting_time_in_hour = assignment.g_DemandPeriodVector[tau].starting_time_slot_no * MIN_PER_TIMESLOT / 60.0;
+					link.VDF_period[tau].ending_time_in_hour = assignment.g_DemandPeriodVector[tau].ending_time_slot_no * MIN_PER_TIMESLOT / 60.0;
+					link.VDF_period[tau].L = assignment.g_DemandPeriodVector[tau].time_period_in_hour;
+					link.VDF_period[tau].t2 = assignment.g_DemandPeriodVector[tau].t2_peak_in_hour;
+					link.VDF_period[tau].peak_load_factor = 1;
 
-			// reading for VDF related functions 
-			// step 1 read type
+					int demand_period_id = assignment.g_DemandPeriodVector[tau].demand_period_id;
+					sprintf(VDF_field_name, "VDF_fftt%d", demand_period_id);
 
+					double FFTT = -1;
+					parser_link.GetValueByFieldName(VDF_field_name, FFTT, false, false);  // FFTT should be per min
 
-				//data initialization 
-
-			for (int time_index = 0; time_index < MAX_TIMEINTERVAL_PerDay; time_index++)
-			{
-				link.model_speed[time_index] = free_speed;
-				link.est_volume_per_hour_per_lane[time_index] = 0;
-				link.est_avg_waiting_time_in_min[time_index] = 0;
-				link.est_queue_length_per_lane[time_index] = 0;
-			}
-
-
-			for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
-			{
-				//setup default values
-				link.VDF_period[tau].vdf_type = assignment.g_LinkTypeMap[link.link_type].vdf_type;
-				link.VDF_period[tau].lane_based_ultimate_hourly_capacity = lane_capacity;
-				link.VDF_period[tau].nlanes = number_of_lanes;
-
-				link.VDF_period[tau].FFTT = link.link_distance_VDF / max(0.0001, link.free_speed) * 60.0;  // 60.0 for 60 min per hour
-				link.VDF_period[tau].BPR_period_capacity = link.lane_capacity * link.number_of_lanes * assignment.g_DemandPeriodVector[tau].time_period_in_hour;
-				link.VDF_period[tau].vf = link.free_speed;
-				link.VDF_period[tau].v_congestion_cutoff = link.v_congestion_cutoff;
-				link.VDF_period[tau].alpha = 0.15;
-				link.VDF_period[tau].beta = 4;
-				link.VDF_period[tau].preload = 0;
-
-				for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)
-				{
-					link.VDF_period[tau].toll[at] = 0;
-					link.VDF_period[tau].LR_price[at] = 0;
-					link.VDF_period[tau].LR_RT_price[at] = 0;
-				}
-
-				link.VDF_period[tau].starting_time_in_hour = assignment.g_DemandPeriodVector[tau].starting_time_slot_no * MIN_PER_TIMESLOT / 60.0;
-				link.VDF_period[tau].ending_time_in_hour = assignment.g_DemandPeriodVector[tau].ending_time_slot_no * MIN_PER_TIMESLOT / 60.0;
-				link.VDF_period[tau].L = assignment.g_DemandPeriodVector[tau].time_period_in_hour;
-				link.VDF_period[tau].t2 = assignment.g_DemandPeriodVector[tau].t2_peak_in_hour;
-				link.VDF_period[tau].peak_load_factor = 1;
-
-				int demand_period_id = assignment.g_DemandPeriodVector[tau].demand_period_id;
-				sprintf(VDF_field_name, "VDF_fftt%d", demand_period_id);
-
-				double FFTT = -1;
-				parser_link.GetValueByFieldName(VDF_field_name, FFTT, false, false);  // FFTT should be per min
-
-				bool VDF_required_field_flag = false;
-				if (FFTT >= 0)
-				{
-					link.VDF_period[tau].FFTT = FFTT;
-					VDF_required_field_flag = true;
-				}
-
-				if (link.VDF_period[tau].FFTT > 100)
-
-				{
-					dtalog.output() << "link " << from_node_id << "->" << to_node_id << " has a FFTT of " << link.VDF_period[tau].FFTT << " min at demand period " << demand_period_id
-						<< " " << assignment.g_DemandPeriodVector[tau].demand_period.c_str() << endl;
-				}
-
-				sprintf(VDF_field_name, "VDF_cap%d", demand_period_id);
-				parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].BPR_period_capacity, VDF_required_field_flag, false);
-				sprintf(VDF_field_name, "VDF_alpha%d", demand_period_id);
-				parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].alpha, VDF_required_field_flag, false);
-				sprintf(VDF_field_name, "VDF_beta%d", demand_period_id);
-				parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].beta, VDF_required_field_flag, false);
-
-				sprintf(VDF_field_name, "VDF_allowed_uses%d", demand_period_id);
-				if (parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].allowed_uses, false) == false)
-				{
-					parser_link.GetValueByFieldName("allowed_uses", link.VDF_period[tau].allowed_uses, false);
-				}
-
-				sprintf(VDF_field_name, "VDF_preload%d", demand_period_id);
-				parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].preload, false, false);
-
-				for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)
-				{
-
-					sprintf(VDF_field_name, "VDF_toll%s%d", assignment.g_AgentTypeVector[at].agent_type.c_str(), demand_period_id);
-					parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].toll[at], false, false);
-
-					if (link.VDF_period[tau].toll[at] > 0.001)
+					bool VDF_required_field_flag = false;
+					if (FFTT >= 0)
 					{
-						dtalog.output() << "link " << from_node_id << "->" << to_node_id << " has a toll of " << link.VDF_period[tau].toll[at] << " for agent type "
-							<< assignment.g_AgentTypeVector[at].agent_type.c_str() << " at demand period " << demand_period_id << endl;
+						link.VDF_period[tau].FFTT = FFTT;
+						VDF_required_field_flag = true;
+					}
+
+					if (link.VDF_period[tau].FFTT > 100)
+
+					{
+						dtalog.output() << "link " << from_node_id << "->" << to_node_id << " has a FFTT of " << link.VDF_period[tau].FFTT << " min at demand period " << demand_period_id
+							<< " " << assignment.g_DemandPeriodVector[tau].demand_period.c_str() << endl;
+					}
+
+					sprintf(VDF_field_name, "VDF_cap%d", demand_period_id);
+					parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].BPR_period_capacity, VDF_required_field_flag, false);
+					sprintf(VDF_field_name, "VDF_alpha%d", demand_period_id);
+					parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].alpha, VDF_required_field_flag, false);
+					sprintf(VDF_field_name, "VDF_beta%d", demand_period_id);
+					parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].beta, VDF_required_field_flag, false);
+
+					sprintf(VDF_field_name, "VDF_allowed_uses%d", demand_period_id);
+					if (parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].allowed_uses, false) == false)
+					{
+						parser_link.GetValueByFieldName("allowed_uses", link.VDF_period[tau].allowed_uses, false);
+					}
+
+					sprintf(VDF_field_name, "VDF_preload%d", demand_period_id);
+					parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].preload, false, false);
+
+					for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)
+					{
+
+						sprintf(VDF_field_name, "VDF_toll%s%d", assignment.g_AgentTypeVector[at].agent_type.c_str(), demand_period_id);
+						parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].toll[at], false, false);
+
+if (link.VDF_period[tau].toll[at] > 0.001)
+{
+	dtalog.output() << "link " << from_node_id << "->" << to_node_id << " has a toll of " << link.VDF_period[tau].toll[at] << " for agent type "
+		<< assignment.g_AgentTypeVector[at].agent_type.c_str() << " at demand period " << demand_period_id << endl;
+}
+
+					}
+					sprintf(VDF_field_name, "VDF_penalty%d", demand_period_id);
+					parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].penalty, false, false);
+
+					if (link.cell_type >= 2) // micro lane-changing arc
+					{
+						// additinonal min: 1 second 1/60.0 min
+						link.VDF_period[tau].penalty += 1.0 / 60.0;
+					}
+
+					parser_link.GetValueByFieldName("cycle_length", link.VDF_period[tau].cycle_length, false, false);
+
+					if (link.VDF_period[tau].cycle_length >= 1)
+					{
+						link.timing_arc_flag = true;
+
+						parser_link.GetValueByFieldName("start_green_time", link.VDF_period[tau].start_green_time);
+						parser_link.GetValueByFieldName("end_green_time", link.VDF_period[tau].end_green_time);
+
+						link.VDF_period[tau].effective_green_time = link.VDF_period[tau].end_green_time - link.VDF_period[tau].start_green_time;
+
+						if (link.VDF_period[tau].effective_green_time < 0)
+							link.VDF_period[tau].effective_green_time = link.VDF_period[tau].cycle_length;
+
+						link.VDF_period[tau].red_time = max(1, link.VDF_period[tau].cycle_length - link.VDF_period[tau].effective_green_time);
+						parser_link.GetValueByFieldName("red_time", link.VDF_period[tau].red_time, false);
+						parser_link.GetValueByFieldName("green_time", link.VDF_period[tau].effective_green_time, false);
+
+						if (link.saturation_flow_rate > 1000)  // protect the data attributes to be reasonable 
+						{
+							link.VDF_period[tau].saturation_flow_rate = link.saturation_flow_rate;
+						}
 					}
 
 				}
-				sprintf(VDF_field_name, "VDF_penalty%d", demand_period_id);
-				parser_link.GetValueByFieldName(VDF_field_name, link.VDF_period[tau].penalty, false, false);
 
-				if (link.cell_type >= 2) // micro lane-changing arc
+				// for each period
+
+				float default_cap = 1000;
+				float default_BaseTT = 1;
+
+
+				//link.m_OutflowNumLanes = number_of_lanes;//visum lane_cap is actually link_cap
+
+				link.update_kc(free_speed);
+				link.link_spatial_capacity = k_jam * number_of_lanes * link.link_distance_VDF;
+
+				link.link_distance_VDF = max(0.00001, link.link_distance_VDF);
+				for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
+					link.travel_time_per_period[tau] = link.link_distance_VDF / free_speed * 60;
+
+				// min // calculate link cost based link_distance_VDF and speed limit // later we should also read link_capacity, calculate delay
+
+				//int sequential_copying = 0;
+				//
+				//parser_link.GetValueByFieldName("sequential_copying", sequential_copying);
+
+				g_node_vector[internal_from_node_seq_no].m_outgoing_link_seq_no_vector.push_back(link.link_seq_no);  // add this link to the corresponding node as part of outgoing node/link
+				g_node_vector[internal_to_node_seq_no].m_incoming_link_seq_no_vector.push_back(link.link_seq_no);  // add this link to the corresponding node as part of outgoing node/link
+
+				g_node_vector[internal_from_node_seq_no].m_to_node_seq_no_vector.push_back(link.to_node_seq_no);  // add this link to the corresponding node as part of outgoing node/link
+				g_node_vector[internal_from_node_seq_no].m_to_node_2_link_seq_no_map[link.to_node_seq_no] = link.link_seq_no;  // add this link to the corresponding node as part of outgoing node/link
+
+
+				//// TMC reading 
+				string tmc_code;
+
+				parser_link.GetValueByFieldName("tmc", link.tmc_code, false);
+
+
+				if (link.tmc_code.size() > 0)
 				{
-					// additinonal min: 1 second 1/60.0 min
-					link.VDF_period[tau].penalty += 1.0/60.0;
+					parser_link.GetValueByFieldName("tmc_corridor_name", link.tmc_corridor_name, false);
+					link.tmc_corridor_id = 1;
+					link.tmc_road_sequence = 1;
+					parser_link.GetValueByFieldName("tmc_corridor_id", link.tmc_corridor_id, false);
+					parser_link.GetValueByFieldName("tmc_road_sequence", link.tmc_road_sequence, false);
 				}
 
-				parser_link.GetValueByFieldName("cycle_length", link.VDF_period[tau].cycle_length, false, false);
+				g_link_vector.push_back(link);
 
-				if (link.VDF_period[tau].cycle_length >= 1)
-				{
-					link.timing_arc_flag = true;
+				assignment.g_number_of_links++;
 
-					parser_link.GetValueByFieldName("start_green_time", link.VDF_period[tau].start_green_time);
-					parser_link.GetValueByFieldName("end_green_time", link.VDF_period[tau].end_green_time);
-
-					link.VDF_period[tau].effective_green_time = link.VDF_period[tau].end_green_time - link.VDF_period[tau].start_green_time;
-
-					if (link.VDF_period[tau].effective_green_time < 0)
-						link.VDF_period[tau].effective_green_time = link.VDF_period[tau].cycle_length;
-
-					link.VDF_period[tau].red_time = max(1,link.VDF_period[tau].cycle_length-  link.VDF_period[tau].effective_green_time);
-					parser_link.GetValueByFieldName("red_time", link.VDF_period[tau].red_time, false);
-					parser_link.GetValueByFieldName("green_time", link.VDF_period[tau].effective_green_time, false);
-
-					if(link.saturation_flow_rate >1000)  // protect the data attributes to be reasonable 
-					{ 
-					link.VDF_period[tau].saturation_flow_rate = link.saturation_flow_rate;
-					}
-				}
-
+				if (assignment.g_number_of_links % 10000 == 0)
+					dtalog.output() << "reading " << assignment.g_number_of_links << " links.. " << endl;
 			}
 
-			// for each period
+			parser_link.CloseCSVFile();
 
-			float default_cap = 1000;
-			float default_BaseTT = 1;
-
-
-			//link.m_OutflowNumLanes = number_of_lanes;//visum lane_cap is actually link_cap
-
-			link.update_kc(free_speed);
-			link.link_spatial_capacity = k_jam * number_of_lanes * link.link_distance_VDF;
-
-			link.link_distance_VDF = max(0.00001, link.link_distance_VDF);
-			for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
-				link.travel_time_per_period[tau] = link.link_distance_VDF / free_speed * 60;
-
-			// min // calculate link cost based link_distance_VDF and speed limit // later we should also read link_capacity, calculate delay
-
-			//int sequential_copying = 0;
-			//
-			//parser_link.GetValueByFieldName("sequential_copying", sequential_copying);
-
-			g_node_vector[internal_from_node_seq_no].m_outgoing_link_seq_no_vector.push_back(link.link_seq_no);  // add this link to the corresponding node as part of outgoing node/link
-			g_node_vector[internal_to_node_seq_no].m_incoming_link_seq_no_vector.push_back(link.link_seq_no);  // add this link to the corresponding node as part of outgoing node/link
-
-			g_node_vector[internal_from_node_seq_no].m_to_node_seq_no_vector.push_back(link.to_node_seq_no);  // add this link to the corresponding node as part of outgoing node/link
-			g_node_vector[internal_from_node_seq_no].m_to_node_2_link_seq_no_map[link.to_node_seq_no] = link.link_seq_no;  // add this link to the corresponding node as part of outgoing node/link
-
-
-			//// TMC reading 
-			string tmc_code;
-
-			parser_link.GetValueByFieldName("tmc", link.tmc_code, false);
-
-
-			if (link.tmc_code.size() > 0)
-			{
-				parser_link.GetValueByFieldName("tmc_corridor_name", link.tmc_corridor_name, false);
-				link.tmc_corridor_id = 1;
-				link.tmc_road_sequence = 1;
-				parser_link.GetValueByFieldName("tmc_corridor_id", link.tmc_corridor_id, false);
-				parser_link.GetValueByFieldName("tmc_road_sequence", link.tmc_road_sequence, false);
-			}
-
-			g_link_vector.push_back(link);
-
-			assignment.g_number_of_links++;
-
-			if (assignment.g_number_of_links % 10000 == 0)
-				dtalog.output() << "reading " << assignment.g_number_of_links << " links.. " << endl;
+			dtalog.output() << "number of links =" << g_link_vector.size() << endl;
 		}
 
-		parser_link.CloseCSVFile();
-	}
+	 }
+
+	 // MRM: stage 4: add bridge links
+	 int bridge_link_count = g_MRM_subarea_adding_bridge(assignment);
+
 	// we now know the number of links
-	dtalog.output() << "number of links = " << assignment.g_number_of_links << endl;
+	dtalog.output() << "number of bridge links = " << bridge_link_count << endl;
 
 
 	dtalog.output() << "number of links =" << assignment.g_number_of_links << endl;
@@ -3404,6 +4305,11 @@ void g_read_input_data(Assignment& assignment)
 	assignment.summary_file << ",# of nodes = ," << g_node_vector.size() << endl;
 	assignment.summary_file << ",# of links =," << g_link_vector.size() << endl;
 	assignment.summary_file << ",# of zones =," << g_zone_vector.size() << endl;
+	assignment.summary_file << ",# of bridge links =," << bridge_link_count << endl;
+	assignment.summary_file << ",# of micro gate nodes =," << number_of_micro_gate_nodes << endl;
+
+
+	
 
 
 	assignment.summary_file << ",summary by multi-modal and demand types,demand_period,agent_type,# of links,avg_free_speed,total_length_in_km,total_capacity,avg_lane_capacity,avg_length_in_meter," << endl;
@@ -3663,3 +4569,5 @@ void g_read_input_data(Assignment& assignment)
 //    dtalog.output() << "number of timing records = " << assignment.g_number_of_timing_arcs << endl << endl;
 //}
 //
+
+

@@ -58,7 +58,9 @@ public:
         alpha{ 0.39999993}, beta{ 4 }, Q_alpha{ 0.272876961}, Q_beta{ 4}, rho{ 1 }, preload{ 0 }, penalty{ 0 }, sa_lanes_change{ 0 }, LR_price{ 0 }, LR_RT_price{ 0 }, starting_time_in_hour{ 0 }, ending_time_in_hour{ 0 },
         cycle_length{ -1 }, red_time{ 0 }, effective_green_time{ 0 }, saturation_flow_rate{ _default_saturation_flow_rate }, t0{ -1 }, t3{ -1 }, start_green_time{ -1 }, end_green_time{ -1 }, L{ 1 },
         queue_length{ 0 }, obs_count{ 0 }, upper_bound_flag{ 1 }, est_count_dev{ 0 }, avg_waiting_time{ 0 }, P{ -1 }, Severe_Congestion_P{ -1 }, lane_based_D{ 0 }, lane_based_Vph{ 0 }, avg_speed_BPR{ -1 }, avg_queue_speed{ -1 }, nlanes{ 1 }, sa_volume{ 0 }, t2{ 1 }, k_critical{ 45 }, link_volume {0},
-        Q_mu{ 0 }, Q_gamma{ 0 }, network_design_flag{ 0 }
+        Q_mu{ 0 }, Q_gamma{ 0 }, network_design_flag{ 0 },
+        volume_before{ 0 }, speed_before{ 0 }, DoC_before{ 0 }, P_before { 0 }, 
+        volume_after{ 0 }, speed_after{ 0 }, DoC_after{ 0 }, P_after{ 0 }
 {
         for (int at = 0; at < MAX_AGNETTYPES; at++)
         {
@@ -70,9 +72,6 @@ public:
 
     }
 
-    ~CPeriod_VDF()
-    {
-    }
 
     float PerformSignalVDF(float hourly_per_lane_volume, float red, float cycle_length)
     {
@@ -142,7 +141,7 @@ public:
             double dc_transition_ratio = 1;
 
              // step 1: calculate lane_based D based on plf and nlanes from link volume V over the analysis period  take nonnegative values
-            lane_based_D = max(0.0, volume) * queue_demand_factor / max(1.0, nlanes);
+            lane_based_D = max(0.0, volume) * queue_demand_factor / max(0.000001, nlanes);
             // step 2: D_ C ratio based on lane-based D and lane-based ultimate hourly capacity, 
             // uncongested states D <C 
             // congested states D > C, leading to P > 1
@@ -390,6 +389,18 @@ public:
     double est_count_dev;
 
 
+    string scenario_code;
+    double volume_before;
+    double speed_before;
+    double DoC_before;
+    double P_before;
+
+    double volume_after;
+    double speed_after;
+    double DoC_after;
+    double P_after;
+
+
     double starting_time_in_hour;
     double ending_time_in_hour;
     double t2;
@@ -446,7 +457,7 @@ public:
     double avg_queue_speed;  // queue VDF speed
     // inpput
     double link_volume;
-    std::map <int, double> link_volume_per_iteration_map;
+//    std::map <int, double> link_volume_per_iteration_map;
 
     //output
     double avg_delay;
@@ -459,5 +470,5 @@ public:
     float avg_waiting_time;
     float travel_time;
 
-    std::map<int, float> travel_time_per_iteration_map;
+//    std::map<int, float> travel_time_per_iteration_map;
 };
