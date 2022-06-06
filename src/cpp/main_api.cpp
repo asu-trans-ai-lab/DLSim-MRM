@@ -124,9 +124,9 @@ std::map<string, CInfoCell> g_info_cell_map;
 #include "assignment.h"
 #include "ODME.h"
 #include "scenario_API.h"
-#include "cbi_tool.h"
 
-std::vector<CTMC_Link> g_TMC_vector;
+
+
 void g_reset_link_volume_in_master_program_without_columns(int number_of_links, int iteration_index, bool b_self_reducing_path_volume)
 {
 	int number_of_demand_periods = assignment.g_number_of_demand_periods;
@@ -1018,11 +1018,6 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 		b_sensor_reading_data_available = true;
 	}
 
-	if (b_sensor_reading_data_available)
-	{
-		assignment.map_tmc_reading();  // read reading file
-		g_output_tmc_file();
-	}
 	//    g_output_dynamic_queue_profile();
 		//
 

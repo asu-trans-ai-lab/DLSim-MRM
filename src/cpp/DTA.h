@@ -1067,7 +1067,6 @@ public:
 
     std::map<std::string, int> m_TMClink_map;
     std::map<std::string, int> m_TMC_corridor_map;
-    bool map_tmc_reading();
 
     std::ofstream simu_log_file;
     std::ofstream sp_log_file;
