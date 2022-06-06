@@ -165,7 +165,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="assignment.h" />
-    <ClInclude Include="cbi_tool.h" />
     <ClInclude Include="DTA.h" />
     <ClInclude Include="input.h" />
     <ClInclude Include="ODME.h" />

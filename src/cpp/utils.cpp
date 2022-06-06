@@ -1035,8 +1035,10 @@ void g_find_convex_hull(std::vector<GDPoint> points, std::vector<GDPoint> &point
         // Keep removing top while the angle formed by
         // points next-to-top, top, and points[i] makes
         // a non-left turn
-        while (orientation(nextToTop(S), S.top(), points[i]) != 2)
-            S.pop();
+        while (S.size() >= 2 && orientation(nextToTop(S), S.top(), points[i]) != 2)
+        {
+               S.pop();
+        }
         S.push(points[i]);
     }
     // Now stack has the output points, print contents of stack

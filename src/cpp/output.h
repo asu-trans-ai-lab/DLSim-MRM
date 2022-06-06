@@ -1922,8 +1922,10 @@ void g_output_TD_link_performance(Assignment& assignment, int output_mode = 1)
 		fprintf(g_pFileLinkMOE, "link_id,tmc_corridor_name,link_type_name,from_node_id,to_node_id,meso_link_id,from_cell_code,lanes,length,free_speed,FFTT,time_period,inflow_volume,outflow_volume,CA,CD,density,queue_length_in_process,queue_ratio,discharge_cap,TD_free_flow_travel_time,waiting_time_in_sec,speed,geometry,");
 		fprintf(g_pFileLinkMOE, "notes\n");
 
-		int sampling_time_interval = 1; // min by min
+		int sampling_time_interval = assignment.td_link_performance_sampling_interval_in_min; // min by min
 
+		if(sampling_time_interval<=0)
+		{ // apply automated configuration
 		if (g_link_vector.size() > 5000)
 			sampling_time_interval = 15;
 
@@ -1935,6 +1937,12 @@ void g_output_TD_link_performance(Assignment& assignment, int output_mode = 1)
 
 		if (g_link_vector.size() > 500000)
 			sampling_time_interval = 120;
+		}
+		else
+		{
+		   //with user input
+
+		}
 
 		//Initialization for all nodes
 		for (int i = 0; i < g_link_vector.size(); ++i)

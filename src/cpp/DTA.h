@@ -25,7 +25,7 @@ constexpr auto _default_saturation_flow_rate = 1800;
 
 constexpr auto MIN_PER_TIMESLOT = 5;
 constexpr auto simulation_discharge_period_in_min = 60;
-constexpr auto MICRONET_NODE_ID_BIG_M = 10000000;
+
 
 /* make sure we change the following two parameters together*/
 /*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
@@ -48,7 +48,7 @@ constexpr auto LCG_M = 65521;  // it should be 2^32, but we use a small 16-bit n
 
 enum e_traffic_flow_model { point_queue = 0, spatial_queue, kinemative_wave };
 enum e_VDF_type { q_vdf = 0, bpr_vdf };
-enum e_assignment_mode { lue = 0, dta=3, cbi=11, cbsa=12};
+enum e_assignment_mode { lue = 0, dta=3};
 
 // FILE* g_pFileOutputLog = nullptr;
 extern void g_OutputModelFiles(int mode);
@@ -835,7 +835,7 @@ public:
         total_demand_volume{ 0.0 }, g_column_pool{ nullptr }, g_number_of_in_memory_simulation_intervals{ 500 },
         g_number_of_column_generation_iterations{ 20 }, g_number_of_column_updating_iterations{ 0 }, g_number_of_ODME_iterations{ 0 }, g_number_of_sensitivity_analysis_iterations{ 0 }, g_number_of_demand_periods{ 24 }, g_number_of_links{ 0 }, g_number_of_timing_arcs{ 0 },
         g_number_of_nodes{ 0 }, g_number_of_zones{ 0 }, g_number_of_agent_types{ 0 }, debug_detail_flag{ 1 }, path_output{ 1 }, trajectory_output_count{ -1 },
-        trace_output{ 0 }, major_path_volume_threshold{ 0.000001 }, trajectory_sampling_rate{ 1.0 }, dynamic_link_performance_sampling_interval_in_min{ 60 }, dynamic_link_performance_sampling_interval_hd_in_min{ 15 }, trajectory_diversion_only{ 0 }, m_GridResolution{ 0.01 },
+        trace_output{ 0 }, major_path_volume_threshold{ 0.000001 }, trajectory_sampling_rate{ 1.0 }, td_link_performance_sampling_interval_in_min{ -1 }, dynamic_link_performance_sampling_interval_hd_in_min{ 15 }, trajectory_diversion_only{ 0 }, m_GridResolution{ 0.01 },
         shortest_path_log_zone_id{ -1 }, g_number_of_analysis_districts{ 1 }
     {
         m_LinkCumulativeArrivalVector  = NULL;
@@ -959,7 +959,7 @@ public:
     int trace_output;
     float trajectory_sampling_rate;
     int trajectory_diversion_only;
-    int dynamic_link_performance_sampling_interval_in_min;
+    int td_link_performance_sampling_interval_in_min;
     float dynamic_link_performance_sampling_interval_hd_in_min;
 
     float major_path_volume_threshold;
