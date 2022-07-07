@@ -63,7 +63,7 @@ void g_load_supply_side_scenario_file(Assignment& assignment)
 	int workzone_count = 0;
 	int dms_count = 0;
 
-	FILE* g_pFileModel_LC = fopen("model_scenario.csv", "w");
+	FILE* g_pFileModel_LC = fopen("model_scenario_log.csv", "w");
 	if (g_pFileModel_LC == NULL)
 		return;
 
@@ -118,7 +118,7 @@ void g_load_supply_side_scenario_file(Assignment& assignment)
 			}
 			else
 			{
-				dtalog.output() << "Error: Link " << from_node_id << "->" << to_node_id << " in file scenario.csv is not defined in link.csv." << endl;
+				dtalog.output() << "Error: Link " << from_node_id << "->" << to_node_id << " in file supply_side_scenario.csv is not defined in link.csv." << endl;
 				continue;
 			}
 
@@ -157,6 +157,7 @@ void g_load_supply_side_scenario_file(Assignment& assignment)
 				float old_lanes = g_link_vector[link_seq_no].VDF_period[tau].nlanes;
 
 				g_link_vector[link_seq_no].VDF_period[tau].BPR_period_capacity *= lanes_changed / max(1, old_lanes);
+				//change the capacity directly after reading link.csv
 
 				g_link_vector[link_seq_no].VDF_period[tau].nlanes = lanes_changed;  // apply the change
 				g_link_vector[link_seq_no].VDF_period[tau].network_design_flag = 1;
@@ -177,21 +178,21 @@ void g_load_supply_side_scenario_file(Assignment& assignment)
 				g_link_vector[link_seq_no].VDF_period[tau].sa_lanes_change = lanes_changed;  // apply the change
 				g_link_vector[link_seq_no].VDF_period[tau].network_design_flag = 1;
 				//
-				g_link_vector[link_seq_no].VDF_period[tau].scenario_code = "capacity change";
+				g_link_vector[link_seq_no].VDF_period[tau].scenario_code = "sa";
 				sa_capacity_count++;
 
 				fprintf(g_pFileModel_LC, "sa,number_of_lanes_changed=%f,", lanes_changed);
 			}
 
-			// capacity in the space time arcs
-			float lanes_changed = 0;
-			parser.GetValueByFieldName("lanes", lanes_changed);
+			//// capacity in the space time arcs
+			//float lanes_changed = 0;
+			//parser.GetValueByFieldName("lanes", lanes_changed);
 
-			g_link_vector[link_seq_no].VDF_period[tau].sa_lanes_change = lanes_changed;  // apply the change
-			g_link_vector[link_seq_no].VDF_period[tau].network_design_flag = 1;
-			//
-			g_link_vector[link_seq_no].VDF_period[tau].scenario_code = "capacity change";
-			fprintf(g_pFileModel_LC, "sa,number_of_lanes_changed=%f,", lanes_changed);
+			//g_link_vector[link_seq_no].VDF_period[tau].sa_lanes_change = lanes_changed;  // apply the change
+			//g_link_vector[link_seq_no].VDF_period[tau].network_design_flag = 1;
+			////
+			//g_link_vector[link_seq_no].VDF_period[tau].scenario_code = "capacity change";
+			//fprintf(g_pFileModel_LC, "sa,number_of_lanes_changed=%f,", lanes_changed);
 
 			if (scenario_type == "incident")
 			{

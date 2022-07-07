@@ -767,7 +767,6 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 	}
 
 	// stage II sensitivity analysis stage 
-	//    stage III 
 	if (assignment.g_number_of_sensitivity_analysis_iterations > 0)
 	{
 

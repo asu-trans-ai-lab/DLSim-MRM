@@ -120,7 +120,7 @@ int main()
 				// the main difference of these two methods are different output in link_performance.csv
 				// for basic uses set assignment mode to 'ue'
 				// for more detailed link performances (one minute) set 'dta'1
-				assignment_mode = 0;
+				assignment_mode = 1;
 				//else if (assignment_mode_str == "zone2access")  //access link
 				//	assignment_mode = 21;
 				//else

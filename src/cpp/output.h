@@ -117,7 +117,7 @@ void g_record_corridor_performance_summary(Assignment& assignment, int base_case
 					g_corridor_info_base0_map[key].record_link_2_corridor_data(l_element, tau);
 					if (g_link_vector[i].VDF_period[tau].network_design_flag != 0)
 					{
-						key = g_link_vector[i].link_id;
+						key = g_link_vector[i].VDF_period[tau].scenario_code + " link_id:" + g_link_vector[i].link_id;
 						g_corridor_info_base0_map[key].record_link_2_corridor_data(l_element, tau);
 					}
 				}
@@ -127,7 +127,7 @@ void g_record_corridor_performance_summary(Assignment& assignment, int base_case
 
 					if (g_link_vector[i].VDF_period[tau].network_design_flag != 0)
 					{
-						key = g_link_vector[i].link_id;
+						key = g_link_vector[i].VDF_period[tau].scenario_code + " link_id:" + g_link_vector[i].link_id;
 						g_corridor_info_SA_map[key].record_link_2_corridor_data(l_element, tau);
 					}
 				}

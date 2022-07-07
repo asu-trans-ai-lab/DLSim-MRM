@@ -3206,6 +3206,8 @@ void g_read_input_data(Assignment& assignment)
 
 				parser_link.GetValueByFieldName("geometry", link.geometry, false);
 				parser_link.GetValueByFieldName("link_code", link.link_code_str, false);
+
+				link.tmc_corridor_name = "network_wide";
 				parser_link.GetValueByFieldName("tmc_corridor_name", link.tmc_corridor_name, false);
 				parser_link.GetValueByFieldName("link_type_name", link.link_type_name, false);
 
