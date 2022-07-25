@@ -430,9 +430,15 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 		}
 		double total_demand = 0;
 		double total_related_demand = 0;
+		double total_related_demand_from_internal = 0;
+		double total_related_demand_from_external = 0;
+		double total_related_demand_from_external_cutoff = 0;
+		double volume_cut_off_value = 0;
 
 		int non_impact_zone_count = 0;
 		int inside_zone_count = 0;
+		int related_external_zone_count = 0;
+		int related_external_zone_count_with_significant_volume = 0;
 		// pre read demand 
 		double total_preload_demand = g_pre_read_demand_file(assignment);
 
@@ -443,6 +449,9 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 		}
 		else
 		{
+			// first stage: scan all origin zones
+			// output: g_zone_vector[orig].subarea_significance_flag: true for inside zone, and related zone
+			// total_related_demand: inside to all, outside passing to all
 		for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
 		{
 			GDPoint Pt;
@@ -451,18 +460,18 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 
 			total_demand += g_zone_vector[orig].preread_total_O_demand;
 
-
-
 			if (g_test_point_in_polygon(Pt, assignment.g_subarea_shape_points) == 1)
 			{
 				total_related_demand += g_zone_vector[orig].preread_total_O_demand;
+
+				total_related_demand_from_internal += g_zone_vector[orig].preread_total_O_demand;
+
 				g_zone_vector[orig].origin_zone_impact_volume = g_zone_vector[orig].preread_total_O_demand;
-				g_zone_vector[orig].subarea_inside_flag = 1;  // zoom is inside the subarea
+				g_zone_vector[orig].subarea_inside_flag = 3;  // zoom is inside the subarea
 				inside_zone_count++;
 				continue; //inside the subarea, keep the zone anyway
 			}
 
-			g_zone_vector[orig].subarea_inside_flag = 0;
 
 
 			double origin_zone_impact_volume = 0;
@@ -488,33 +497,52 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 					if (g_zone_vector[orig].preread_ODdemand.find(dest) != g_zone_vector[orig].preread_ODdemand.end())
 					{
 						total_related_demand += g_zone_vector[orig].preread_ODdemand[dest];
+						total_related_demand_from_external += g_zone_vector[orig].preread_ODdemand[dest];
 						origin_zone_impact_volume += g_zone_vector[orig].preread_ODdemand[dest];
-						g_zone_vector[orig].subarea_impact_flag[dest] = true;
+						g_zone_vector[orig].preread_total_O_related_demand += g_zone_vector[orig].preread_ODdemand[dest];
+						g_zone_vector[orig].impact_passing_ODdemand[dest] = g_zone_vector[orig].preread_ODdemand[dest];;
+						if (g_zone_vector[orig].subarea_inside_flag == 0)
+						{
+							g_zone_vector[orig].subarea_inside_flag = 2;
+							g_zone_vector[orig].subarea_significance_flag = true;
+						}
 					}
 				}
-
-
-
 			}  // end of destination zone loop
+
+			related_external_zone_count++;
 
 			double impact_demand_ratio = origin_zone_impact_volume / max(0.0001, g_zone_vector[orig].preread_total_O_demand);
 			//			if (origin_zone_impact_volume < 5 && impact_demand_ratio <0.1)
 
 			g_zone_vector[orig].origin_zone_impact_volume = origin_zone_impact_volume;
+
 			if (origin_zone_impact_volume < 5)
 			{
-				g_zone_vector[orig].subarea_significance_flag = false;
+				g_zone_vector[orig].subarea_significance_flag = false;  //reset this as no signalized zone
 				non_impact_zone_count++;
 				// if there are more than y = 5 vehicles from a zone passing through the subarea(with the mark from step 2), 
 				//then we keep them in shortest path computing.
 			}
-
+			else
+			{
+				related_external_zone_count_with_significant_volume++;
+			}
 
 		}
 
+		assignment.summary_file << ",first stage scanning" << endl;
+		assignment.summary_file << ",# of zones = " << inside_zone_count << ", total = " << total_related_demand << endl;
+		assignment.summary_file << ",# inside_zone_count = " << inside_zone_count << ", inside demand = " << total_related_demand_from_internal << endl;
+		assignment.summary_file << ",# related_external_zone_count = " << related_external_zone_count << ", external related demand = " << total_related_demand_from_external << endl;
+		assignment.summary_file << ",# related_external_zone_count_with_significant_volume = " << related_external_zone_count_with_significant_volume << endl;
+
+
 		// use the following rule to determine how many zones to keep as origin zones, we still keep all destination zones
-		int cutoff_zone_size = max(inside_zone_count*1.5, max(150, g_zone_vector.size()/20));
+		int cutoff_zone_size = min ( g_zone_vector.size(), max( related_external_zone_count_with_significant_volume*0.25, max(inside_zone_count*4, max(150, g_zone_vector.size()/20))));
 		int related_zone_size = g_zone_vector.size() - non_impact_zone_count;
+
+
 		if (related_zone_size > cutoff_zone_size && cutoff_zone_size > inside_zone_count)  // additional handling  remaining zones are still greater than 1000
 		{
 
@@ -540,40 +568,46 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 			{
 			std::sort(origin_zone_volume_vector.begin(), origin_zone_volume_vector.end());
 
-
 			// determine the cut off value;
 			int cut_off_zone_index = max(0, origin_zone_volume_vector.size() - (cutoff_zone_size - inside_zone_count));
 
-			float volume_cut_off_value = origin_zone_volume_vector[cut_off_zone_index];
+			volume_cut_off_value = origin_zone_volume_vector[cut_off_zone_index];
+
 
 
 			for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
 			{
 				if (g_zone_vector[orig].subarea_inside_flag == 0 && g_zone_vector[orig].subarea_significance_flag == true)
 				{
-					if (g_zone_vector[orig].origin_zone_impact_volume < volume_cut_off_value)
+					if (g_zone_vector[orig].origin_zone_impact_volume < volume_cut_off_value)  // volume_cut_off_value is based on the value just established
 					{
-						g_zone_vector[orig].subarea_significance_flag = false;
+						g_zone_vector[orig].subarea_significance_flag = false; // set non significant
+						g_zone_vector[orig].subarea_inside_flag = 1;  // zone is set to boudary
+//						related_zone_count++;
 					}
+					else
+					{
+						g_zone_vector[orig].subarea_inside_flag = 2;  // zone is set to significantly related
+						total_related_demand_from_external_cutoff += g_zone_vector[orig].preread_total_O_related_demand;
+						
+					}
+
 				}
 
 			}
 
-			non_impact_zone_count = 0;
-			for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
-			{
-				if (g_zone_vector[orig].subarea_significance_flag == true)
-				{
-					non_impact_zone_count++;
-				}
 			}
-
-			}
-
-
 
 			//re select the impact origin zones 
 		}
+		
+		assignment.summary_file << ",second stage cut off" << endl;
+		assignment.summary_file << ",# cut off zone size = " << cutoff_zone_size << ", total_related_demand_from_external_cutoff  = " << total_related_demand_from_external_cutoff << endl;
+		assignment.summary_file << ",cut off threshold = " << volume_cut_off_value << endl;
+		double cut_off_demand_ratio = total_related_demand_from_external_cutoff / max(1, total_related_demand_from_external);
+		assignment.summary_file << ",cut off demand ratio = " << cut_off_demand_ratio << endl;
+
+		
 		}
 
 		// 		number of super zones
@@ -833,13 +867,17 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 		dtalog.output() << "total demand = " << total_demand << " total subarea-related demand = " << total_related_demand << " ("
 			<< related_ratio << " )" << endl;
 		
-		assignment.summary_file << ",# of subarea related zones =," << g_related_zone_vector_size << endl;
+		//assignment.summary_file << ",# of subarea related zones =," << g_related_zone_vector_size << endl;
+		//assignment.summary_file << "," <<" # of inside zones = " << inside_zone_count <<  endl;
+		//assignment.summary_file << "," << " # of related outside zones = " << related_external_zone_count << endl;
 	}
 
 	//	fprintf(g_pFileOutputLog, "number of zones =,%lu\n", g_zone_vector.size());
 	g_read_departure_time_profile(assignment);
 
 	assignment.InitializeDemandMatrix(g_related_zone_vector_size, g_zone_vector.size(), assignment.g_AgentTypeVector.size(), assignment.g_DemandPeriodVector.size());
+	
+	float related_flow_matrix[4][4] = { 0 };
 
 	float total_demand_in_demand_file = 0;
 
@@ -994,11 +1032,54 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 							int from_zone_seq_no = 0;
 							int to_zone_seq_no = 0;
 							from_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[o_zone_id];
+							to_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[d_zone_id];
+
+							// test if bypass subaera 
+							int inside_flag_from = g_zone_vector[from_zone_seq_no].subarea_inside_flag;
+							int inside_flag_to = g_zone_vector[to_zone_seq_no].subarea_inside_flag;
+
+								
+
+							if (o_zone_id == 1394 && d_zone_id == 39)
+							{
+								int idebug = 1;
+							}
+
+							if (inside_flag_from == 2) 
+							{
+								if(inside_flag_to == 2)
+								{ 
+								int idebug = 1;
+								}
+
+							}
+
+
+							if (inside_flag_from == 0 || inside_flag_to == 0)  // one of trip ends are not related the subarea
+							{
+								if (g_zone_vector[from_zone_seq_no].impact_passing_ODdemand.find(to_zone_seq_no)== g_zone_vector[from_zone_seq_no].impact_passing_ODdemand.end())
+									continue;  // skip all non passing OD pairs
+							}
+
+							//I = I: 2-2
+							//I - E1: 2-1
+							//I - E2: 2-0
+
+							//E1 - I: 1-2
+							//E2 - I: 0-2
+
+							///E1-E1: 1-1
+
+							//E2-E2
+							//E1-E2
+							//E1-E1
+
+							related_flow_matrix[inside_flag_from][inside_flag_to] += demand_value;
+
 							int from_zone_sindex = g_zone_vector[from_zone_seq_no].sindex;
 							if (from_zone_sindex == -1)
 								continue;
 
-							to_zone_seq_no = assignment.g_zoneid_to_zone_seq_no_mapping[d_zone_id];
 							int to_zone_sindex = g_zone_vector[to_zone_seq_no].sindex;
 							if (to_zone_sindex == -1)
 								continue;
@@ -1600,6 +1681,9 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 			if (to_zone_sindex == -1)
 				continue;
 
+			int inside_flag_from = g_zone_vector[orig].subarea_inside_flag;
+			int inside_flag_to = g_zone_vector[dest].subarea_inside_flag;
+
 			for (int at = 0; at < assignment.g_AgentTypeVector.size(); at++)  //m
 			{
 				for (int tau = 0; tau < assignment.g_DemandPeriodVector.size(); tau++)  //tau
@@ -1608,8 +1692,15 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 					if (p_column_pool->od_volume > 0)
 					{
 						CODState ods;
-						ods.setup_input(orig, dest, at, tau);
-						ods.input_value(p_column_pool->od_volume);
+						ods.setup_input(orig, dest, at, tau, inside_flag_from, inside_flag_to);
+
+						float passing_demand = 0;
+						if (g_zone_vector[orig].impact_passing_ODdemand.find(dest) != g_zone_vector[orig].impact_passing_ODdemand.end())
+						{
+							passing_demand = g_zone_vector[orig].impact_passing_ODdemand[dest];
+						}
+
+						ods.input_value(passing_demand);
 						ODStateVector.push_back(ods);
 					}
 				}
@@ -1617,11 +1708,33 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 		}
 	}
 
+	assignment.summary_file << ",from_flag,to_flag,volume" << endl;
+	assignment.summary_file << ",from_flag,to_flag,volume" << endl;
+	assignment.summary_file << ",0=not related, 1=signficiantly related external but not in cutoff, 2= cut-off external, 3= inside" << endl;
+	assignment.summary_file << ",";
+	for (int subare_inside_flag_to = 0; subare_inside_flag_to <= 3; subare_inside_flag_to++)
+		assignment.summary_file << subare_inside_flag_to << ",";
+
+	assignment.summary_file << endl;
+
+	for(int subare_inside_flag_from = 0; subare_inside_flag_from <=3; subare_inside_flag_from++)
+	{
+		assignment.summary_file <<  subare_inside_flag_from ;
+		for (int subare_inside_flag_to = 0; subare_inside_flag_to <=3; subare_inside_flag_to++)
+		{ 
+			assignment.summary_file << "," << related_flow_matrix[subare_inside_flag_from][subare_inside_flag_to];
+		}
+		assignment.summary_file << endl;
+	}
+
+
 	std::sort(ODStateVector.begin(), ODStateVector.end());
 
-	assignment.summary_file << ",top 10 OD,rank,o,d,agent_type,departure_time,volume" << endl;
+	assignment.summary_file << ",top 10 OD,rank,o,d,inside_flag_o,inside_flag_d,agent_type,departure_time,volume" << endl;
 
-	for (int k = 0; k < min(size_t(10), ODStateVector.size()); k++)
+
+
+	for (int k = 0; k < min(size_t(100), ODStateVector.size()); k++)
 	{
 		int o = ODStateVector[k].orig;
 		int d = ODStateVector[k].dest;
@@ -1629,6 +1742,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 		int tau = ODStateVector[k].tau;
 
 		assignment.summary_file << ",," << k+1 << "," << g_zone_vector[o].zone_id << "," << g_zone_vector[d].zone_id << "," <<
+			ODStateVector[k].subarea_inside_flag_orig << ","  << ODStateVector[k].subarea_inside_flag_dest << "," <<
 			assignment.g_AgentTypeVector[at].agent_type.c_str() << "," << assignment.g_DemandPeriodVector[tau].demand_period.c_str()
 			<< "," << ODStateVector[k].value << endl;
 	}

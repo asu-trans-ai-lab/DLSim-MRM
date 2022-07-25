@@ -1696,12 +1696,15 @@ public:
         est_production{ 0 }, est_attraction{ 0 },
         est_production_dev{ 0 }, est_attraction_dev{ 0 }, gravity_production{ 100 }, gravity_attraction{ 100 }, cell_x{ 0 }, cell_y{ 0 },
         gravity_est_production{ 0 }, gravity_est_attraction{ 0 }, subarea_significance_flag{ true }, preread_total_O_demand{ 0 }, sindex{ -1 }, origin_zone_impact_volume{ 0 }, subarea_inside_flag {false},
-        superzone_index{ -100 }, bcluster_seed{ false }, b_shortest_path_computing_flag{ true }, super_seed_zone_id{ -1 }, b_distrct_cluster_seed{ false }, distrct_cluster_index{ -100 }
+        superzone_index{ -100 }, bcluster_seed{ false }, b_shortest_path_computing_flag{ true }, super_seed_zone_id{ -1 }, b_distrct_cluster_seed{ false }, distrct_cluster_index{ -100 }, preread_total_O_related_demand {0}
     {
     }
 
     std::map <int, double> preread_ODdemand;
+    std::map <int, double> impact_passing_ODdemand;
     double preread_total_O_demand;
+    double preread_total_O_related_demand;
+
     int sindex;  //subarea significance index
     int superzone_index;
 
@@ -1714,7 +1717,7 @@ public:
 
     bool subarea_significance_flag;
     double origin_zone_impact_volume;
-    bool subarea_inside_flag;
+    int subarea_inside_flag;
     std::map <int, bool> subarea_impact_flag;
     __int64 cell_id;
     std::string cell_code;
@@ -1791,12 +1794,18 @@ public:
     int tau;
     int at;
 
-    void setup_input(int o, int d,  int a, int t)
+    int subarea_inside_flag_orig;
+    int subarea_inside_flag_dest;
+
+
+    void setup_input(int o, int d,  int a, int t, int subarea_inside_flag_o, int subarea_inside_flag_d)
     {
         orig = o;
         dest = d;
         tau = t;
         at = a;
+        subarea_inside_flag_orig = subarea_inside_flag_o;
+        subarea_inside_flag_dest = subarea_inside_flag_d;
     }
 
     void input_value(float val)

@@ -1,0 +1,2 @@
+od_no,o_zone_id,d_zone_id,o_sindex,d_sindex,o_district_id,d_district_id,agent_type,demand_period,volume,connectivity_flag,path_FF_travel_time_min,distance_km,distance_mile,OD0,OD1,OD2,OD3,OD4,OD5,OD6,OD7,OD8,OD9,OD10,OD11,OD12,OD13,OD14,OD15,OD16,OD17,OD18,OD19,
+1,1,2,0,1,0,0,p,AM,7000.00,1,20.0000,32.1800,20.0000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,
