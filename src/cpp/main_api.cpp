@@ -162,11 +162,11 @@ void g_reset_link_volume_in_master_program_without_columns(int number_of_links, 
 						g_link_vector[i].person_volume_per_period_per_at[tau][at] *= ratio;
 				}
 
-				for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
-				{
-					for(int og = 0; og < assignment.g_number_of_analysis_districts; ++og)
-						g_link_vector[i].person_volume_per_district_per_at[og][at] *= ratio;
-				}
+				//for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
+				//{
+				//	for(int og = 0; og < assignment.g_number_of_analysis_districts; ++og)
+				//		g_link_vector[i].person_volume_per_district_per_at[og][at] *= ratio;
+				//}
 
 			}
 		}
@@ -392,10 +392,10 @@ void g_fetch_link_volume_for_all_processors()
 
 			g_link_vector[i].person_volume_per_period_per_at[pNetwork->m_tau][pNetwork->m_agent_type_no] += pNetwork->m_link_person_volume_array[i];
 
-			for(int og = 0; og < assignment.g_number_of_analysis_districts; og ++)
-			{
-			g_link_vector[i].person_volume_per_district_per_at[og][pNetwork->m_agent_type_no] += pNetwork->m_link_person_volume_per_grid_array[i][og];
-			}
+			//for(int og = 0; og < assignment.g_number_of_analysis_districts; og ++)
+			//{
+			//g_link_vector[i].person_volume_per_district_per_at[og][pNetwork->m_agent_type_no] += pNetwork->m_link_person_volume_per_grid_array[i][og];
+			//}
 		}
 	}
 	// step 1: travel time based on VDF
@@ -422,9 +422,12 @@ void  CLink::calculate_dynamic_VDFunction(int inner_iteration_number, bool conge
 				idebug = 1;
 			}
 
+
+
 			travel_time_per_period[tau] = VDF_period[tau].calculate_travel_time_based_on_QVDF(
 				link_volume_to_be_assigned,
 				this->model_speed, this->est_volume_per_hour_per_lane);
+
 
 			VDF_period[tau].link_volume = link_volume_to_be_assigned;
 //			VDF_period[tau].travel_time_per_iteration_map[inner_iteration_number] = travel_time_per_period[tau];
@@ -513,14 +516,7 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 	if (assignment_mode == 1)
 		assignment.assignment_mode = dta;
 
-	//if (assignment_mode == 11)
-	//	assignment.assignment_mode = cbi;
-
-	//if (assignment_mode == 13)
-	//	assignment.assignment_mode = cbsa;
-
 	assignment.g_number_of_memory_blocks = min(max(1, number_of_memory_blocks), MAX_MEMORY_BLOCKS);
-
 
 	if (assignment.assignment_mode == lue)
 		column_updating_iterations = 0;
@@ -538,7 +534,7 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 	for (int i = 0; i < g_node_vector.size(); ++i)
 	{
 
-		if (g_node_vector[i].zone_org_id >= 0) // for each physical node
+		if (g_node_vector[i].zone_org_id >= 1) // for each physical node
 		{ // we need to make sure we only create two way connectors between nodes and zones
 
 				// for each node-zone pair: create a pair of connectors with the agent-type related acess_map
@@ -589,6 +585,7 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 	dtalog.output() << "Step 4: Column Generation for Traffic Assignment..." << endl;
 	dtalog.output() << "Total Column Generation iteration: " << assignment.g_number_of_column_generation_iterations << endl;
 
+
 	for (int iteration_number = 0; iteration_number < assignment.g_number_of_column_generation_iterations; iteration_number++)
 	{
 		dtalog.output() << endl;
@@ -602,8 +599,11 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 
 		double total_system_travel_time = 0;
 		double total_least_system_travel_time = 0;
+		double total_travel_distance = 0;
+		double avg_speed = 0;
+
 		// initialization at beginning of shortest path
-		total_system_travel_time = update_link_travel_time_and_cost(iteration_number);
+		total_system_travel_time = update_link_travel_time_and_cost(iteration_number, total_travel_distance);
 
 		if (assignment.assignment_mode == lue)
 		{
@@ -613,7 +613,7 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 		}
 		else
 		{
-			// we can have a recursive formulat to reupdate the current link volume by a factor of k/(k+1),
+			// we can have a recursive formula to reupdate the current link volume by a factor of k/(k+1),
 			//  and use the newly generated path flow to add the additional 1/(k+1)
 			g_reset_and_update_link_volume_based_on_columns(g_link_vector.size(), iteration_number, true, false);
 		}
@@ -677,14 +677,14 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 				for (int o_node_index = 0; o_node_index < pNetwork->m_origin_node_vector.size(); ++o_node_index)
 				{
 					start_t_lc = clock();
-					pNetwork->optimal_label_correcting(ProcessID, &assignment, iteration_number, o_node_index);
+					pNetwork->optimal_label_correcting(ProcessID, &assignment, iteration_number, o_node_index, false, false, false);
 
 
 					end_t = clock();
 					cumulative_lc += end_t - start_t_lc;
 
 					start_t_cp = clock();
-					double total_origin_least_travel_time = pNetwork->backtrace_shortest_path_tree(assignment, iteration_number, o_node_index);
+					double total_origin_least_travel_time = pNetwork->backtrace_shortest_path_tree(assignment, iteration_number, o_node_index, false);
 
 
 #pragma omp critical
@@ -710,13 +710,21 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 		// last iteraion before performing signal timing updating
 		double relative_gap = (total_system_travel_time - total_least_system_travel_time) / max(0.00001, total_least_system_travel_time);
 		dtalog.output() << "iteration: " << iteration_number << ",systemTT: " << total_system_travel_time << endl;
-		//dtalog.output() << "iteration: " << iteration_number << ",systemTT: " << total_system_travel_time << ", least system TT:" <<
-		//    total_least_system_travel_time << ",gap=" << relative_gap << endl;
+
+		double CPU_Running_Time = 0;
+		int number_of_agents = 0;
+		double Avg_Travel_Time = total_system_travel_time / max(1, assignment.total_demand_volume);
+
+		dtalog.output() << "iteration: " << iteration_number << ",systemTT: " << total_system_travel_time << ", least system TT:" <<
+		    total_least_system_travel_time << ",gap=" << relative_gap << endl;
 
 		if(iteration_number==0)
 		{ 
 			g_output_accessibility_result(assignment);
+			assignment.summary_file << "Iteration, CPU Running Time, # of agents, Avg Travel Time(min),  Avg UE gap %" << endl;
 		}
+
+		assignment.summary_file << iteration_number << "," << CPU_Running_Time << "," << assignment.total_demand_volume << "," << Avg_Travel_Time << "," << relative_gap*100 << endl;
 	}
 	assignment.summary_file << "Step 4: Column Generation for Traffic Assignment" << endl;
 	dtalog.output() << ",# of column generation (shortest path finding) iterations=, " << assignment.g_number_of_column_generation_iterations << endl;
@@ -729,20 +737,13 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 
 	start_t = clock();
 	g_column_pool_optimization(assignment, column_updating_iterations);
-	g_column_pool_route_scheduling(assignment, column_updating_iterations);
-	g_column_pool_activity_scheduling(assignment, column_updating_iterations);  // VMS information update
 
-
-	//if (assignment.g_pFileDebugLog != NULL)
-	//	fprintf(assignment.g_pFileDebugLog, "CU: iteration %d: total_gap=, %f,total_relative_gap=, %f,\n", s, total_gap, total_gap / max(0.0001, total_system_travel_cost));
-
-
-    g_rt_info_column_generation(&assignment, 0);
 	assignment.summary_file << "Step 6: column pool-based flow updating for traffic assignment " << endl;
 	assignment.summary_file << ",# of flow updating iterations=," << column_updating_iterations << endl;
 
 	dtalog.output() << endl;
 
+	// post-processing for collecting path flow to link flow
 	// post-processsing route assignment aggregation
 	if (assignment.assignment_mode != lue)
 	{
@@ -754,7 +755,8 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 		g_reset_link_volume_in_master_program_without_columns(g_link_vector.size(), column_generation_iterations, false);
 
 	// initialization at the first iteration of shortest path
-	update_link_travel_time_and_cost(column_generation_iterations);
+	double total_distance = 0;
+	update_link_travel_time_and_cost(column_generation_iterations, total_distance);
 
 	if (assignment.assignment_mode == dta)
 	{
@@ -767,7 +769,7 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 	}
 
 	// stage II sensitivity analysis stage 
-	if (assignment.g_number_of_sensitivity_analysis_iterations > 0)
+	if (assignment.g_number_of_sensitivity_analysis_iterations >= 0)
 	{
 
 		int base_case_flag = 0; //base_case
@@ -779,7 +781,7 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 			for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
 			{
 				// used in travel time calculation
-				if (g_link_vector[i].VDF_period[tau].network_design_flag != 0)  // we 
+				if (g_link_vector[i].VDF_period[tau].network_design_flag == -1 /*sa flag*/)  // we 
 				{
 					float old_lanes = g_link_vector[i].VDF_period[tau].nlanes;
 					g_link_vector[i].VDF_period[tau].nlanes = g_link_vector[i].VDF_period[tau].sa_lanes_change; // apply the lane changes 
@@ -847,13 +849,22 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 
 		//end of scenario 
 
+		double total_system_travel_time = 0;
+		double total_travel_distance = 0;
+
+		// initialization at beginning of shortest path
+		total_system_travel_time = update_link_travel_time_and_cost(0, total_travel_distance);
+
+
 		//step 3: column generation stage: find shortest path and update path cost of tree using TD travel time
 		dtalog.output() << endl;
 		dtalog.output() << "Step 5: Column Re-Generation for Traffic Assignment..." << endl;
 		dtalog.output() << "Total Column Re-Generation iteration: " << assignment.g_number_of_sensitivity_analysis_iterations << endl;
-
-		for (int iteration_number = 0; iteration_number < assignment.g_number_of_sensitivity_analysis_iterations; iteration_number++)
+		// stage II: column generation at the sensitivity analysis stage
+		for (int iteration_number = 0; iteration_number <= assignment.g_number_of_sensitivity_analysis_iterations; iteration_number++)
 		{
+
+
 			dtalog.output() << endl;
 			dtalog.output() << "SA: iteration number:" << iteration_number << endl;
 			end_t = clock();
@@ -863,10 +874,30 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 			// step 3.1 update travel time and resource consumption
 			clock_t start_t_lu = clock();
 
+		//////detect induced_delay
+			for (int i = 0; i < g_link_vector.size(); ++i)
+			{
+				for (int tau = 0; tau < assignment.g_number_of_demand_periods; ++tau)
+				{
+					// used in travel time calculation
+					if (g_link_vector[i].VDF_period[tau].network_design_flag == 0)  
+					{
+						if (g_link_vector[i].VDF_period[tau].DOC > 3)  // dramatic delay, 3 is a cut off ratio/threshold for us to define large delay
+						{
+							g_link_vector[i].VDF_period[tau].network_design_flag = -2; // induced delay
+						}
+
+					}
+
+				}
+			}
+
+
 			double total_system_travel_time = 0;
 			double total_least_system_travel_time = 0;
 			// initialization at beginning of shortest path
-			total_system_travel_time = update_link_travel_time_and_cost(iteration_number);
+			double total_distance = 0;
+			total_system_travel_time = update_link_travel_time_and_cost(iteration_number, total_distance);
 
 			if (assignment.assignment_mode == lue)
 			{
@@ -876,9 +907,10 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 			}
 			else
 			{
-				// we can have a recursive formulat to reupdate the current link volume by a factor of k/(k+1),
+				// we can have a recursive formulat to reupdate the current link volume by a factor of k/(k+1),f
 				//  and use the newly generated path flow to add the additional 1/(k+1)
-				g_reset_and_update_link_volume_based_on_columns(g_link_vector.size(), iteration_number, true, false);
+				bool sensitivity_analaysis_flag = true;
+				g_reset_and_update_link_volume_based_on_columns(g_link_vector.size(), iteration_number, true, sensitivity_analaysis_flag);
 			}
 
 			if (dtalog.debug_level() >= 3)
@@ -937,17 +969,41 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 
 					NetworkForSP* pNetwork = g_NetworkForSP_vector[network_copy_no];
 
+
 					for (int o_node_index = 0; o_node_index < pNetwork->m_origin_node_vector.size(); ++o_node_index)
 					{
 						start_t_lc = clock();
-						pNetwork->optimal_label_correcting(ProcessID, &assignment, iteration_number, o_node_index);
+						
+
+						int origin_zone_seq_no = pNetwork->m_origin_zone_seq_no_vector[o_node_index]; // assigned nodes for computing
+
+
+						if (assignment.g_AgentTypeVector[pNetwork->m_agent_type_no].real_time_information == 2 /*DMS*/
+							&& assignment.zone_seq_no_2_info_mapping.find(origin_zone_seq_no) != assignment.zone_seq_no_2_info_mapping.end())
+						{
+							int idebug = 1;
+						}
+
+						if (assignment.g_AgentTypeVector[pNetwork->m_agent_type_no].real_time_information == 0)  // for non-information users, do not generate new path "columns"
+							continue;  // skip the following shortest path codes
+
+						if (assignment.g_AgentTypeVector[pNetwork->m_agent_type_no].real_time_information == 2 /*DMS infomation with physcial origin*/
+							&& assignment.zone_seq_no_2_info_mapping.find(origin_zone_seq_no) == assignment.zone_seq_no_2_info_mapping.end()
+							)  
+						{
+							continue;  // skip the shortest path regeneration in the SA stage
+						}
+
+						pNetwork->optimal_label_correcting(ProcessID, &assignment, iteration_number, o_node_index, false, false, true);
 
 
 						end_t = clock();
 						cumulative_lc += end_t - start_t_lc;
 
 						start_t_cp = clock();
-						double total_origin_least_travel_time = pNetwork->backtrace_shortest_path_tree(assignment, iteration_number, o_node_index);
+						
+						bool sensitivity_analaysis_flag = true;
+						double total_origin_least_travel_time = pNetwork->backtrace_shortest_path_tree(assignment, iteration_number, o_node_index, sensitivity_analaysis_flag);
 
 
 #pragma omp critical
@@ -961,14 +1017,32 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 
 			}
 
+		
+			if (iteration_number == 0)
+			{
+				assignment.summary_file << "Sensitivity analysis stage" << endl;
+				assignment.summary_file << ",Iteration,Avg Travel Time(min)" << endl;
+			}
+
+			double Avg_Travel_Time = total_system_travel_time / max(1, assignment.total_demand_volume);
+
+			assignment.summary_file << iteration_number << "," << Avg_Travel_Time << "," << endl;
 			// link based computing mode, we have to collect link volume from all processors.
 			if (assignment.assignment_mode == lue)
 				g_fetch_link_volume_for_all_processors();
 		}
 
-		g_column_pool_optimization(assignment, assignment.g_number_of_sensitivity_analysis_iterations, true);
+		// stage II: right after column generation, we will enable the path modifications for DMS users 
+		g_column_pool_route_modification(assignment, column_updating_iterations);
 
+
+		// stage III: after DMS path modification, we enable further user equilibirum computing for real time info users by switching their routes 
+		g_column_pool_optimization(assignment, assignment.g_number_of_sensitivity_analysis_iterations, true);
+		
 	}
+
+	g_classification_in_column_pool(assignment);
+	
 
 	if (simulation_iterations >= 1)
 	{

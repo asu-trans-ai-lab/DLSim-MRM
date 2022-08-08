@@ -148,92 +148,87 @@ void g_load_supply_side_scenario_file(Assignment& assignment)
 			}
 
 
-			if (scenario_type == "capacity")
-			{
-				// capacity in the space time arcs
-				float lanes_changed = 0;
-				parser.GetValueByFieldName("lanes", lanes_changed);
-
-				float old_lanes = g_link_vector[link_seq_no].VDF_period[tau].nlanes;
-
-				g_link_vector[link_seq_no].VDF_period[tau].BPR_period_capacity *= lanes_changed / max(1, old_lanes);
-				//change the capacity directly after reading link.csv
-
-				g_link_vector[link_seq_no].VDF_period[tau].nlanes = lanes_changed;  // apply the change
-				g_link_vector[link_seq_no].VDF_period[tau].network_design_flag = 1;
-				g_link_vector[link_seq_no].VDF_period[tau].scenario_code = "capacity change";
-				//
-				if (g_link_vector[link_seq_no].VDF_period[tau].nlanes < 0.01)
-					g_link_vector[link_seq_no].VDF_period[tau].FFTT = 1440; // prevent free flow travel time under zero flow due to blockage
-
-				capacity_count++;
-				fprintf(g_pFileModel_LC, "capacity,number_of_lanes=%f,", lanes_changed);
-			}
-			else if (scenario_type == "sa")
+			if (scenario_type == "sa")
 			{
 				// capacity in the space time arcs
 				float lanes_changed = 0;
 				parser.GetValueByFieldName("lanes", lanes_changed);
 
 				g_link_vector[link_seq_no].VDF_period[tau].sa_lanes_change = lanes_changed;  // apply the change
-				g_link_vector[link_seq_no].VDF_period[tau].network_design_flag = 1;
+				g_link_vector[link_seq_no].VDF_period[tau].network_design_flag = -1;
 				//
 				g_link_vector[link_seq_no].VDF_period[tau].scenario_code = "sa";
 				sa_capacity_count++;
 
 				fprintf(g_pFileModel_LC, "sa,number_of_lanes_changed=%f,", lanes_changed);
 			}
-
-			//// capacity in the space time arcs
-			//float lanes_changed = 0;
-			//parser.GetValueByFieldName("lanes", lanes_changed);
-
-			//g_link_vector[link_seq_no].VDF_period[tau].sa_lanes_change = lanes_changed;  // apply the change
-			//g_link_vector[link_seq_no].VDF_period[tau].network_design_flag = 1;
-			////
-			//g_link_vector[link_seq_no].VDF_period[tau].scenario_code = "capacity change";
-			//fprintf(g_pFileModel_LC, "sa,number_of_lanes_changed=%f,", lanes_changed);
-
-			if (scenario_type == "incident")
+			else if (scenario_type == "dms")
 			{
+				g_link_vector[link_seq_no].VDF_period[tau].network_design_flag = 2;
+				g_link_vector[link_seq_no].VDF_period[tau].scenario_code = "dms";
 
-				string time_period;
-				if (!parser.GetValueByFieldName("time_period", time_period))
+				if (assignment.node_seq_no_2_info_zone_id_mapping.find(g_link_vector[link_seq_no].to_node_seq_no) == assignment.node_seq_no_2_info_zone_id_mapping.end())
 				{
-					dtalog.output() << "Error: Field time_window in file scenario.csv cannot be read." << endl;
+					cout << "information zone has not been defined!" << endl;
 					g_program_stop();
-					break;
+
 				}
 
+				int zone_id = assignment.node_seq_no_2_info_zone_id_mapping[g_link_vector[link_seq_no].to_node_seq_no];
 
-
-				//input_string includes the start and end time of a time period with 
-
-				global_minute_vector = g_time_parser(time_period); //global_minute_vector incldue the starting and ending time
-				if (global_minute_vector.size() == 2)
-				{
-					if (global_minute_vector[0] < assignment.g_LoadingStartTimeInMin)
-						global_minute_vector[0] = assignment.g_LoadingStartTimeInMin;
-
-					if (global_minute_vector[0] > assignment.g_LoadingEndTimeInMin)
-						global_minute_vector[0] = assignment.g_LoadingEndTimeInMin;
-
-					if (global_minute_vector[1] < assignment.g_LoadingStartTimeInMin)
-						global_minute_vector[1] = assignment.g_LoadingStartTimeInMin;
-
-					if (global_minute_vector[1] > assignment.g_LoadingEndTimeInMin)
-						global_minute_vector[1] = assignment.g_LoadingEndTimeInMin;
-
-					if (global_minute_vector[1] < global_minute_vector[0])
-						global_minute_vector[1] = global_minute_vector[0];
-
-					g_link_vector[link_seq_no].dynamic_link_event_start_time_in_min = min((float)g_link_vector[link_seq_no].dynamic_link_event_start_time_in_min, global_minute_vector[0]);
-				}
-				else
-				{
+				if (assignment.g_zoneid_to_zone_seq_no_mapping.find(zone_id) == assignment.g_zoneid_to_zone_seq_no_mapping.end())  // not found
 					continue;
-				}
+
+				int zone_no = assignment.g_zoneid_to_zone_seq_no_mapping[zone_id];
+
+				assignment.zone_seq_no_2_info_mapping[zone_no] = 1;  // set information zone flag
+
+
+
+				dms_count++;
 			}
+
+
+			//if (scenario_type == "incident")
+			//{
+
+			//	string time_period;
+			//	if (!parser.GetValueByFieldName("time_period", time_period))
+			//	{
+			//		dtalog.output() << "Error: Field time_window in file scenario.csv cannot be read." << endl;
+			//		g_program_stop();
+			//		break;
+			//	}
+
+
+
+			//	//input_string includes the start and end time of a time period with 
+
+			//	global_minute_vector = g_time_parser(time_period); //global_minute_vector incldue the starting and ending time
+			//	if (global_minute_vector.size() == 2)
+			//	{
+			//		if (global_minute_vector[0] < assignment.g_LoadingStartTimeInMin)
+			//			global_minute_vector[0] = assignment.g_LoadingStartTimeInMin;
+
+			//		if (global_minute_vector[0] > assignment.g_LoadingEndTimeInMin)
+			//			global_minute_vector[0] = assignment.g_LoadingEndTimeInMin;
+
+			//		if (global_minute_vector[1] < assignment.g_LoadingStartTimeInMin)
+			//			global_minute_vector[1] = assignment.g_LoadingStartTimeInMin;
+
+			//		if (global_minute_vector[1] > assignment.g_LoadingEndTimeInMin)
+			//			global_minute_vector[1] = assignment.g_LoadingEndTimeInMin;
+
+			//		if (global_minute_vector[1] < global_minute_vector[0])
+			//			global_minute_vector[1] = global_minute_vector[0];
+
+			//		g_link_vector[link_seq_no].dynamic_link_event_start_time_in_min = min((float)g_link_vector[link_seq_no].dynamic_link_event_start_time_in_min, global_minute_vector[0]);
+			//	}
+			//	else
+			//	{
+			//		continue;
+			//	}
+			//}
 			//if (scenario_type == "incident")
 			//{
 			//	// capacity in the space time arcs
@@ -307,12 +302,12 @@ void g_load_supply_side_scenario_file(Assignment& assignment)
 			//	}
 			//}
 			fprintf(g_pFileModel_LC, "\n");
-			dtalog.output() << "reading " << capacity_count << " capacity scenario.. " << endl;
-			dtalog.output() << "reading " << sa_capacity_count << " sa  capacity scenario.. " << endl;
-			dtalog.output() << "reading " << incident_count << " incident scenario.. " << endl;
-			dtalog.output() << "reading " << dms_count << " dms scenario.. " << endl;
 
 		}
+
+		dtalog.output() << "reading " << sa_capacity_count << " sa  capacity scenario.. " << endl;
+		dtalog.output() << "reading " << dms_count << " dms scenario.. " << endl;
+
 	}
 	// allocate 
 	if (incident_count >= 1)
@@ -329,10 +324,10 @@ void g_load_supply_side_scenario_file(Assignment& assignment)
 	assignment.summary_file << ", # of incident records in supply_side_scenario.csv=," << incident_count << "," << endl;
 	assignment.summary_file << ", # of dms records in supply_side_scenario.csv=," << dms_count << "," << endl;
 
-	if (capacity_count > 0 || sa_capacity_count > 0)
-	{
-		assignment.g_number_of_sensitivity_analysis_iterations = max(1, assignment.g_number_of_sensitivity_analysis_iterations);
-	}
+	//if (capacity_count > 0 || sa_capacity_count > 0)
+	//{
+	//	assignment.g_number_of_sensitivity_analysis_iterations = max(0, assignment.g_number_of_sensitivity_analysis_iterations);
+	//}
 
 }
 

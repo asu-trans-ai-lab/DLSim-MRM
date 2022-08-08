@@ -50,6 +50,7 @@ using std::istringstream;
 
 #include "DTA.h"
 
+
 void Assignment::GenerateDefaultMeasurementData()
 {
 	// step 1: read measurement.csv
@@ -89,9 +90,12 @@ void Assignment::GenerateDefaultMeasurementData()
 // updates for OD re-generations
 void Assignment::Demand_ODME(int OD_updating_iterations, int sensitivity_analysis_iterations)
 {
+	int sensor_count = 0;
+	assignment.summary_file << "ODME stage" << endl;
+
 	if (OD_updating_iterations >= 1)
 	{
-		GenerateDefaultMeasurementData();
+//		GenerateDefaultMeasurementData();
 		// step 1: read measurement.csv
 		CCSVParser parser_measurement;
 
@@ -161,6 +165,7 @@ void Assignment::Demand_ODME(int OD_updating_iterations, int sensitivity_analysi
 
 									g_link_vector[link_seq_no].VDF_period[tau].obs_count = count;
 									g_link_vector[link_seq_no].VDF_period[tau].upper_bound_flag = upper_bound_flag;
+									sensor_count++;
 								}
 								else  // if the new data are upper bound, skip it and keep the actual counts 
 								{
@@ -220,6 +225,8 @@ void Assignment::Demand_ODME(int OD_updating_iterations, int sensitivity_analysi
 			parser_measurement.CloseCSVFile();
 		}
 
+		assignment.summary_file << "ODME stage: # of sensors =," << sensor_count << endl;
+
 		// step 1: input the measurements of
 		// Pi
 		// Dj
@@ -241,10 +248,14 @@ void Assignment::Demand_ODME(int OD_updating_iterations, int sensitivity_analysi
 			//step 2.2: based on newly calculated path volumn, update volume based travel time, and update volume based measurement error/deviation
 					// and use the newly generated path flow to add the additional 1/(k+1)
 
-			double gap_improvement = gap - prev_gap;
+			double gap_increase = gap - prev_gap;
 
-			//if (s >= 5 && gap_improvement > 0.01)  // convergency criterion  // comment out to maintain consistency 
-			//    break;
+			if (s >= 5 && gap_increase > 0.01)  // convergency criterion  // comment out to maintain consistency 
+			{ 
+				assignment.summary_file << "ODME stage terminates with gap increase = " << gap_increase*100 << "% at iteration = " << s <<  endl;
+			    break;
+
+			}
 
 			//if(s == OD_updating_iterations - sensitivity_analysis_iterations)
 			//{
@@ -500,9 +511,6 @@ void Assignment::Demand_ODME(int OD_updating_iterations, int sensitivity_analysi
 		// we now have a consistent link-to-path volumne in g_link_vector[link_seq_no].PCE_volume_per_period[tau] 
 	}
 
-	// stage II;
-
-	g_classification_in_column_pool(assignment);
 
 }
 

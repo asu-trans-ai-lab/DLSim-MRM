@@ -11,9 +11,12 @@ using std::max;
 constexpr auto MAX_LABEL_COST = 1.0e+15;
 constexpr auto _INFO_ZONE_ID = 100000;
 
-constexpr auto MAX_AGNETTYPES = 10; //because of the od demand store format,the MAX_demandtype must >=g_DEMANDTYPES.size()+1;
-constexpr auto MAX_TIMEPERIODS = 6; // time period set to 4: mid night, morning peak, mid-day and afternoon peak;
-constexpr auto MAX_ORIGIN_DISTRICTS = 30; //origin based agreegration grids
+constexpr auto MAX_AGNETTYPES = 5; //because of the od demand store format,the MAX_demandtype must >=g_DEMANDTYPES.size()+1;
+constexpr auto MAX_TIMEPERIODS = 2; // time period set to 4: mid night, morning peak, mid-day and afternoon peak;
+//constexpr auto MAX_AGNETTYPES = 10; //because of the od demand store format,the MAX_demandtype must >=g_DEMANDTYPES.size()+1;
+//constexpr auto MAX_TIMEPERIODS = 6; // time period set to 4: mid night, morning peak, mid-day and afternoon peak;
+//constexpr auto MAX_ORIGIN_DISTRICTS = 30; //origin based agreegration grids
+//constexpr auto MAX_ORIGIN_DISTRICTS = 30; //origin based agreegration grids
 constexpr auto MAX_MEMORY_BLOCKS = 100;
 
 constexpr auto MAX_LINK_SIZE_IN_A_PATH = 10000;		
@@ -516,8 +519,8 @@ class CColumnPath {
 public:
     CColumnPath() : path_node_vector{ nullptr }, path_link_vector{ nullptr }, path_seq_no{ 0 }, m_link_size{ 0 }, m_node_size{ 0 },
         path_switch_volume{ 0 }, path_volume{ 0 }, path_travel_time{ 0 }, path_distance{ 0 }, path_toll{ 0 }, UE_gap{ 0 }, UE_relative_gap {0},
-        path_gradient_cost{ 0 }, path_gradient_cost_difference{ 0 }, path_gradient_cost_relative_difference{ 0 }, subarea_output_flag{ 1 }, measurement_flag{ 0 }, network_design_flag{ 0 },
-        network_design_detour_mode{ 0 }, global_path_no{ -1 }
+        path_gradient_cost{ 0 }, path_gradient_cost_difference{ 0 }, path_gradient_cost_relative_difference{ 0 }, subarea_output_flag{ 1 }, measurement_flag{ 0 }, impacted_path_flag{ 0 },
+        network_design_detour_mode{ 0 }, global_path_no{ -1 }, b_sensitivity_analysis_flag { false}
     {
     }
 
@@ -613,7 +616,8 @@ public:
     std::vector<float> departure_time_in_min;
     int subarea_output_flag;
     int measurement_flag;
-    int network_design_flag;
+    int impacted_path_flag;
+    bool b_sensitivity_analysis_flag;
     int network_design_detour_mode;  // network_design_mode = 1: passing through network design locations, // 2: OD pair passing through networok design, but this path is an alternative path as detour
 
     double path_switch_volume;
@@ -671,11 +675,14 @@ class CColumnVector {
 public:
     // this is colletion of unique paths
     CColumnVector() : cost{ 0 }, time{ 0 }, distance{ 0 }, od_volume{ 0 }, prev_od_volume{ 0 }, bfixed_route{ false }, m_passing_sensor_flag{ -1 }, information_type{ 0 }, activity_agent_type_no{ 0 },
-        departure_time_profile_no{ -1 }, OD_network_design_flag{ 0 }, subarea_passing_flag{ 1 }
+        departure_time_profile_no{ -1 }, OD_impact_flag{ 0 }, subarea_passing_flag{ 1 }
     {
     }
 
     bool subarea_passing_flag;
+    
+    std::map<int, bool> at_od_impacted_flag_map; // for each agent type
+
     float cost;
     float time;
     float distance;
@@ -700,7 +707,7 @@ public:
     // first key is the sum of node id;. e.g. node 1, 3, 2, sum of those node ids is 6, 1, 4, 2 then node sum is 7.
     // Peiheng, 02/02/21, potential memory leak, fix it
     std::map <int, CColumnPath> path_node_sequence_map;
-    int OD_network_design_flag;  // 0: no passing network design locations; //1: all paths passing through network deign locations: //2: there are alternative detours w.r.t. network design location
+    int OD_impact_flag;  // 0: no passing network design locations; //1: all paths passing through network deign locations: //2: there are alternative detours w.r.t. network design location
 
 };
 
@@ -833,7 +840,7 @@ public:
     Assignment() : assignment_mode{ lue }, g_number_of_memory_blocks{ 4 }, g_number_of_threads{ 1 }, g_info_updating_freq_in_min{ 5 }, g_visual_distance_in_cells{ 5 },
         g_link_type_file_loaded{ true }, g_agent_type_file_loaded{ false },
         total_demand_volume{ 0.0 }, g_column_pool{ nullptr }, g_number_of_in_memory_simulation_intervals{ 500 },
-        g_number_of_column_generation_iterations{ 20 }, g_number_of_column_updating_iterations{ 0 }, g_number_of_ODME_iterations{ 0 }, g_number_of_sensitivity_analysis_iterations{ 0 }, g_number_of_demand_periods{ 24 }, g_number_of_links{ 0 }, g_number_of_timing_arcs{ 0 },
+        g_number_of_column_generation_iterations{ 20 }, g_number_of_column_updating_iterations{ 0 }, g_number_of_ODME_iterations{ 0 }, g_number_of_sensitivity_analysis_iterations{ -1 }, g_number_of_demand_periods{ 24 }, g_number_of_links{ 0 }, g_number_of_timing_arcs{ 0 },
         g_number_of_nodes{ 0 }, g_number_of_zones{ 0 }, g_number_of_agent_types{ 0 }, debug_detail_flag{ 1 }, path_output{ 1 }, trajectory_output_count{ -1 },
         trace_output{ 0 }, major_path_volume_threshold{ 0.000001 }, trajectory_sampling_rate{ 1.0 }, td_link_performance_sampling_interval_in_min{ -1 }, dynamic_link_performance_sampling_interval_hd_in_min{ 15 }, trajectory_diversion_only{ 0 }, m_GridResolution{ 0.01 },
         shortest_path_log_zone_id{ -1 }, g_number_of_analysis_districts{ 1 }
@@ -953,6 +960,7 @@ public:
     int g_number_of_memory_blocks;
     int g_visual_distance_in_cells;
     float g_info_updating_freq_in_min;
+
     int g_number_of_threads;
     int path_output;
     int trajectory_output_count;
@@ -1114,11 +1122,11 @@ public:
         }
 
 
-        for (int at = 0; at < MAX_AGNETTYPES; ++at)
-            for (int og = 0; og < MAX_ORIGIN_DISTRICTS; ++og)
-        {
-            person_volume_per_district_per_at[og][at] = 0;
-        }
+        //for (int at = 0; at < MAX_AGNETTYPES; ++at)
+        //    for (int og = 0; og < MAX_ORIGIN_DISTRICTS; ++og)
+        //{
+        //    person_volume_per_district_per_at[og][at] = 0;
+        //}
 
     }
 
@@ -1392,7 +1400,7 @@ public:
     double background_PCE_volume_per_period[MAX_TIMEPERIODS];
 
     double  person_volume_per_period_per_at[MAX_TIMEPERIODS][MAX_AGNETTYPES];
-    double  person_volume_per_district_per_at[MAX_ORIGIN_DISTRICTS][MAX_AGNETTYPES];
+    //double  person_volume_per_district_per_at[MAX_ORIGIN_DISTRICTS][MAX_AGNETTYPES];
     
 
     double  queue_link_distance_VDF_perslot[MAX_TIMEPERIODS];  // # of vehicles in the vertical point queue
@@ -1695,7 +1703,7 @@ public:
     COZone() : cell_id{ 0 }, obs_production { 0 }, obs_attraction{ 0 },
         est_production{ 0 }, est_attraction{ 0 },
         est_production_dev{ 0 }, est_attraction_dev{ 0 }, gravity_production{ 100 }, gravity_attraction{ 100 }, cell_x{ 0 }, cell_y{ 0 },
-        gravity_est_production{ 0 }, gravity_est_attraction{ 0 }, subarea_significance_flag{ true }, preread_total_O_demand{ 0 }, sindex{ -1 }, origin_zone_impact_volume{ 0 }, subarea_inside_flag {false},
+        gravity_est_production{ 0 }, gravity_est_attraction{ 0 }, subarea_significance_flag{ true }, preread_total_O_demand{ 0 }, sindex{ -1 }, origin_zone_impact_volume{ 0 }, subarea_inside_flag { 3 },
         superzone_index{ -100 }, bcluster_seed{ false }, b_shortest_path_computing_flag{ true }, super_seed_zone_id{ -1 }, b_distrct_cluster_seed{ false }, distrct_cluster_index{ -100 }, preread_total_O_related_demand {0}
     {
     }

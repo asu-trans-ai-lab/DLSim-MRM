@@ -60,7 +60,8 @@ public:
         queue_length{ 0 }, obs_count{ 0 }, upper_bound_flag{ 1 }, est_count_dev{ 0 }, avg_waiting_time{ 0 }, P{ -1 }, Severe_Congestion_P{ -1 }, lane_based_D{ 0 }, lane_based_Vph{ 0 }, avg_speed_BPR{ -1 }, avg_queue_speed{ -1 }, nlanes{ 1 }, sa_volume{ 0 }, t2{ 1 }, k_critical{ 45 }, link_volume {0},
         Q_mu{ 0 }, Q_gamma{ 0 }, network_design_flag{ 0 },
         volume_before{ 0 }, speed_before{ 0 }, DoC_before{ 0 }, P_before { 0 }, 
-        volume_after{ 0 }, speed_after{ 0 }, DoC_after{ 0 }, P_after{ 0 }
+        volume_after{ 0 }, speed_after{ 0 }, DoC_after{ 0 }, P_after{ 0 },
+        ref_link_volume{ -1 }
 {
         for (int at = 0; at < MAX_AGNETTYPES; at++)
         {
@@ -373,6 +374,7 @@ public:
     //peak hour factor
     double alpha;
     double beta;
+    double ref_link_volume;
     double BPR_period_capacity;
 
     double Q_alpha;
@@ -414,7 +416,7 @@ public:
 
     double sa_volume;
     double sa_lanes_change;
-    int network_design_flag; // 0: normal: 1: adding lanes, -1: capacity reduction 
+    int network_design_flag; // 0: normal: 1: adding lanes, -1: capacity reduction: 2: VMS: -2: induced delay
     double preload;
     double toll[MAX_AGNETTYPES];
     double pce[MAX_AGNETTYPES];

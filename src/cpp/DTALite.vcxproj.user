@@ -1,11 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerWorkingDirectory>D:\Dropbox (ASU)\STALite\dataset\RapidDTA\Statistic\SF\01_1_Sioux_Falls_network</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>D:\Src_DTALite\101_meso_Simulation</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerWorkingDirectory>D:\CProjects\Statistic\Run by ODME for a selected subarea</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>D:\Standard_Test_FOCUSING_Chicago_Sketch\04_Sioux_Falls_network</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerAttach>
     </LocalDebuggerAttach>

@@ -80,6 +80,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <OutDir>D:\new_york\J6</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -180,6 +181,7 @@
     <ClCompile Include="flash_dta.cpp" />
     <ClCompile Include="geometry.cpp" />
     <ClCompile Include="main_api.cpp" />
+    <ClCompile Include="Signal_API.cpp" />
     <ClCompile Include="simulation.cpp" />
     <ClCompile Include="utils.cpp" />
   </ItemGroup>

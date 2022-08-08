@@ -204,7 +204,7 @@ public:
 		m_link_outgoing_connector_zone_seq_no_array = new int[number_of_links]; //10
 	}
 
-	bool UpdateGeneralizedLinkCost(int agent_type_no, Assignment* p_assignment, int origin_zone, int iteration_k)
+	bool UpdateGeneralizedLinkCost(int agent_type_no, Assignment* p_assignment, int origin_zone, int iteration_k, bool b_sensitivity_analysis_flag)
 	{
 		int link_cost_debug_flag = 1;
 		bool negative_cost_flag = false;
@@ -212,29 +212,22 @@ public:
 		{
 			CLink* p_link = &(g_link_vector[i]);
 
-			double LR_price = p_link->VDF_period[m_tau].LR_price[agent_type_no];
 
-			if (p_assignment->g_AgentTypeVector[agent_type_no].real_time_information >= 1
-				&& p_assignment->zone_seq_no_2_info_mapping.find(origin_zone) != p_assignment->zone_seq_no_2_info_mapping.end()
-				) // for agent type with information and the origin zone is information zone
+			if(b_sensitivity_analysis_flag)
 			{
-				LR_price = p_link->VDF_period[m_tau].LR_RT_price[agent_type_no];
+				if (p_assignment->g_AgentTypeVector[agent_type_no].real_time_information == 2 /*dms*/
+					&& p_link->VDF_period[m_tau].network_design_flag == 2 /*dms link*/) // for agent type with information and the origin zone is information zone
+				{
+//					p_link->VDF_period[m_tau].LR_price[agent_type_no]  =-2;
+//					negative_cost_flag = true;
 
-				//if (LR_price < -0.01)
-			  //      negative_cost_flag = true;
-
-			  //  if (fabs(LR_price) > 0.001)
-			  //  {
-			  //      dtalog.output() << "link " << p_link->link_id.c_str() << " " << g_node_vector[g_link_vector[l].from_node_seq_no].node_id << "->"
-					//g_node_vector[g_link_vector[l].to_node_seq_no].node_id << "," 
-			  //          << "  has a travel time of " << LR_price << " for agent type "
-			  //          << assignment.g_AgentTypeVector[agent_type_no].agent_type.c_str() << " at demand period =" << m_tau << endl;
-			  //  }
-
+				}
 			}
 
+		
+
 			m_link_genalized_cost_array[i] = p_link->travel_time_per_period[m_tau] + p_link->VDF_period[m_tau].penalty +
-				LR_price +
+				p_link->VDF_period[m_tau].LR_price[agent_type_no] +
 				p_link->VDF_period[m_tau].toll[agent_type_no] / m_value_of_time * 60;
 
 			if (p_link->link_id == "7742")
@@ -250,7 +243,7 @@ public:
 					<< assignment.g_AgentTypeVector[agent_type_no].agent_type.c_str() << " at demand period =" << m_tau <<
 					",p_link->travel_time_per_period[m_tau]=" << p_link->travel_time_per_period[m_tau] <<
 					",p_link->VDF_period[m_tau].penalty=" << p_link->VDF_period[m_tau].penalty <<
-					",LR_price=" << LR_price <<
+					",LR_price=" << p_link->VDF_period[m_tau].LR_price[agent_type_no] <<
 					", p_link->VDF_period[m_tau].toll[agent_type_no] / m_value_of_time * 60=" << p_link->VDF_period[m_tau].toll[agent_type_no] / m_value_of_time * 60 <<
 					endl;
 			}
@@ -417,7 +410,7 @@ public:
 
 	//double backtrace_shortest_path_tree(Assignment& assignment, int iteration_number, int o_node_index);
 	//major function: update the cost for each node at each SP tree, using a stack from the origin structure
-	double backtrace_shortest_path_tree(Assignment& assignment, int iteration_number_outterloop, int o_node_index)
+	double backtrace_shortest_path_tree(Assignment& assignment, int iteration_number_outterloop, int o_node_index, bool b_sensitivity_analysis_flag)
 	{
 		double total_origin_least_cost = 0;
 		int origin_node = m_origin_node_vector[o_node_index]; // assigned no
@@ -623,7 +616,10 @@ public:
 									temp_path_link_vector, true);
 							}
 
-							pColumnVector->path_node_sequence_map[node_sum].path_volume += volume;
+							pColumnVector->path_node_sequence_map[node_sum].path_volume += volume;  // we add 1/K * OD volume to a new path or an existing path with same node sum.
+
+							if(b_sensitivity_analysis_flag == true)
+								pColumnVector->path_node_sequence_map[node_sum].b_sensitivity_analysis_flag = b_sensitivity_analysis_flag;
 						}
 					}
 				}
@@ -634,7 +630,7 @@ public:
 
 
 	//major function 2: // time-dependent label correcting algorithm with double queue implementation
-	float optimal_label_correcting(int processor_id, Assignment* p_assignment, int iteration_k, int o_node_index, int d_node_no = -1, bool pure_travel_time_cost = false)
+	float optimal_label_correcting(int processor_id, Assignment* p_assignment, int iteration_k, int o_node_index, int d_node_no, bool pure_travel_time_cost, bool bsensitivity_analysis_flag)
 	{
 		int local_debugging_flag = 0;
 
@@ -648,7 +644,7 @@ public:
 		int origin_node = m_origin_node_vector[o_node_index]; // assigned nodes for computing
 		int origin_zone = m_origin_zone_seq_no_vector[o_node_index]; // assigned nodes for computing
 
-		bool negative_cost_flag = UpdateGeneralizedLinkCost(agent_type, p_assignment, origin_zone, iteration_k);
+		bool negative_cost_flag = UpdateGeneralizedLinkCost(agent_type, p_assignment, origin_zone, iteration_k, bsensitivity_analysis_flag);
 
 		//if (iteration_k == 1) 
 		//{
@@ -657,7 +653,7 @@ public:
 		//}
 
 
-		if (negative_cost_flag == true)
+		if (negative_cost_flag == true && bsensitivity_analysis_flag == true)
 		{
 			dtalog.output() << "Negative Cost: SP iteration k =  " << iteration_k << ": origin node: " << g_node_vector[origin_node].node_id << endl;
 			local_debugging_flag = 0;
@@ -1278,15 +1274,15 @@ public:
 
 	float negative_cost_label_correcting(int processor_id, Assignment* p_assignment, int iteration_k, int o_node_index, int d_node_no = -1, bool pure_travel_time_cost = false)
 	{
-		int local_debugging_flag = 0;
+		int local_debugging_flag = 1;
 		int SE_loop_count = 0;
 
 		int agent_type = m_agent_type_no; // assigned nodes for computing
 		int origin_node = m_origin_node_vector[o_node_index]; // assigned nodes for computing
 		int origin_zone = m_origin_zone_seq_no_vector[o_node_index]; // assigned nodes for computing
 
-		if (dtalog.debug_level() >= 2)
-			dtalog.output() << "SP iteration k =  " << iteration_k << ": origin node: " << g_node_vector[origin_node].node_id << endl;
+		if (local_debugging_flag)
+			p_assignment->sp_log_file << "SP iteration k =  " << iteration_k << ": origin node: " << g_node_vector[origin_node].node_id << endl;
 
 		int number_of_nodes = p_assignment->g_number_of_nodes;
 		//Initialization for all non-origin nodes
@@ -1304,7 +1300,8 @@ public:
 			////m_label_distance_array[i] = 0;
 		}
 
-		std::map<int, int> node_id_visit_mapping;   // used to prevent negative cost loop in the path
+		std::map<int, int> link_id_visit_mapping;   // used to prevent negative cost loop in the path
+		std::map<int, int> negative_cost_link_id_visit_mapping;   // used to prevent negative cost loop in the path
 
 		// int internal_debug_flag = 0;
 		if (NodeForwardStarArray[origin_node].OutgoingLinkSize == 0)
@@ -1338,7 +1335,7 @@ public:
 
 			from_node = m_ListFront;//pop a node FromID for scanning
 
-			node_id_visit_mapping[from_node] = 1;  // map visit
+
 
 			tempFront = m_ListFront;
 			m_ListFront = m_SENodeList[m_ListFront];
@@ -1346,9 +1343,9 @@ public:
 
 			m_node_status_array[from_node] = 2;
 
-			if (dtalog.log_path() >= 2 || local_debugging_flag)
+			if (local_debugging_flag)
 			{
-				dtalog.output() << "SP:scan SE node: " << g_node_vector[from_node].node_id << " with "
+				p_assignment->sp_log_file << "SP:scan SE node: " << g_node_vector[from_node].node_id << " with "
 					<< NodeForwardStarArray[from_node].OutgoingLinkSize << " outgoing link(s). " << endl;
 			}
 			//scan all outbound nodes of the current node
@@ -1361,8 +1358,41 @@ public:
 				to_node = NodeForwardStarArray[from_node].OutgoingNodeNoArray[i];
 				link_sqe_no = NodeForwardStarArray[from_node].OutgoingLinkNoArray[i];
 
-				if (dtalog.log_path() >= 2 || local_debugging_flag)
-					dtalog.output() << "SP:  checking outgoing node " << g_node_vector[to_node].node_id << endl;
+				if (link_id_visit_mapping.find(link_sqe_no) == link_id_visit_mapping.end())  // any link
+				{
+					link_id_visit_mapping[link_sqe_no] = 1; // first time visit
+				}
+				else
+				{
+					link_id_visit_mapping[link_sqe_no] += 1;
+
+					if (link_id_visit_mapping[link_sqe_no] >= 1)
+						continue; //skip this link if it has been visited
+				}
+
+
+
+				if (g_link_vector[link_sqe_no].VDF_period[m_tau].LR_price[m_agent_type_no] < -1) // negative cost
+				{
+					if (negative_cost_link_id_visit_mapping.find(link_sqe_no) != negative_cost_link_id_visit_mapping.end())
+					{
+						continue; // skip used negative cost links
+					}
+					else
+					{
+						negative_cost_link_id_visit_mapping[link_sqe_no] = 1;
+					}
+
+				}
+
+				
+				if (g_link_vector[link_sqe_no].VDF_period[m_tau].LR_price[m_agent_type_no] < -1) // negative cost
+				{
+					int idebug = 1;
+				}
+
+				if (local_debugging_flag)
+					p_assignment->sp_log_file << "SP:  checking outgoing node " << g_node_vector[to_node].node_id << endl;
 
 				// if(map (pred_link_seq_no, link_sqe_no) is prohibitted )
 				//     then continue; //skip this is not an exact solution algorithm for movement
@@ -1378,7 +1408,7 @@ public:
 
 						if (g_node_vector[from_node].m_prohibited_movement_string_map.find(movement_string) != g_node_vector[from_node].m_prohibited_movement_string_map.end())
 						{
-							dtalog.output() << "prohibited movement " << movement_string << " will not be used " << endl;
+							p_assignment->sp_log_file << "prohibited movement " << movement_string << " will not be used " << endl;
 							continue;
 						}
 					}
@@ -1406,26 +1436,19 @@ public:
 
 				new_to_node_cost = m_node_label_cost[from_node] + m_link_genalized_cost_array[link_sqe_no] + additional_cost;
 
-				if (dtalog.log_path() || local_debugging_flag)
+				if (local_debugging_flag)
 				{
-					dtalog.output() << "SP:  checking from node " << g_node_vector[from_node].node_id
+					p_assignment->sp_log_file << "SP:  checking from node " << g_node_vector[from_node].node_id
 						<< "  to node " << g_node_vector[to_node].node_id << " cost = " << new_to_node_cost << endl;
 				}
 
-				bool b_visit_flag = false;
 
-				if (node_id_visit_mapping.find(to_node) != node_id_visit_mapping.end())
-				{
-					b_visit_flag = true;
-				}
-
-
-				if (b_visit_flag == false && new_to_node_cost < m_node_label_cost[to_node]) // we only compare cost at the downstream node ToID at the new arrival time t
+				if (new_to_node_cost < m_node_label_cost[to_node]) // we only compare cost at the downstream node ToID at the new arrival time t
 				{
 
-					if (dtalog.log_path() || local_debugging_flag)
+					if (local_debugging_flag)
 					{
-						dtalog.output() << "SP:  updating node: " << g_node_vector[to_node].node_id << " current cost:" << m_node_label_cost[to_node]
+						p_assignment->sp_log_file << "SP:  updating node: " << g_node_vector[to_node].node_id << " current cost:" << m_node_label_cost[to_node]
 							<< " new cost " << new_to_node_cost << endl;
 					}
 
@@ -1438,9 +1461,9 @@ public:
 					// pointer to previous physical NODE INDEX from the current label at current node and time
 					m_link_predecessor[to_node] = link_sqe_no;
 
-					if (dtalog.log_path() || local_debugging_flag)
+					if (local_debugging_flag)
 					{
-						dtalog.output() << "SP: add node " << g_node_vector[to_node].node_id << " new cost:" << new_to_node_cost
+						p_assignment->sp_log_file << "SP: add node " << g_node_vector[to_node].node_id << " new cost:" << new_to_node_cost
 							<< " into SE List " << g_node_vector[to_node].node_id << endl;
 					}
 
@@ -1489,9 +1512,9 @@ public:
 			}
 		}
 
-		if (dtalog.log_path() || local_debugging_flag)
+		if (local_debugging_flag)
 		{
-			dtalog.output() << "SPtree at iteration k = " << iteration_k << " origin node: "
+			p_assignment->sp_log_file << "SPtree at iteration k = " << iteration_k << " origin node: "
 				<< g_node_vector[origin_node].node_id << endl;
 
 			//Initialization for all non-origin nodes
@@ -1505,7 +1528,7 @@ public:
 
 				if (m_node_label_cost[i] < 9999)
 				{
-					dtalog.output() << "SP node: " << g_node_vector[i].node_id << " label cost " << m_node_label_cost[i] << "time "
+					p_assignment->sp_log_file << "SP node: " << g_node_vector[i].node_id << " label cost " << m_node_label_cost[i] << "time "
 						<< m_label_time_array[i] << "node_pred_id " << node_pred_id << endl;
 				}
 			}
