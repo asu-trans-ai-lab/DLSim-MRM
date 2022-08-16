@@ -1099,7 +1099,7 @@ void g_column_pool_route_modification(Assignment& assignment, int inner_iteratio
 								//test condition 2: passing through capacity impact area
 								bool b_passing_capacity_impact_area = false;
 
-								if (it->second.path_volume < 0.00001)
+								if (it->second.path_volume < 0.00001)  // positive flow
 									continue;
 
 								std::vector <int> link_seq_vector;  // reset local variable for each path/column
@@ -1189,31 +1189,34 @@ void g_column_pool_route_modification(Assignment& assignment, int inner_iteratio
 									// step 3: we can still have k-path from the info zone to to final destination so we need to random select one 
 									for (it2 = it_begin2; it2 != it_end2; ++it2)
 									{
-										if(b_sa_column_found_flag == false)
-										{
-
+										bool b_diversion_flag = true;
+										
 										for (int nl2 = 1; nl2 < it2->second.m_link_size; ++nl2)  // arc a // starting from 1 to exclude virtual link at the beginning
+											{
+												if (g_link_vector[it2->second.path_link_vector[nl2]].VDF_period[tau].network_design_flag <= -1)  // affected by capacity reduction
+												{
+													b_diversion_flag = false;
+												}
+
+											}
+
+											
+										if (b_diversion_flag == true && b_sa_column_found_flag == false) // second sub path: two conditions: diverted. and first alternative path
 										{
-											link_seq_vector.push_back(it2->second.path_link_vector[nl2]);
-											// construct sub path C
+											for (int nl2 = 1; nl2 < it2->second.m_link_size; ++nl2)  // arc a // starting from 1 to exclude virtual link at the beginning
+											{
+												link_seq_vector.push_back(it2->second.path_link_vector[nl2]);
+												// construct sub path C
+												cout << "reroute B: l=" << nl2 << "," << g_node_vector[g_link_vector[it2->second.path_link_vector[nl2]].to_node_seq_no].node_id << endl;
+
+											}
+											b_sa_column_found_flag = true;
 										}
 
-										b_sa_column_found_flag = true;
-										break; // only connect with the first available second stage path
-
-										}
-									}// output from this loop is part C link_seq_vector
-
-									if (b_sa_column_found_flag == false)
-									{
-										// 
-										cout <<"error: SA_column has not been found!" << endl;
-										g_program_stop();
 									}
 
-
-									// re-assmble the path vector of path_link_vector
-									if (it->second.path_link_vector != NULL)
+									// re-assmble the path vector of path_link_vector only if a feasible sa column is found.
+									if (b_sa_column_found_flag  == true &&  it->second.path_link_vector != NULL)
 									{
 										// copy the updated path (stage1 + stage 2) back to the path link vector 
 										delete it->second.path_link_vector;
@@ -1239,6 +1242,8 @@ void g_column_pool_route_modification(Assignment& assignment, int inner_iteratio
 										for (int l = 0; l < link_seq_vector.size(); l++)
 										{
 											it->second.path_node_vector[l + 1] = g_link_vector[link_seq_vector[l]].to_node_seq_no;
+											cout << "reroute: l=" << l << "," << g_node_vector[g_link_vector[link_seq_vector[l]].to_node_seq_no].node_id << endl; 
+
 										}
 										it->second.m_node_size = link_seq_vector.size() + 1;
 
