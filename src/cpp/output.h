@@ -826,7 +826,7 @@ void g_output_assignment_result(Assignment& assignment, int subarea_id)
 		}
 
 		fprintf(g_pFilePathMOE, "first_column,path_no,o_zone_id,d_zone_id,od_pair,o_sindex,d_sindex,within_OD_path_no,path_id,activity_zone_sequence,activity_agent_type_sequence,information_type,agent_type,demand_period,volume,simu_volume,subarea_flag,OD_impact_flag,at_OD_impact_flag,");
-		fprintf(g_pFilePathMOE, "vehicle_diverted_flag,toll, #_of_nodes,travel_time,VDF_travel_time,VDF_travel_time_without_access_link,distance,distance_km,distance_mile,node_sequence,link_sequence, ");
+		fprintf(g_pFilePathMOE, "path_impact_flag,toll,#_of_nodes,travel_time,VDF_travel_time,VDF_travel_time_without_access_link,distance,distance_km,distance_mile,node_sequence,link_sequence, ");
 
 		//// stage 1: column updating
 		//for (int iteration_number = 0; iteration_number < min(20, assignment.g_number_of_column_updating_iterations); iteration_number++)
@@ -1236,15 +1236,8 @@ void g_output_assignment_result(Assignment& assignment, int subarea_id)
 									if (it->second.m_node_size - virtual_first_link_delta - virtual_last_link_delta <= 2)
 										continue;
 
-									int diverted_flag = -1;  //NA by default
+									int impacted_path_flag = it->second.impacted_path_flag;  //NA by default
 
-									if (p_column_pool->OD_impact_flag == 1)
-									{
-										if (it->second.impacted_path_flag == 1) 
-											diverted_flag = 0;  // still passing through the impact area
-										else 
-											diverted_flag = 1;
-									}
 									
 									double volume = max(0.001,it->second.path_volume);  // avoid devide by zero error
 
@@ -1269,7 +1262,7 @@ void g_output_assignment_result(Assignment& assignment, int subarea_id)
 										it->second.subarea_output_flag,
 										global_od_impact_flag_across_all_agent_types,
 										at_OD_impact_flag,
-										diverted_flag,
+										impacted_path_flag,
 										path_toll,
 										it->second.m_node_size - virtual_first_link_delta - virtual_last_link_delta,
 										final_path_travel_time,

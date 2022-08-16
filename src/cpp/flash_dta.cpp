@@ -24,7 +24,7 @@ using namespace std;
 void write_default_setting_file_if_not_exist()
 {
 
-	CCSVParser parser_settings;
+	CDTACSVParser parser_settings;
 	parser_settings.IsFirstLineHeader = false;
 
 	if (parser_settings.OpenCSVFile("settings.csv", false))
@@ -66,7 +66,7 @@ void write_default_setting_file_if_not_exist()
 
 bool CheckMeasurementFileExist()
 {
-	CCSVParser parser_measurement;
+	CDTACSVParser parser_measurement;
 	if (parser_measurement.OpenCSVFile("measurement.csv", false))
 	{
 
@@ -105,7 +105,7 @@ bool CheckMeasurementFileExist()
 bool CheckSupplySideScenarioFileExist()
 {
 
-	CCSVParser parser;
+	CDTACSVParser parser;
 
 	int sa_count = 0;
 
@@ -164,7 +164,7 @@ int main()
 	int link_length_in_meter_flag = 0;
 
 	write_default_setting_file_if_not_exist();
-	CCSVParser parser_settings;
+	CDTACSVParser parser_settings;
 	parser_settings.IsFirstLineHeader = false;
 
 

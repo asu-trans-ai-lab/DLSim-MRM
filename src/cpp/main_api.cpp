@@ -412,7 +412,7 @@ void  CLink::calculate_dynamic_VDFunction(int inner_iteration_number, bool conge
 		{
 			double link_volume_to_be_assigned = PCE_volume_per_period[tau] + VDF_period[tau].preload + VDF_period[tau].sa_volume;
 
-			if (link_id == "7422")
+			if (link_id == "10")
 			{
 				int idebug = 1;
 			}
@@ -1084,7 +1084,7 @@ double network_assignment(int assignment_mode, int column_generation_iterations,
 	// at the end of simulation 
 	// validation step if reading data are available
 	bool b_sensor_reading_data_available = false;
-	CCSVParser parser_reading;
+	CDTACSVParser parser_reading;
 	if (parser_reading.OpenCSVFile("Reading.csv", false))
 	{
 		parser_reading.CloseCSVFile();

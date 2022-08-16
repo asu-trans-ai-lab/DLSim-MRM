@@ -430,7 +430,7 @@ class CAnalysisDistrict
 public:
     int district_id;
     int district_name;
-    std::vector<GDPoint> shape_points;
+    std::vector<DTAGDPoint> shape_points;
 
     void record_origin_2_district_volume(int at, double od_volume)
     {
@@ -922,8 +922,8 @@ public:
         return t % g_number_of_in_memory_simulation_intervals;
     }
 
-    std::vector<GDPoint> g_subarea_shape_points;
-    std::vector<GDPoint> g_MRM_subarea_shape_points;
+    std::vector<DTAGDPoint> g_subarea_shape_points;
+    std::vector<DTAGDPoint> g_MRM_subarea_shape_points;
     
 
     std::map<int, int> g_node_id_to_MRM_subarea_mapping;  // this is an one-to-one mapping: 1: outside 1: inside 
@@ -995,7 +995,7 @@ public:
     int g_number_of_zones;
     int g_number_of_agent_types;
 
-    std::map<int, int> node_seq_no_2_info_zone_id_mapping;  // this is used to mark if this zone_id has been identified or not
+    std::map<int, int> node_seq_no_2_zone_id_mapping;  // this is used to mark if this zone_id has been identified or not
     std::map<int, int> zone_seq_no_2_info_mapping;  // this is used to mark if this zone_id has been identified or not
     std::map<int, int> zone_seq_no_2_activity_mapping;  // this is used to mark if this zone_id has been identified or not
 
@@ -1427,7 +1427,7 @@ public:
 
 
     float tmc_volume;
-    GDPoint TMC_from, TMC_to;
+    DTAGDPoint TMC_from, TMC_to;
     float TMC_highest_speed;
 
     //end of TMC
@@ -1614,7 +1614,7 @@ class CInfoCell {
 public:
     __int64 cell_id;
     std::string cell_str;
-    std::vector<GDPoint> m_ShapePoints;
+    std::vector<DTAGDPoint> m_ShapePoints;
 
     void CreateCell(double x, double y, double grid_resolution)
     {
@@ -1632,7 +1632,7 @@ public:
         top = (yi + 1) * grid_resolution;
         bottom = (yi)*grid_resolution;
 
-        GDPoint	pt0, pt1, pt2, pt3, pt4;
+        DTAGDPoint	pt0, pt1, pt2, pt3, pt4;
 
         pt0.x = left; 	pt0.y = top;
         pt1.x = right; 	pt1.y = top;
@@ -1843,7 +1843,7 @@ extern std::map<std::string, CInfoCell> g_info_cell_map;
 void g_assign_RT_computing_tasks_to_memory_blocks(Assignment& assignment);
 void g_load_demand_side_scenario_file(Assignment& assignment);
 extern void g_add_new_virtual_connector_link(int internal_from_node_seq_no, int internal_to_node_seq_no, string agent_type_str, int zone_seq_no);
-extern double g_Find_PPP_RelativeAngle(const GDPoint* p1, const GDPoint* p2, const GDPoint* p3, const GDPoint* p4);
-extern double g_GetPoint2LineDistance(const GDPoint* pt, const GDPoint* FromPt, const GDPoint* ToPt);
-extern double g_GetPoint2Point_Distance(const GDPoint* p1, const GDPoint* p2);
+extern double g_Find_PPP_RelativeAngle(const DTAGDPoint* p1, const DTAGDPoint* p2, const DTAGDPoint* p3, const DTAGDPoint* p4);
+extern double g_GetPoint2LineDistance(const DTAGDPoint* pt, const DTAGDPoint* FromPt, const DTAGDPoint* ToPt);
+extern double g_GetPoint2Point_Distance(const DTAGDPoint* p1, const DTAGDPoint* p2);
 #endif

@@ -1080,50 +1080,47 @@ void g_column_pool_route_modification(Assignment& assignment, int inner_iteratio
 					p_column_pool = &(assignment.g_column_pool[from_zone_sindex][to_zone_sindex][at][tau]);
 					if (p_column_pool->od_volume > 0)
 					{
-
-
 							column_vector_size = p_column_pool->path_node_sequence_map.size();
 
 							// scan through the map with different node sum for different paths
 
-							path_seq_count = 0;
 
 							it_begin = p_column_pool->path_node_sequence_map.begin();
 							it_end = p_column_pool->path_node_sequence_map.end();
 
 							//test condition 1: passing through information zone
-							bool b_passing_information_zone = false;
-							int new_orig_zone_id = 0;
-
-							std::vector <int> link_seq_vector;
-
-							//test condition 2: passing through capacity impact area
-							bool b_passing_capacity_impact_area = false;
 							for (it = it_begin; it != it_end; ++it)  // scan each first-stage original path
 							{
+								path_seq_count = 0;
+								bool b_passing_information_zone = false;
+								int new_orig_zone_id = 0;
+
+
+								//test condition 2: passing through capacity impact area
+								bool b_passing_capacity_impact_area = false;
+
 								if (it->second.path_volume < 0.00001)
 									continue;
 
-								for (int nl = 0; nl < it->second.m_link_size; ++nl)  // arc a
+								std::vector <int> link_seq_vector;  // reset local variable for each path/column
+
+								for (int nl = 0; nl < it->second.m_link_size; ++nl)  // arc a  // first nl
 								{
 									link_seq_no = it->second.path_link_vector[nl];
 									CLink* p_current_link = &(g_link_vector[link_seq_no]);
 
-									if(p_current_link->to_node_seq_no == 3)  // debugging
-									{
-									cout << "nl= " << nl  << " link sequence = " << link_seq_no << endl;
-									}
 
 									if (b_passing_information_zone == false &&
 										p_current_link->VDF_period[tau].network_design_flag ==2 /*DMS link*/ &&
-										assignment.node_seq_no_2_info_zone_id_mapping.find(p_current_link->to_node_seq_no) != assignment.node_seq_no_2_info_zone_id_mapping.end())
+										assignment.node_seq_no_2_zone_id_mapping.find(p_current_link->to_node_seq_no) != assignment.node_seq_no_2_zone_id_mapping.end())
 										  // this node been defined as zone
 									{
 
+										cout << "nl= " << nl << " link sequence = " << link_seq_no << endl;
 										p_column_pool->OD_impact_flag = 1;
 										p_column_pool->at_od_impacted_flag_map[at];
 
-										int zone_id = assignment.node_seq_no_2_info_zone_id_mapping[p_current_link->to_node_seq_no];
+										int zone_id = assignment.node_seq_no_2_zone_id_mapping[p_current_link->to_node_seq_no];
 
 										if (assignment.g_zoneid_to_zone_seq_no_mapping.find(zone_id) == assignment.g_zoneid_to_zone_seq_no_mapping.end())  // not found
 											continue; 
@@ -1145,11 +1142,12 @@ void g_column_pool_route_modification(Assignment& assignment, int inner_iteratio
 									if (g_link_vector[link_seq_no].VDF_period[tau].network_design_flag <= -1)  // affected by capacity reduction
 									{
 										b_passing_capacity_impact_area = true;
+										it->second.impacted_path_flag = 1; // impacted
 									}
 
 								}
 
-								// two conditions are satisifed
+								// two conditions are satisfied
 
 								if (b_passing_capacity_impact_area == true && b_passing_information_zone == true)
 								{
@@ -1158,7 +1156,6 @@ void g_column_pool_route_modification(Assignment& assignment, int inner_iteratio
 
 									// first step: fetch another column from the newly defined origin_zone id (i.e. information zone)
 									int info_orig = assignment.g_zoneid_to_zone_seq_no_mapping[new_orig_zone_id];  
-									
 
 									int from_zone_sindex = g_zone_vector[info_orig].sindex;
 									if (from_zone_sindex == -1)
@@ -1192,12 +1189,12 @@ void g_column_pool_route_modification(Assignment& assignment, int inner_iteratio
 									// step 3: we can still have k-path from the info zone to to final destination so we need to random select one 
 									for (it2 = it_begin2; it2 != it_end2; ++it2)
 									{
-										if(it2->second.b_sensitivity_analysis_flag == true)
+										if(b_sa_column_found_flag == false)
 										{
 
-										for (int nl = 1; nl < it2->second.m_link_size; ++nl)  // arc a // exclude virtual link at the end;
+										for (int nl2 = 1; nl2 < it2->second.m_link_size; ++nl2)  // arc a // starting from 1 to exclude virtual link at the beginning
 										{
-											link_seq_vector.push_back(it2->second.path_link_vector[nl]);
+											link_seq_vector.push_back(it2->second.path_link_vector[nl2]);
 											// construct sub path C
 										}
 
@@ -1214,6 +1211,8 @@ void g_column_pool_route_modification(Assignment& assignment, int inner_iteratio
 										g_program_stop();
 									}
 
+
+									// re-assmble the path vector of path_link_vector
 									if (it->second.path_link_vector != NULL)
 									{
 										// copy the updated path (stage1 + stage 2) back to the path link vector 

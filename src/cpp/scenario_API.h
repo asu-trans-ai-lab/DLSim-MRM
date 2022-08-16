@@ -54,7 +54,7 @@ void g_load_supply_side_scenario_file(Assignment& assignment)
 {
 	dtalog.output() << "Step 2.0: Reading supply side scenario data..." << endl;
 
-	CCSVParser parser;
+	CDTACSVParser parser;
 
 	int capacity_count = 0;
 	int sa_capacity_count = 0;
@@ -167,14 +167,14 @@ void g_load_supply_side_scenario_file(Assignment& assignment)
 				g_link_vector[link_seq_no].VDF_period[tau].network_design_flag = 2;
 				g_link_vector[link_seq_no].VDF_period[tau].scenario_code = "dms";
 
-				if (assignment.node_seq_no_2_info_zone_id_mapping.find(g_link_vector[link_seq_no].to_node_seq_no) == assignment.node_seq_no_2_info_zone_id_mapping.end())
+				if (assignment.node_seq_no_2_zone_id_mapping.find(g_link_vector[link_seq_no].to_node_seq_no) == assignment.node_seq_no_2_zone_id_mapping.end())
 				{
 					cout << "information zone has not been defined!" << endl;
 					g_program_stop();
 
 				}
 
-				int zone_id = assignment.node_seq_no_2_info_zone_id_mapping[g_link_vector[link_seq_no].to_node_seq_no];
+				int zone_id = assignment.node_seq_no_2_zone_id_mapping[g_link_vector[link_seq_no].to_node_seq_no];
 
 				if (assignment.g_zoneid_to_zone_seq_no_mapping.find(zone_id) == assignment.g_zoneid_to_zone_seq_no_mapping.end())  // not found
 					continue;
@@ -336,7 +336,7 @@ void g_load_demand_side_scenario_file(Assignment& assignment)
 {
 	dtalog.output() << "Step 2.1: Reading demand side scenario data..." << endl;
 
-	CCSVParser parser;
+	CDTACSVParser parser;
 
 	int demand_scenario_count = 0;
 

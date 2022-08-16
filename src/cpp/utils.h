@@ -29,7 +29,7 @@ using __int64 = long long;
 constexpr auto _PI = 3.1415926;
 // utilities functions
 
-struct GDPoint //geometry data
+struct DTAGDPoint //geometry data
 {
     double x;
     double y;
@@ -39,9 +39,9 @@ void g_program_exit();
 bool g_get_line_polygon_intersection(
     double Ax, double Ay,
     double Bx, double By,
-    std::vector<GDPoint> subarea_shape_points);
-void g_find_convex_hull(std::vector<GDPoint> points, std::vector<GDPoint> &points_in_polygon);
-int g_test_point_in_polygon(GDPoint Pt, std::vector<GDPoint> V);
+    std::vector<DTAGDPoint> subarea_shape_points);
+void g_find_convex_hull(std::vector<DTAGDPoint> points, std::vector<DTAGDPoint> &points_in_polygon);
+int g_test_point_in_polygon(DTAGDPoint Pt, std::vector<DTAGDPoint> V);
 
 double g_calculate_p2p_distance_in_meter_from_latitude_longitude(double p1_x, double p1_y, double p2_x, double p2_y);
 
@@ -112,7 +112,7 @@ typedef struct
     double X, Y, Z;
 }CCoordinate;
 
-class CCSVParser{
+class CDTACSVParser{
 public:
     char Delimiter;
     bool IsFirstLineHeader;
@@ -131,11 +131,11 @@ public:
     std::vector<std::string> Headers;
     std::map<std::string, int> FieldsIndices;
 
-    CCSVParser() : Delimiter{ ',' }, IsFirstLineHeader{ true }, m_bSkipFirstLine{ false }, m_bDataHubSingleCSVFile{ false }, m_bLastSectionRead{ false }
+    CDTACSVParser() : Delimiter{ ',' }, IsFirstLineHeader{ true }, m_bSkipFirstLine{ false }, m_bDataHubSingleCSVFile{ false }, m_bLastSectionRead{ false }
     {
     }
 
-    ~CCSVParser()
+    ~CDTACSVParser()
     {
         if (inFile.is_open())
             inFile.close();
@@ -164,7 +164,7 @@ public:
 // Peiheng, 03/22/21, to avoid implicit instantiations in flash_dta.cpp and main_api.cpp for this template function only
 // all the other non-inline functions are implemented in utils.cpp
 template <class T>
-bool CCSVParser::GetValueByFieldName(std::string field_name, T& value, bool required_field, bool NonnegativeFlag)
+bool CDTACSVParser::GetValueByFieldName(std::string field_name, T& value, bool required_field, bool NonnegativeFlag)
 {
     if (FieldsIndices.find(field_name) == FieldsIndices.end())
     {

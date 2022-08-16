@@ -54,7 +54,7 @@ using std::istringstream;
 void Assignment::GenerateDefaultMeasurementData()
 {
 	// step 1: read measurement.csv
-	CCSVParser parser_measurement;
+	CDTACSVParser parser_measurement;
 	if (parser_measurement.OpenCSVFile("measurement.csv", false))
 	{
 		parser_measurement.CloseCSVFile();
@@ -97,7 +97,7 @@ void Assignment::Demand_ODME(int OD_updating_iterations, int sensitivity_analysi
 	{
 //		GenerateDefaultMeasurementData();
 		// step 1: read measurement.csv
-		CCSVParser parser_measurement;
+		CDTACSVParser parser_measurement;
 
 		if (parser_measurement.OpenCSVFile("measurement.csv", true))
 		{

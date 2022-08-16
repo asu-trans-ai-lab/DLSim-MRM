@@ -36,6 +36,8 @@ using std::sqrt;
 using std::min;
 using std::fmin;
 
+#include "shared_code.h"
+
 void g_program_stop()
 {
     dtalog.output() << "DTALite Program stops. Press any key to terminate. Thanks!" << endl;
@@ -56,49 +58,6 @@ void fopen_ss(FILE** file, const char* fileName, const char* mode)
     *file = fopen(fileName, mode);
 }
 
-float g_read_float(FILE* f)
-{
-    if (feof(f) == 1)
-        return -1;
-    /*
-        read a floating point number from the current pointer of the file,
-        skip all spaces
-     */
-    char ch, buf[32];
-    int i = 0;
-    int flag = 1;
-
-    /* returns -1 if end of file is reached */
-    while (true)
-    {
-        ch = getc(f);
-        if (ch == EOF || ch == '*' || ch == '$' || ch < -1 || ch >=255 )
-            return -1;
-
-        if (isdigit(ch))
-            break;
-
-        if (ch == '-')
-            flag = -1;
-        else
-            flag = 1;
-    }
-
-    if (ch == EOF) return -1;
-    while (isdigit(ch) || ch == '.') {
-        buf[i++] = ch;
-        ch = fgetc(f);
-
-    }
-    buf[i] = 0;
-
-    /* atof function converts a character string (char *) into a doubleing
-    pointer equivalent, and if the string is not a floting point number,
-    a zero will be return.
-    */
-
-    return (float)(atof(buf) * flag);
-}
 
 //split the string by "_"
 vector<string> split(const string &s, const string &seperator)
@@ -139,130 +98,6 @@ vector<string> split(const string &s, const string &seperator)
     return result;
 }
 
-vector<float> g_time_parser(string str)
-{
-    vector<float> output_global_minute;
-
-    int string_lenghth = str.length();
-
-    //ASSERT(string_lenghth < 100);
-
-    const char* string_line = str.data(); //string to char*
-
-    int char_length = strlen(string_line);
-
-    char ch, buf_ddhhmm[32] = { 0 }, buf_SS[32] = { 0 }, buf_sss[32] = { 0 };
-    char dd1, dd2, hh1, hh2, mm1, mm2, SS1, SS2, sss1, sss2, sss3;
-    float ddf1, ddf2, hhf1, hhf2, mmf1, mmf2, SSf1, SSf2, sssf1, sssf2, sssf3;
-    float global_minute = 0;
-    float dd = 0, hh = 0, mm = 0, SS = 0, sss = 0;
-    int i = 0;
-    int buffer_i = 0, buffer_k = 0, buffer_j = 0;
-    int num_of_colons = 0;
-
-    //DDHHMM:SS:sss or HHMM:SS:sss
-
-    while (i < char_length)
-    {
-        ch = string_line[i++];
-
-        if (num_of_colons == 0 && ch != '_' && ch != ':') //input to buf_ddhhmm until we meet the colon
-        {
-            buf_ddhhmm[buffer_i++] = ch;
-        }
-        else if (num_of_colons == 1 && ch != ':') //start the Second "SS"
-        {
-            buf_SS[buffer_k++] = ch;
-        }
-        else if (num_of_colons == 2 && ch != ':') //start the Millisecond "sss"
-        {
-            buf_sss[buffer_j++] = ch;
-        }
-
-        if (ch == '_' || i == char_length) //start a new time string
-        {
-            if (buffer_i == 4) //"HHMM"
-            {
-                //HHMM, 0123
-                hh1 = buf_ddhhmm[0]; //read each first
-                hh2 = buf_ddhhmm[1];
-                mm1 = buf_ddhhmm[2];
-                mm2 = buf_ddhhmm[3];
-
-                hhf1 = ((float)hh1 - 48); //convert a char to a float
-                hhf2 = ((float)hh2 - 48);
-                mmf1 = ((float)mm1 - 48);
-                mmf2 = ((float)mm2 - 48);
-
-                dd = 0;
-                hh = hhf1 * 10 * 60 + hhf2 * 60;
-                mm = mmf1 * 10 + mmf2;
-            }
-            else if (buffer_i == 6) //"DDHHMM"
-            {
-                //DDHHMM, 012345
-                dd1 = buf_ddhhmm[0]; //read each first
-                dd2 = buf_ddhhmm[1];
-                hh1 = buf_ddhhmm[2];
-                hh2 = buf_ddhhmm[3];
-                mm1 = buf_ddhhmm[4];
-                mm2 = buf_ddhhmm[5];
-
-                ddf1 = ((float)dd1 - 48); //convert a char to a float
-                ddf2 = ((float)dd2 - 48);
-                hhf1 = ((float)hh1 - 48);
-                hhf2 = ((float)hh2 - 48);
-                mmf1 = ((float)mm1 - 48);
-                mmf2 = ((float)mm2 - 48);
-
-                dd = ddf1 * 10 * 24 * 60 + ddf2 * 24 * 60;
-                hh = hhf1 * 10 * 60 + hhf2 * 60;
-                mm = mmf1 * 10 + mmf2;
-            }
-
-            if (num_of_colons == 1 || num_of_colons == 2)
-            {
-                //SS, 01
-                SS1 = buf_SS[0]; //read each first
-                SS2 = buf_SS[1];
-
-                SSf1 = ((float)SS1 - 48); //convert a char to a float
-                SSf2 = ((float)SS2 - 48);
-
-                SS = (SSf1 * 10 + SSf2) / 60;
-            }
-
-            if (num_of_colons == 2)
-            {
-                //sss, 012
-                sss1 = buf_sss[0]; //read each first
-                sss2 = buf_sss[1];
-                sss3 = buf_sss[2];
-
-                sssf1 = ((float)sss1 - 48); //convert a char to a float
-                sssf2 = ((float)sss2 - 48);
-                sssf3 = ((float)sss3 - 48);
-
-                sss = (sssf1 * 100 + sssf2 * 10 + sssf3) / 1000;
-            }
-
-            global_minute = dd + hh + mm + SS + sss;
-
-            output_global_minute.push_back(global_minute);
-
-            //initialize the parameters
-            buffer_i = 0;
-            buffer_k = 0;
-            buffer_j = 0;
-            num_of_colons = 0;
-        }
-
-        if (ch == ':')
-            num_of_colons += 1;
-    }
-
-    return output_global_minute;
-}
 
 float g_timestamp_parser(string str)
 {
@@ -389,52 +224,13 @@ float g_timestamp_parser(string str)
     return output_global_minute;
 }
 
-string g_time_coding(float time_stamp)
-{
-    int hour = static_cast<int>(time_stamp / 60);
-    int minute = static_cast<int>(time_stamp - hour * 60);
-    int second = static_cast<int>((time_stamp - hour * 60 - minute) * 60 + 0.02);
-
-    int sss = ((time_stamp - hour * 60 - minute) * 60 - second)*1000;
-
-    //mm:ss.sss
-    ostringstream strm;
-    strm.fill('0');
-    strm << std::setw(2) << hour << std::setw(2) << minute << ":" << std::setw(2) << second << "." << std::setw(3) << sss;
-
-    return strm.str();
-}
 
 
-int g_ParserStringSequence(std::string str_input, vector<string>& vect)
-{
 
-    std::istringstream ss(str_input);
-    std::string token;
 
-    while (std::getline(ss, token, ';')) {
-        vect.push_back(token);
-    }
 
-    return vect.size();
-}
-int g_ParserIntSequence(std::string str, std::vector<int>& vect)
-{
-    std::stringstream ss(str);
-    int i;
-
-    while (ss >> i)
-    {
-        vect.push_back(i);
-        if (ss.peek() == ';')
-            ss.ignore();
-    }
-
-    return vect.size();
-}
-
-// definitions of CCSVParser member functions
-void CCSVParser::ConvertLineStringValueToIntegers()
+// definitions of CDTACSVParser member functions
+void CDTACSVParser::ConvertLineStringValueToIntegers()
 {
     LineIntegerVector.clear();
     for (unsigned i = 0; i < LineFieldsValue.size(); ++i)
@@ -447,7 +243,7 @@ void CCSVParser::ConvertLineStringValueToIntegers()
     }
 }
 
-bool CCSVParser::OpenCSVFile(string fileName, bool b_required)
+bool CDTACSVParser::OpenCSVFile(string fileName, bool b_required)
 {
     mFileName = fileName;
     inFile.open(fileName.c_str());
@@ -491,7 +287,7 @@ bool CCSVParser::OpenCSVFile(string fileName, bool b_required)
     }
 }
 
-bool CCSVParser::ReadRecord()
+bool CDTACSVParser::ReadRecord()
 {
     LineFieldsValue.clear();
 
@@ -515,7 +311,7 @@ bool CCSVParser::ReadRecord()
     }
 }
 
-bool CCSVParser::ReadSectionHeader(string s)
+bool CDTACSVParser::ReadSectionHeader(string s)
 {
     //skip // data
     Headers.clear();
@@ -546,7 +342,7 @@ bool CCSVParser::ReadSectionHeader(string s)
     return true;
 }
 
-bool CCSVParser::ReadRecord_Section()
+bool CDTACSVParser::ReadRecord_Section()
 {
     LineFieldsValue.clear();
 
@@ -591,7 +387,7 @@ bool CCSVParser::ReadRecord_Section()
     }
 }
 
-vector<string> CCSVParser::ParseLine(string line)
+vector<string> CDTACSVParser::ParseLine(string line)
 {
     vector<string> SeperatedStrings;
     string subStr;
@@ -674,7 +470,7 @@ vector<string> CCSVParser::ParseLine(string line)
     return SeperatedStrings;
 }
 
-bool CCSVParser::GetValueByFieldName(string field_name, string& value, bool required_field)
+bool CDTACSVParser::GetValueByFieldName(string field_name, string& value, bool required_field)
 {
     if (FieldsIndices.find(field_name) == FieldsIndices.end())
     {
@@ -886,7 +682,7 @@ bool g_get_line_intersection(
 bool g_get_line_polygon_intersection(
     double Ax, double Ay,
     double Bx, double By,
-    std::vector<GDPoint> subarea_shape_points)
+    std::vector<DTAGDPoint> subarea_shape_points)
 {
 
     double Cx, Cy;
@@ -906,7 +702,7 @@ bool g_get_line_polygon_intersection(
     return false;
 }
 
-int g_test_point_in_polygon(GDPoint Pt, std::vector<GDPoint> V)
+int g_test_point_in_polygon(DTAGDPoint Pt, std::vector<DTAGDPoint> V)
 {
     int n = V.size()-1;
     int    cn = 0;    // the  crossing number counter
@@ -931,28 +727,28 @@ int g_test_point_in_polygon(GDPoint Pt, std::vector<GDPoint> V)
 // to  the first point Used in compare function of qsort()
 // reference: https://iq.opengenus.org/graham-scan-convex-hull/
 
-GDPoint p0;
+DTAGDPoint p0;
 // A utility function to find next to top in a stack
 
-GDPoint nextToTop(std::stack<GDPoint>& S)
+DTAGDPoint nextToTop(std::stack<DTAGDPoint>& S)
 {
-    GDPoint p = S.top();
+    DTAGDPoint p = S.top();
     S.pop();
-    GDPoint res = S.top();
+    DTAGDPoint res = S.top();
     S.push(p);
     return res;
 }
 // A utility function to swap two points
-int swap(GDPoint& p1, GDPoint& p2)
+int swap(DTAGDPoint& p1, DTAGDPoint& p2)
 {
-    GDPoint temp = p1;
+    DTAGDPoint temp = p1;
     p1 = p2;
     p2 = temp;
     return 1;
 }
 // A utility function to return square of distance
 // between p1 and p2
-double distSq(GDPoint p1, GDPoint p2)
+double distSq(DTAGDPoint p1, DTAGDPoint p2)
 {
     return (p1.x - p2.x) * (p1.x - p2.x) +
         (p1.y - p2.y) * (p1.y - p2.y);
@@ -962,7 +758,7 @@ double distSq(GDPoint p1, GDPoint p2)
 // 0 --> p, q and r are colinear
 // 1 --> Clockwise
 // 2 --> Counterclockwise
-int orientation(GDPoint p, GDPoint q, GDPoint r)
+int orientation(DTAGDPoint p, DTAGDPoint q, DTAGDPoint r)
 {
     double val = (q.y - p.y) * (r.x - q.x) -
         (q.x - p.x) * (r.y - q.y);
@@ -970,11 +766,11 @@ int orientation(GDPoint p, GDPoint q, GDPoint r)
     return (val > 0) ? 1 : 2; // clock or counterclock wise
 }
 // A function used by library function qsort() to sort an array of
-// points with respect to the first GDPoint
+// points with respect to the first DTAGDPoint
 int compare(const void* vp1, const void* vp2)
 {
-    GDPoint* p1 = (GDPoint*)vp1;
-    GDPoint* p2 = (GDPoint*)vp2;
+    DTAGDPoint* p1 = (DTAGDPoint*)vp1;
+    DTAGDPoint* p2 = (DTAGDPoint*)vp2;
     // Find orientation
     int o = orientation(p0, *p1, *p2);
     if (o == 0)
@@ -982,32 +778,32 @@ int compare(const void* vp1, const void* vp2)
     return (o == 2) ? -1 : 1;
 }
 // Prints convex hull of a set of n points.
-void g_find_convex_hull(std::vector<GDPoint> points, std::vector<GDPoint> &points_in_polygon)
+void g_find_convex_hull(std::vector<DTAGDPoint> points, std::vector<DTAGDPoint> &points_in_polygon)
 {
     int n = points.size();
-    // Find the bottommost GDPoint
+    // Find the bottommost DTAGDPoint
     int ymin = points[0].y, min = 0;
     for (int i = 1; i < n; i++)
     {
         int y = points[i].y;
         // Pick the bottom-most or chose the left
-        // most GDPoint in case of tie
+        // most DTAGDPoint in case of tie
         if ((y < ymin) || (ymin == y &&
             points[i].x < points[min].x))
             ymin = points[i].y, min = i;
     }
-    // Place the bottom-most GDPoint at first position
+    // Place the bottom-most DTAGDPoint at first position
     swap(points[0], points[min]);
-    // Sort n-1 points with respect to the first GDPoint.
-    // A GDPoint p1 comes before p2 in sorted ouput if p2
+    // Sort n-1 points with respect to the first DTAGDPoint.
+    // A DTAGDPoint p1 comes before p2 in sorted ouput if p2
     // has larger polar angle (in counterclockwise
     // direction) than p1
     p0 = points[0];
-    qsort(&points[1], n - 1, sizeof(GDPoint), compare);
+    qsort(&points[1], n - 1, sizeof(DTAGDPoint), compare);
     // If two or more points make same angle with p0,
     // Remove all but the one that is farthest from p0
     // Remember that, in above sorting, our criteria was
-    // to keep the farthest GDPoint at the end when more than
+    // to keep the farthest DTAGDPoint at the end when more than
     // one points have same angle.
     int m = 1; // Initialize size of modified array
     for (int i = 1; i < n; i++)
@@ -1025,7 +821,7 @@ void g_find_convex_hull(std::vector<GDPoint> points, std::vector<GDPoint> &point
     if (m < 3) return;
     // Create an empty stack and push first three points
     // to it.
-    std::stack<GDPoint> S;
+    std::stack<DTAGDPoint> S;
     S.push(points[0]);
     S.push(points[1]);
     S.push(points[2]);
@@ -1044,7 +840,7 @@ void g_find_convex_hull(std::vector<GDPoint> points, std::vector<GDPoint> &point
     // Now stack has the output points, print contents of stack
     while (!S.empty())
     {
-        GDPoint p = S.top();
+        DTAGDPoint p = S.top();
 //        cout << "(" << p.x << ", " << p.y << ")" << endl;
         points_in_polygon.push_back(p);
         S.pop();
@@ -1056,7 +852,7 @@ void g_find_convex_hull(std::vector<GDPoint> points, std::vector<GDPoint> &point
     }
 }
 
-double g_Find_P2P_Angle(const GDPoint* p1, const GDPoint* p2)
+double g_Find_P2P_Angle(const DTAGDPoint* p1, const DTAGDPoint* p2)
 {
     double PI = 3.14159265358979323846;
     double delta_x = p2->x - p1->x;
@@ -1080,7 +876,7 @@ double g_Find_P2P_Angle(const GDPoint* p1, const GDPoint* p2)
     return angle;
 }
 
-double g_Find_PPP_RelativeAngle(const GDPoint* p1, const GDPoint* p2, const GDPoint* p3, const GDPoint* p4)
+double g_Find_PPP_RelativeAngle(const DTAGDPoint* p1, const DTAGDPoint* p2, const DTAGDPoint* p3, const DTAGDPoint* p4)
 {
     int relative_angle;
 
@@ -1097,14 +893,14 @@ double g_Find_PPP_RelativeAngle(const GDPoint* p1, const GDPoint* p2, const GDPo
     return relative_angle;
 }
 
-double g_GetPoint2Point_Distance(const GDPoint* p1, const GDPoint* p2)
+double g_GetPoint2Point_Distance(const DTAGDPoint* p1, const DTAGDPoint* p2)
 {
     return pow(((p1->x - p2->x) * (p1->x - p2->x) + (p1->y - p2->y) * (p1->y - p2->y)), 0.5);
 }
-double g_GetPoint2LineDistance(const GDPoint* pt, const GDPoint* FromPt, const GDPoint* ToPt)
+double g_GetPoint2LineDistance(const DTAGDPoint* pt, const DTAGDPoint* FromPt, const DTAGDPoint* ToPt)
 {
     double U;
-    GDPoint Intersection;
+    DTAGDPoint Intersection;
 
     double LineLength = g_GetPoint2Point_Distance(FromPt, ToPt);
 

@@ -36,7 +36,7 @@
 #include <vector>
 #include <map>
 #include <omp.h>
-#include "geometry.h"
+#include "DTA_geometry.h"
 
 using std::max;
 using std::min;
@@ -145,7 +145,7 @@ void g_grid_zone_generation(Assignment& assignment)
 	int number_of_is_boundary = 0;
 	int number_of_nodes = 0;
 
-	CCSVParser parser;
+	CDTACSVParser parser;
 	if (parser.OpenCSVFile("node.csv", true))
 	{
 		while (parser.ReadRecord())  // if this line contains [] mark, then we will also read field headers.
@@ -503,7 +503,7 @@ bool g_TAZ_2_GMNS_zone_generation(Assignment& assignment)
 
 	std::vector<CNode> l_TAZ_vector; // l as local
 
-	CCSVParser parser;
+	CDTACSVParser parser;
 	if (parser.OpenCSVFile("TAZ.csv", true))
 	{
 		// fprintf(g_pFileOutputLog, "number of nodes =,%d\n", assignment.g_number_of_nodes);
@@ -523,7 +523,7 @@ bool g_TAZ_2_GMNS_zone_generation(Assignment& assignment)
 			string geo_string;
 			parser.GetValueByFieldName("geometry", geo_string);
 
-			CGeometry geometry(geo_string);
+			CDTAGeometry geometry(geo_string);
 
 			std::vector<CCoordinate> CoordinateVector = geometry.GetCoordinateList();
 			node.zone_coordinate_vector = CoordinateVector;
@@ -1186,7 +1186,7 @@ void g_writing_demand_files(Assignment& assignment)
 			);  // first line
 
 
-			CCSVParser parser;
+			CDTACSVParser parser;
 			if (parser.OpenCSVFile("link.csv", true))
 			{
 				while (parser.ReadRecord())  // if this line contains [] mark, then we will also read field headers.

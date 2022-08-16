@@ -56,7 +56,7 @@ using std::istringstream;
 
 bool g_read_subarea_CSV_file(Assignment& assignment)
 {
-	CCSVParser parser;
+	CDTACSVParser parser;
 	if (parser.OpenCSVFile("subarea.csv",false) )
 	{
 		while (parser.ReadRecord())
@@ -65,7 +65,7 @@ bool g_read_subarea_CSV_file(Assignment& assignment)
 			if (parser.GetValueByFieldName("geometry", geo_string))
 			{
 				// overwrite when the field "geometry" exists
-				CGeometry geometry(geo_string);
+				CDTAGeometry geometry(geo_string);
 
 				std::vector<CCoordinate> CoordinateVector = geometry.GetCoordinateList();
 
@@ -73,7 +73,7 @@ bool g_read_subarea_CSV_file(Assignment& assignment)
 				{
 					for (int p = 0; p < CoordinateVector.size(); p++)
 					{
-						GDPoint pt;
+						DTAGDPoint pt;
 						pt.x = CoordinateVector[p].X;
 						pt.y = CoordinateVector[p].Y;
 
@@ -95,7 +95,7 @@ bool g_read_subarea_CSV_file(Assignment& assignment)
 
 void g_read_departure_time_profile(Assignment& assignment)
 {
-	CCSVParser parser;
+	CDTACSVParser parser;
 	dtalog.output() << endl;
 	dtalog.output() << "Step 1.8: Reading file section [departure_time_profile] in setting.csv..." << endl;
 	parser.IsFirstLineHeader = false;
@@ -182,7 +182,7 @@ double g_pre_read_demand_file(Assignment& assignment)
 
 	float total_demand_in_demand_file = 0;
 
-	CCSVParser parser;
+	CDTACSVParser parser;
 	dtalog.output() << endl;
 	dtalog.output() << "Step 1.8: Reading file section [demand_file_list] in setting.csv..." << endl;
 	parser.IsFirstLineHeader = false;
@@ -232,7 +232,7 @@ double g_pre_read_demand_file(Assignment& assignment)
 					double critical_OD_volume = 0;
 
 					// read the file formaly after the test.
-					CCSVParser parser;
+					CDTACSVParser parser;
 					int line_no = 0;
 					if (parser.OpenCSVFile(file_name, false))
 					{
@@ -291,7 +291,7 @@ double g_pre_read_demand_file(Assignment& assignment)
 
 					vector<int> LineIntegerVector;
 
-					CCSVParser parser;
+					CDTACSVParser parser;
 					parser.IsFirstLineHeader = false;
 					if (parser.OpenCSVFile(file_name, true))
 					{
@@ -416,7 +416,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 		// for node layer
 		for (int i = 0; i < g_node_vector.size(); i++)
 		{
-			GDPoint pt;
+			DTAGDPoint pt;
 			pt.x = g_node_vector[i].x;
 			pt.y = g_node_vector[i].y;
 
@@ -461,7 +461,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 			// total_related_demand: inside to all, outside passing to all
 		for (int orig = 0; orig < g_zone_vector.size(); orig++)  // o
 		{
-			GDPoint Pt;
+			DTAGDPoint Pt;
 			Pt.x = g_zone_vector[orig].cell_x;
 			Pt.y = g_zone_vector[orig].cell_y;
 
@@ -706,9 +706,9 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 
 				for (int district = 0; district < assignment.g_number_of_analysis_districts; district++)
 				{
-					std::vector<GDPoint> points, points_in_polygon;
+					std::vector<DTAGDPoint> points, points_in_polygon;
 
-					//GDPoint pt;
+					//DTAGDPoint pt;
 					//pt.x = 0; pt.y = 4; points.push_back(pt);
 					//pt.x = 1; pt.y = 1; points.push_back(pt);
 					//pt.x = 2; pt.y = 2; points.push_back(pt);
@@ -724,7 +724,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 					{
 						if (g_zone_vector[orig].distrct_cluster_index == district)
 						{
-							GDPoint pt;
+							DTAGDPoint pt;
 							pt.x = g_zone_vector[orig].cell_x;
 							pt.y = g_zone_vector[orig].cell_y;
 
@@ -889,7 +889,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 
 	float total_demand_in_demand_file = 0;
 
-	CCSVParser parser;
+	CDTACSVParser parser;
 	dtalog.output() << endl;
 	dtalog.output() << "Step 1.8: Reading file section [demand_file_list] in setting.csv..." << endl;
 	parser.IsFirstLineHeader = false;
@@ -999,7 +999,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 
 
 					// read the file formaly after the test.
-					CCSVParser parser;
+					CDTACSVParser parser;
 					int line_no = 0;
 					if (parser.OpenCSVFile(file_name, false))
 					{
@@ -1206,7 +1206,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 
 					int path_counts = 0;
 					float sum_of_path_volume = 0;
-					CCSVParser parser;
+					CDTACSVParser parser;
 					if (parser.OpenCSVFile(file_name, false))
 					{
 						int total_path_in_demand_file = 0;
@@ -1348,7 +1348,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 					/////////////////////
 					int path_counts = 0;
 					float sum_of_path_volume = 0;
-					CCSVParser parser;
+					CDTACSVParser parser;
 					if (parser.OpenCSVFile(file_name, false))
 					{
 						int total_path_in_demand_file = 0;
@@ -1526,7 +1526,7 @@ void g_ReadDemandFileBasedOnDemandFileList(Assignment& assignment)
 
 					vector<int> LineIntegerVector;
 
-					CCSVParser parser;
+					CDTACSVParser parser;
 					parser.IsFirstLineHeader = false;
 					if (parser.OpenCSVFile(file_name, true))
 					{
@@ -1792,7 +1792,7 @@ void g_ReadOutputFileConfiguration(Assignment& assignment)
 
 	cout << "Step 1.8: Reading file section [output_file_configuration] in setting.csv..." << endl;
 
-	CCSVParser parser;
+	CDTACSVParser parser;
 	parser.IsFirstLineHeader = false;
 	if (parser.OpenCSVFile("settings.csv", false))
 	{
@@ -1827,7 +1827,7 @@ void g_ReadInformationConfiguration(Assignment& assignment)
 
 	cout << "Step 1.91: Reading file section [real_time_info] in setting.csv..." << endl;
 
-	CCSVParser parser;
+	CDTACSVParser parser;
 	parser.IsFirstLineHeader = false;
 	if (parser.OpenCSVFile("settings.csv", false))
 	{
@@ -2008,7 +2008,7 @@ double g_CheckActivityNodes(Assignment& assignment)
 int g_detect_if_demand_data_provided(Assignment& assignment)
 {
 
-	CCSVParser parser;
+	CDTACSVParser parser;
 	dtalog.output() << endl;
 	dtalog.output() << "Step 1.8: Reading file section [demand_file_list] in setting.csv..." << endl;
 	parser.IsFirstLineHeader = false;
@@ -2040,7 +2040,7 @@ int g_detect_if_demand_data_provided(Assignment& assignment)
 				if (format_type.find("column") != string::npos)  // or muliti-column
 				{
 					// read the file formaly after the test.
-					CCSVParser parser;
+					CDTACSVParser parser;
 
 					if (parser.OpenCSVFile(file_name, false))
 					{
@@ -2054,7 +2054,7 @@ int g_detect_if_demand_data_provided(Assignment& assignment)
 				if (format_type.find("matrix") != string::npos)
 				{
 					// read the file formaly after the test.
-					CCSVParser parser;
+					CDTACSVParser parser;
 
 					if (parser.OpenCSVFile(file_name, false))
 					{
@@ -2068,7 +2068,7 @@ int g_detect_if_demand_data_provided(Assignment& assignment)
 				if (format_type.find("activity_plan") != string::npos)
 				{
 					// read the file formaly after the test.
-					CCSVParser parser;
+					CDTACSVParser parser;
 
 					if (parser.OpenCSVFile(file_name, false))
 					{
@@ -2082,7 +2082,7 @@ int g_detect_if_demand_data_provided(Assignment& assignment)
 				if (format_type.find("path") != string::npos)
 				{
 					// read the file formaly after the test.
-					CCSVParser parser;
+					CDTACSVParser parser;
 
 					if (parser.OpenCSVFile(file_name, false))
 					{
@@ -2102,7 +2102,7 @@ int g_detect_if_demand_data_provided(Assignment& assignment)
 
 int g_detect_if_zones_defined_in_node_csv(Assignment& assignment)
 {
-	CCSVParser parser;
+	CDTACSVParser parser;
 
 	int number_of_activity_nodes = 0;
 	int number_of_boundary_nodes = 0;
@@ -2152,7 +2152,7 @@ int g_detect_if_zones_defined_in_node_csv(Assignment& assignment)
 
 void g_read_link_qvdf_data(Assignment& assignment)
 {
-	CCSVParser parser;
+	CDTACSVParser parser;
 
 	if (parser.OpenCSVFile("link_qvdf.csv", true))
 	{
@@ -2402,7 +2402,7 @@ void g_read_input_data(Assignment& assignment)
 	assignment.g_LoadingEndTimeInMin = 0;
 
 	//step 0:read demand period file
-	CCSVParser parser_demand_period;
+	CDTACSVParser parser_demand_period;
 	dtalog.output() << "_____________" << endl;
 	dtalog.output() << "Step 1: Reading input data" << endl;
 	dtalog.output() << "_____________" << endl;
@@ -2510,7 +2510,7 @@ void g_read_input_data(Assignment& assignment)
 
 	dtalog.output() << "Step 1.2: Reading section [link_type] in setting.csv..." << endl;
 
-	CCSVParser parser_link_type;
+	CDTACSVParser parser_link_type;
 	parser_link_type.IsFirstLineHeader = false;
 	if (parser_link_type.OpenCSVFile("settings.csv", false))
 	{
@@ -2596,7 +2596,7 @@ void g_read_input_data(Assignment& assignment)
 
 	dtalog.output() << "number of link types = " << assignment.g_LinkTypeMap.size() << endl;
 
-	CCSVParser parser_agent_type;
+	CDTACSVParser parser_agent_type;
 	dtalog.output() << "Step 1.3: Reading section [agent_type] in setting.csv..." << endl;
 
 	parser_agent_type.IsFirstLineHeader = false;
@@ -2711,7 +2711,7 @@ void g_read_input_data(Assignment& assignment)
 
 	if (number_of_zones <=1)
 	{
-		CCSVParser parser_z;
+		CDTACSVParser parser_z;
 		if (parser_z.OpenCSVFile("zone.csv", true))
 		{
 			parser_z.CloseCSVFile();
@@ -2740,7 +2740,7 @@ void g_read_input_data(Assignment& assignment)
 	std::map<int, float> zone_id_production;
 	std::map<int, float> zone_id_attraction;
 
-	CCSVParser parser;
+	CDTACSVParser parser;
 
 	int multmodal_activity_node_count = 0;
 
@@ -2875,7 +2875,7 @@ void g_read_input_data(Assignment& assignment)
 
 
 				// micro network filter:
-				GDPoint pt;
+				DTAGDPoint pt;
 				pt.x = x_coord;
 				pt.y = y_coord;
 
@@ -2965,7 +2965,7 @@ void g_read_input_data(Assignment& assignment)
 				if (zone_id >= 1)
 				{
 
-					assignment.node_seq_no_2_info_zone_id_mapping[internal_node_seq_no] = zone_id;
+					assignment.node_seq_no_2_zone_id_mapping[internal_node_seq_no] = zone_id;
 				}
 
 				/*node.x = x;
@@ -3198,7 +3198,7 @@ void g_read_input_data(Assignment& assignment)
 	// MRM: stage 3: read link layers
 	// step 4: read link file
 
-	CCSVParser parser_link;
+	CDTACSVParser parser_link;
 
 	int link_type_warning_count = 0;
 	bool length_in_km_waring = false;
@@ -3793,7 +3793,7 @@ if (link.VDF_period[tau].toll[at] > 0.001)
 	if (assignment.assignment_mode != 11)   // not tmc mode
 		g_read_link_qvdf_data(assignment);
 }
-//CCSVParser parser_movement;
+//CDTACSVParser parser_movement;
 //int prohibited_count = 0;
 
 //if (parser_movement.OpenCSVFile("movement.csv", false))  // not required
@@ -3852,7 +3852,7 @@ if (link.VDF_period[tau].toll[at] > 0.001)
 //{
 //    dtalog.output() << "Step 1.7: Reading service arc in timing.csv..." << endl;
 //
-//    CCSVParser parser_timing_arc;
+//    CDTACSVParser parser_timing_arc;
 //    if (parser_timing_arc.OpenCSVFile("timing.csv", false))
 //    {
 //        while (parser_timing_arc.ReadRecord())  // if this line contains [] mark, then we will also read field headers.

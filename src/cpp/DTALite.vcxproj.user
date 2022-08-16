@@ -5,7 +5,7 @@
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerWorkingDirectory>D:\Standard_Test_FOCUSING_Chicago_Sketch\04_Sioux_Falls_network</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerWorkingDirectory>D:\Dropbox (ASU)\STALite\dataset\3-corridor_Network_DMS\network</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerAttach>
     </LocalDebuggerAttach>
