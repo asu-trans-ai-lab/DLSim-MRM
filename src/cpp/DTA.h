@@ -566,6 +566,7 @@ public:
             for (int i = 0; i < m_link_size; ++i)
                 path_link_vector[i] = link_vector[i];
         }
+    
     }
 
     // Peiheng, 02/02/21, consider using move later
@@ -708,6 +709,7 @@ public:
     // Peiheng, 02/02/21, potential memory leak, fix it
     std::map <int, CColumnPath> path_node_sequence_map;
     int OD_impact_flag;  // 0: no passing network design locations; //1: all paths passing through network deign locations: //2: there are alternative detours w.r.t. network design location
+
 
 };
 

@@ -1017,6 +1017,40 @@ void g_classification_in_column_pool(Assignment& assignment)
 
 
 }
+CColumnPath* g_add_new_column(CColumnVector* pColumnVector, std::vector <int> link_seq_vector, float volume)
+{
+	int l_node_size = link_seq_vector.size() + 1;
+	int l_link_size = link_seq_vector.size();
+
+	//node seq vector for each ODK
+	int temp_path_node_vector[MAX_LINK_SIZE_IN_A_PATH];
+	//node seq vector for each ODK
+	int temp_path_link_vector[MAX_LINK_SIZE_IN_A_PATH];
+
+	temp_path_node_vector[0] = g_link_vector[link_seq_vector[0]].from_node_seq_no;
+	int node_sum = 0;
+	for (int l = 0; l < link_seq_vector.size(); l++)
+	{
+		temp_path_link_vector[l] = link_seq_vector[l];
+		temp_path_node_vector[l + 1] = g_link_vector[link_seq_vector[l]].to_node_seq_no;
+		node_sum += temp_path_link_vector[l] + temp_path_node_vector[l + 1];
+	}
+
+
+	// add this unique path
+
+	pColumnVector->path_node_sequence_map[node_sum].path_seq_no = pColumnVector->path_node_sequence_map.size();;
+
+	pColumnVector->path_node_sequence_map[node_sum].AllocateVector(
+		l_node_size,
+		temp_path_node_vector,
+		l_link_size,
+		temp_path_link_vector, false);
+
+	pColumnVector->path_node_sequence_map[node_sum].path_volume = volume;  // we add 1/K * OD volume to a new path or an existing path with same node sum.
+
+	return &(pColumnVector->path_node_sequence_map[node_sum]);  // a pointer to be used by other programs
+}
 
 void g_column_pool_optimization(Assignment& assignment, int column_updating_iterations, bool sensitivity_analysis_flag = false)
 {
@@ -1155,11 +1189,11 @@ void g_column_pool_route_modification(Assignment& assignment, int inner_iteratio
 									CColumnVector* p_2_stage_column_pool;
 
 									// first step: fetch another column from the newly defined origin_zone id (i.e. information zone)
-									int info_orig = assignment.g_zoneid_to_zone_seq_no_mapping[new_orig_zone_id];  
+									int info_orig = assignment.g_zoneid_to_zone_seq_no_mapping[new_orig_zone_id];
 
 									int from_zone_sindex = g_zone_vector[info_orig].sindex;
 									if (from_zone_sindex == -1)
-										continue; 
+										continue;
 
 									int to_zone_sindex = g_zone_vector[dest].sindex;
 									if (to_zone_sindex == -1)
@@ -1173,7 +1207,7 @@ void g_column_pool_route_modification(Assignment& assignment, int inner_iteratio
 									if (p_2_stage_column_pool->path_node_sequence_map.size() == 0)  // if there is no path available int the precomputed column pool
 									{
 										cout << "if there is no path available int the precomputed column pool";
-										g_program_stop(); 
+										g_program_stop();
 										continue;  // 
 
 									}
@@ -1185,14 +1219,48 @@ void g_column_pool_route_modification(Assignment& assignment, int inner_iteratio
 									it_end2 = p_2_stage_column_pool->path_node_sequence_map.end();
 
 									bool b_sa_column_found_flag = false;
+									// check non-diverted path travel time 
+									float non_diverted_path_travel_time = 999999; // default value
+									for (it2 = it_begin2; it2 != it_end2; ++it2)
+									{
+										for (int nl2 = 1; nl2 < it2->second.m_link_size; ++nl2)  // arc a // starting from 1 to exclude virtual link at the beginning
+										{
+											// compute it2->second.path_travel_time
+											it2->second.path_travel_time += g_link_vector[it2->second.path_link_vector[nl2]].travel_time_per_period[tau];
 
-									// step 3: we can still have k-path from the info zone to to final destination so we need to random select one 
+										}
+
+										// diversion status determination
+										bool b_diversion_flag = true;
+
+
+										for (int nl2 = 1; nl2 < it2->second.m_link_size; ++nl2)  // arc a // starting from 1 to exclude virtual link at the beginning
+											if (g_link_vector[it2->second.path_link_vector[nl2]].VDF_period[tau].network_design_flag <= -1)  // affected by capacity reduction
+											{
+												b_diversion_flag = false;
+											}
+
+										if (!b_diversion_flag)
+										{
+											float abs_BR_travel_time = 3;
+											float ratio_BR_travel_time = 0.15;
+											if (it2->second.path_travel_time < non_diverted_path_travel_time - abs_BR_travel_time  && it2->second.path_travel_time < (non_diverted_path_travel_time*(1- ratio_BR_travel_time)))
+												non_diverted_path_travel_time = it2->second.path_travel_time;
+										}
+
+									}
+								
+
+									// step 3: we can still have k-path from the info zone to to final destination so we need to select alternative diverted path with lower travel time compared to the historical route
 									for (it2 = it_begin2; it2 != it_end2; ++it2)
 									{
 										bool b_diversion_flag = true;
-										
+
+																		
 										for (int nl2 = 1; nl2 < it2->second.m_link_size; ++nl2)  // arc a // starting from 1 to exclude virtual link at the beginning
 											{
+
+
 												if (g_link_vector[it2->second.path_link_vector[nl2]].VDF_period[tau].network_design_flag <= -1)  // affected by capacity reduction
 												{
 													b_diversion_flag = false;
@@ -1201,16 +1269,20 @@ void g_column_pool_route_modification(Assignment& assignment, int inner_iteratio
 											}
 
 											
-										if (b_diversion_flag == true && b_sa_column_found_flag == false) // second sub path: two conditions: diverted. and first alternative path
+										if (b_diversion_flag == true && b_sa_column_found_flag == false) // second sub path: 3 conditions: diverted. and first alternative path
 										{
-											for (int nl2 = 1; nl2 < it2->second.m_link_size; ++nl2)  // arc a // starting from 1 to exclude virtual link at the beginning
-											{
-												link_seq_vector.push_back(it2->second.path_link_vector[nl2]);
-												// construct sub path C
-												cout << "reroute B: l=" << nl2 << "," << g_node_vector[g_link_vector[it2->second.path_link_vector[nl2]].to_node_seq_no].node_id << endl;
+											if(it2->second.path_travel_time < non_diverted_path_travel_time)
+											{ //select alternative diverted path with lower travel time compared to the historical route
+												for (int nl2 = 1; nl2 < it2->second.m_link_size; ++nl2)  // arc a // starting from 1 to exclude virtual link at the beginning
+												{
+													link_seq_vector.push_back(it2->second.path_link_vector[nl2]);
+													// construct sub path C
+													cout << "reroute B: l=" << nl2 << "," << g_node_vector[g_link_vector[it2->second.path_link_vector[nl2]].to_node_seq_no].node_id << endl;
 
-											}
+												}
+
 											b_sa_column_found_flag = true;
+											}
 										}
 
 									}
@@ -1219,6 +1291,11 @@ void g_column_pool_route_modification(Assignment& assignment, int inner_iteratio
 									if (b_sa_column_found_flag  == true &&  it->second.path_link_vector != NULL)
 									{
 										// copy the updated path (stage1 + stage 2) back to the path link vector 
+										bool b_optional_DMS_flag = true;
+
+										//required diversion									
+										if(b_optional_DMS_flag== false)
+										{
 										delete it->second.path_link_vector;
 										it->second.path_link_vector = new int[link_seq_vector.size()];
 										for (int l = 0; l < link_seq_vector.size(); l++)
@@ -1248,6 +1325,37 @@ void g_column_pool_route_modification(Assignment& assignment, int inner_iteratio
 										it->second.m_node_size = link_seq_vector.size() + 1;
 
 										it->second.impacted_path_flag = 2; // diverted 
+										}
+										else
+										{  //optional detour
+
+											// add a new path to p_column_pool->path_node_sequence_map
+											// simple logit model 
+
+											float base_path_travel_time = 0;
+											for (int nl0 = 0; nl0 < it->second.m_link_size; ++nl0)  // arc a // starting from 1 to exclude virtual link at the beginning
+											{
+												// compute it2->second.path_travel_time
+												base_path_travel_time += g_link_vector[it->second.path_link_vector[nl0]].travel_time_per_period[tau];
+
+											}
+											float alt_path_travel_time = 0;
+											for (int nl3 = 1; nl3 < link_seq_vector.size(); ++nl3)  // arc a // starting from 1 to exclude virtual link at the beginning
+											{
+												// compute it2->second.path_travel_time
+												alt_path_travel_time += g_link_vector[link_seq_vector[nl3]].travel_time_per_period[tau];
+
+											}
+
+											float beta = -0.1; 
+											float prob_base = exp(beta * base_path_travel_time) / (exp(beta * base_path_travel_time) + exp(beta * alt_path_travel_time));
+											float base_volume = it->second.path_volume;
+											it->second.path_volume = base_volume * prob_base;
+											CColumnPath* pColumnPath = g_add_new_column(p_column_pool,link_seq_vector, base_volume * (1- prob_base));
+
+											pColumnPath->impacted_path_flag = 3; // diverted and new colume
+
+										}
 									}
 									p_2_stage_column_pool->information_type = 1;
 								

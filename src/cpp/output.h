@@ -533,7 +533,7 @@ void g_output_assignment_result(Assignment& assignment, int subarea_id)
 		fprintf(g_pFileLinkMOE, "link_id,vdf_type,from_node_id,to_node_id,lanes,distance_km,distance_mile,FFTT,meso_link_id,meso_link_incoming_volume,tmc,tmc_corridor_name,tmc_corridor_id,tmc_road_order,tmc_road_sequence,subarea_id,link_type,link_type_code,vdf_code,time_period,volume,ref_volume,ref_diff,odme_volume,obs_count,upper_bound_type,obs_count_dev,");
 			
 			
-		fprintf(g_pFileLinkMOE, "preload_volume,person_volume,travel_time,speed,speed_ratio,VOC,DOC,capacity,queue,total_simu_waiting_time_in_min,avg_simu_waiting_time_in_min,qdf,lanes,D,QVDF_cd,QVDF_n,P,severe_congestion_duration_in_h,vf,v_congestion_cutoff,QVDF_cp,QVDF_s,QVDF_v,vt2,VMT,VHT,PMT,PHT,PDT_vf,PDT_vc,geometry,");
+		fprintf(g_pFileLinkMOE, "preload_volume,person_volume,travel_time,speed,speed_ratio,VOC,DOC,capacity,queue,total_simu_waiting_time_in_min,avg_simu_waiting_time_in_min,qdf,lanes,D_per_hour_per_lane,QVDF_cd,QVDF_n,P,severe_congestion_duration_in_h,vf,v_congestion_cutoff,QVDF_cp,QVDF_s,QVDF_v,vt2,VMT,VHT,PMT,PHT,PDT_vf,PDT_vc,geometry,");
 
 		for (int at = 0; at < assignment.g_AgentTypeVector.size(); ++at)
 			fprintf(g_pFileLinkMOE, "person_vol_%s,", assignment.g_AgentTypeVector[at].agent_type.c_str());
@@ -857,7 +857,10 @@ void g_output_assignment_result(Assignment& assignment, int subarea_id)
 		}
 		for (int iteration_number = 0; iteration_number <= assignment.g_number_of_sensitivity_analysis_iterations; iteration_number++)
 		{
-		    fprintf(g_pFilePathMOE, "SA_Vol_%d,", iteration_number);
+			if(iteration_number==0)
+			    fprintf(g_pFilePathMOE, "SA_Vol_%d,", iteration_number);
+			else
+				fprintf(g_pFilePathMOE, "SA_Delta_Vol_%d,", iteration_number);
 		}
 		fprintf(g_pFilePathMOE, "geometry,");
 
