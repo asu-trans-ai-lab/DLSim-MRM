@@ -703,7 +703,7 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
 									// step 3.3 link flow gradient
 									link_seq_no = it->second.path_link_vector[nl];
 
-									if (g_link_vector[link_seq_no].VDF_period[tau].network_design_flag <= -1)  // affected by capacity reduction
+									if (g_link_vector[link_seq_no].VDF_period[tau].network_design_flag == -1)  // affected by capacity reduction supply side scenario
 									{
 										
 										p_column_pool->OD_impact_flag = 1;
@@ -794,7 +794,7 @@ void g_update_gradient_cost_and_assigned_flow_in_column_pool(Assignment& assignm
 										// regular drivers do not switch at all (except for those encounter the dramatic induced delay)
 										// real time and DMS users only switch when they see the DMS or pass through the incident on the original routes 
 
-										step_size = 0.05; // small changes 
+										step_size = 1.0 / (inner_iteration_number + 2) * p_column_pool->od_volume; // small changes 
 
 									}
 									else
@@ -1173,7 +1173,7 @@ void g_column_pool_route_modification(Assignment& assignment, int inner_iteratio
 											}
 									}
 
-									if (g_link_vector[link_seq_no].VDF_period[tau].network_design_flag <= -1)  // affected by capacity reduction
+									if (g_link_vector[link_seq_no].VDF_period[tau].network_design_flag == -1)  // affected by capacity reduction
 									{
 										b_passing_capacity_impact_area = true;
 										it->second.impacted_path_flag = 1; // impacted
