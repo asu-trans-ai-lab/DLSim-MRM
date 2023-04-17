@@ -5,7 +5,7 @@ x64/
 .vs
 .vscode/
 .DS_Store
-**.log*
+**log.txt
 *__pycache__*
 *.egg-info/*
 *.pypirc
