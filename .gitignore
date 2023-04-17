@@ -7,7 +7,8 @@ x64/
 .DS_Store
 **log*
 *__pycache__*
-*dist/*
-*build/*
+*/dist/*
+*/build/*
 *.egg-info/*
 *.pypirc
+*setup.py
