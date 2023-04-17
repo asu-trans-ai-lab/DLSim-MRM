@@ -7,6 +7,7 @@ x64/
 .DS_Store
 **log.txt
 *__pycache__*
-*.egg-info/*
+**.egg-info/*
 *.pypirc
 *setup.py
+*PKG-INFO*
