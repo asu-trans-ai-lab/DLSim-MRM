@@ -1,6 +1,6 @@
 import setuptools
 
-with open("README_Usage.md", "r", encoding="utf-8") as fh:
+with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 try:
@@ -12,7 +12,7 @@ except Exception:
 
 setuptools.setup(
     name="DLSim",
-    version="0.2.6",
+    version="0.2.7",
     author="Dr.Xuesong (Simon) Zhou, Dr.Cafer Avci, Xiangyong Luo",
     author_email="xzhou74@asu.edu",
     License="Apache Software License (http://www.apache.org/licenses/LICENSE-2.0)",

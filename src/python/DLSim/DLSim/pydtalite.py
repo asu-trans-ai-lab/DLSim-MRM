@@ -28,9 +28,9 @@ _dtalite_engine.network_assignment.argtypes = [ctypes.c_int,
                                                ctypes.c_int]
 
 
-def perform_kernel_network_assignment_simulation(assignment_mode: int,
-                                                 column_gen_num: int,
-                                                 column_update_num: int):
+def perform_kernel_network_assignment_simulation(assignment_mode: int = 2,
+                                                 column_gen_num: int = 10,
+                                                 column_update_num: int = 10):
     """ python interface to call DTALite (precompiled as shared library)
 
     perform network assignment using the selected assignment mode
@@ -77,11 +77,17 @@ def perform_kernel_network_assignment_simulation(assignment_mode: int,
     link_performance.csv: assigned volumes and other link attributes
     on each link
     """
+
+    print("The default assignment mode is 2 (UE + DTA) and the default column generation number is 10 and the default column update number is 10.")
+    print("assignment_mode: ", assignment_mode)
+    print("column_gen_num: ", column_gen_num)
+    print("column_update_num: ", column_update_num)
+
     # make sure assignment_mode is right
-    assert(assignment_mode in [0, 1, 2, 3])
+    assert assignment_mode in {0, 1, 2, 3}
     # make sure iteration numbers are both non-negative
-    assert(column_gen_num>=0)
-    assert(column_update_num>=0)
+    assert column_gen_num >= 0
+    assert column_update_num >= 0
 
     print('\nDTALite run starts')
 
