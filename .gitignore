@@ -1,14 +1,12 @@
-build/
-*/build/
+**build/*
+**/dist/*
 */Debug/
 x64/
 .vs
 .vscode/
 .DS_Store
-**log*
+**.log*
 *__pycache__*
-*/dist/*
-*/build/*
 *.egg-info/*
 *.pypirc
 *setup.py

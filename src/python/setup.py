@@ -1,6 +1,4 @@
 import setuptools
-import DLSim as dl
-dl.perform_kernel_network_assignment_simulation()
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -14,7 +12,7 @@ except Exception:
 
 setuptools.setup(
     name="DLSim",
-    version="0.2.4",
+    version="0.2.5",
     author="Dr.Xuesong (Simon) Zhou, Dr.Cafer Avci, Xiangyong Luo",
     author_email="xzhou74@asu.edu",
     License="Apache Software License (http://www.apache.org/licenses/LICENSE-2.0)",
@@ -30,11 +28,10 @@ setuptools.setup(
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
 
-    packages=setuptools.find_packages(where="DLSim"),
+    packages=setuptools.find_packages(where='DLSim'),
     package_dir={'': 'DLSim'},
     include_package_data=True,
 
-    package_data={'': ['*.txt', '*.xls', '*.xlsx', '*.csv', '*.png', '*.dll', '*.so', '*.dylib'],
-                  "DLSim.pydtalite_bin": ['*.dll', '*.so', '*.dylib']},
-    # data_files=[("DLSim.pydtalite_bin", ["pydtalite_bin/*"])]
+    package_data={'': ['*.txt', '*.xls', '*.xlsx', '*.csv', '*.png', "*.dll", "*.so", "*.dylib"],
+                  "pydtalite_bin": ["*.dll", "*.so", "*.dylib"]},
 )
