@@ -12,7 +12,7 @@ except Exception:
 
 setuptools.setup(
     name="DLSim",
-    version="0.2.9",
+    version="0.2.11",
     author="Dr.Xuesong (Simon) Zhou, Dr.Cafer Avci, Xiangyong Luo",
     author_email="xzhou74@asu.edu",
     License="Apache Software License (http://www.apache.org/licenses/LICENSE-2.0)",

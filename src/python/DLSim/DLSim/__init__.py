@@ -6,3 +6,7 @@
 ##############################################################
 
 from ._init_api import *
+
+# Show the version of DLSim when importing the package
+__version__ = "0.2.11"
+print("DLSim version: " + __version__)

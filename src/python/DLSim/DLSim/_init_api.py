@@ -5,5 +5,7 @@
 # Author/Copyright: Mr. Xiangyong Luo
 ##############################################################
 
-from .pydtalite import perform_kernel_network_assignment_simulation
-from .DLSim import *
+from .DLSim import DLSim
+
+
+__all__ = ["DLSim"]

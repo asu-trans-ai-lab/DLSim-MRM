@@ -3,14 +3,7 @@ setup.py
 DLSim/DLSim/DLSim.py
 DLSim/DLSim/__init__.py
 DLSim/DLSim/_init_api.py
-DLSim/DLSim/agent.csv
-DLSim/DLSim/input_agent.csv
-DLSim/DLSim/link.csv
-DLSim/DLSim/link_performance.csv
-DLSim/DLSim/log.txt
-DLSim/DLSim/node.csv
-DLSim/DLSim/pydtalite.py
-DLSim/DLSim/solution.csv
+DLSim/DLSim/func_lib.py
 DLSim/DLSim.egg-info/PKG-INFO
 DLSim/DLSim.egg-info/SOURCES.txt
 DLSim/DLSim.egg-info/dependency_links.txt
