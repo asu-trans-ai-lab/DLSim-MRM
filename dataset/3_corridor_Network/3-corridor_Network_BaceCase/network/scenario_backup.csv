@@ -1,3 +1,0 @@
-[capacity_scenario],scenario_id,scenario_record_no,type_name,notes,from_node_id,to_node_id,time_period,capacity,demand_period,lr_price_sov,lr_price_info,lr_price_vms,lr_price_activity,lr_rt_price_vms,lr_price_activity
-,1,0,capacity_change,penality,7,8,0600_0630,0,AM,0,999,0,0,9999,0
-,,,,credit,35,34,0600_0631,,AM,0,0,0,0,-999,0

@@ -1,7 +1,13 @@
-build/
-Debug/
+**build/*
+**/dist/*
+*/Debug/
 x64/
 .vs
 .vscode/
 .DS_Store
-**log*
+**log.txt
+*__pycache__*
+**.egg-info/*
+*.pypirc
+*setup.py
+*PKG-INFO*
