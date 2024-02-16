@@ -105,7 +105,7 @@ class DLSim:
 
         files_in_working_dir = get_filenames_from_folder_by_type(self.DLSim_WORKING_DIR, "csv")
 
-        isRequiredFilesExist = check_required_files_exist(files_in_working_dir, self.DLSim_required_inputs)
+        isRequiredFilesExist = check_required_files_exist(self.DLSim_required_inputs, files_in_working_dir)
 
         if isRequiredFilesExist:
             print(f"All the required files {self.DLSim_required_inputs} in the working directory.")
@@ -203,4 +203,3 @@ if __name__ == "__main__":
 
     # perform kernel network assignment simulation
     DL.perform_kernel_network_assignment_simulation()
-
