@@ -1,0 +1,1 @@
+This proposal outlines the integration of real-time data and predictive analytics to transform the DLSim-MRM traffic simulation into a digital twin for urban traffic management.
